@@ -77,7 +77,7 @@ export default function AdminDashboard({ admin, setAdmin }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           <Card className="card-hover">
             <CardHeader>
               <CardTitle>Product Management</CardTitle>
@@ -103,6 +103,21 @@ export default function AdminDashboard({ admin, setAdmin }) {
                 <Button className="btn-hover" data-testid="go-to-orders">
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   Manage Orders
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover">
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">Manage admin profile and store settings</p>
+              <Link to="/admin/settings">
+                <Button className="btn-hover" data-testid="go-to-settings">
+                  <Users className="mr-2 h-4 w-4" />
+                  Settings
                 </Button>
               </Link>
             </CardContent>
