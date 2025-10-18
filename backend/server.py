@@ -169,6 +169,81 @@ class ReviewCreate(BaseModel):
     rating: int
     comment: str
 
+# CMS Models
+class CMSPage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    slug: str  # privacy-policy, return-policy, terms-conditions
+    title: str
+    content: str
+    meta_description: Optional[str] = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CMSPageUpdate(BaseModel):
+    title: str
+    content: str
+    meta_description: Optional[str] = None
+
+# Admin Profile Models
+class AdminProfile(BaseModel):
+    name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    address: Optional[str] = None
+
+class AdminPasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+class AdminUsernameChange(BaseModel):
+    current_password: str
+    new_username: str
+
+# Store Settings Models
+class StoreSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    store_name: str = "Mirvaa Fashions"
+    business_address: Optional[str] = None
+    customer_care_email: Optional[str] = None
+    customer_support_phone: Optional[str] = None
+    return_address: Optional[str] = None
+    social_facebook: Optional[str] = None
+    social_instagram: Optional[str] = None
+    social_twitter: Optional[str] = None
+    maintenance_mode: bool = False
+    store_logo_url: Optional[str] = None
+    favicon_url: Optional[str] = None
+    theme: str = "light"
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class StoreSettingsUpdate(BaseModel):
+    store_name: Optional[str] = None
+    business_address: Optional[str] = None
+    customer_care_email: Optional[str] = None
+    customer_support_phone: Optional[str] = None
+    return_address: Optional[str] = None
+    social_facebook: Optional[str] = None
+    social_instagram: Optional[str] = None
+    social_twitter: Optional[str] = None
+    maintenance_mode: Optional[bool] = None
+    store_logo_url: Optional[str] = None
+    favicon_url: Optional[str] = None
+    theme: Optional[str] = None
+
+# Audit Log Model
+class AuditLog(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    admin_id: str
+    admin_username: str
+    action: str
+    details: str
+    ip_address: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # ==================== Helper Functions ====================
 
 def hash_password(password: str) -> str:
