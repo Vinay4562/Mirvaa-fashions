@@ -1,52 +1,68 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Home from "./pages/Home";
+import ProductListing from "./pages/ProductListing";
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import Wishlist from "./pages/Wishlist";
+import Checkout from "./pages/Checkout";
+import OrderConfirmation from "./pages/OrderConfirmation";
+import Account from "./pages/Account";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminProducts from "./pages/admin/AdminProducts";
+import AdminOrders from "./pages/admin/AdminOrders";
+import { Toaster } from "@/components/ui/sonner";
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [admin, setAdmin] = useState(null);
+
+  useEffect(() => {
+    // Check for stored auth
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    if (token && userData) {
+      setUser(JSON.parse(userData));
+    }
+
+    const adminToken = localStorage.getItem('adminToken');
+    const adminData = localStorage.getItem('adminData');
+    if (adminToken && adminData) {
+      setAdmin(JSON.parse(adminData));
+    }
+  }, []);
+
   return (
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<Home user={user} setUser={setUser} />} />
+          <Route path="/products" element={<ProductListing user={user} setUser={setUser} />} />
+          <Route path="/products/:id" element={<ProductDetail user={user} setUser={setUser} />} />
+          <Route path="/cart" element={<Cart user={user} setUser={setUser} />} />
+          <Route path="/wishlist" element={<Wishlist user={user} setUser={setUser} />} />
+          <Route path="/checkout" element={<Checkout user={user} setUser={setUser} />} />
+          <Route path="/order-confirmation/:orderId" element={<OrderConfirmation user={user} setUser={setUser} />} />
+          <Route path="/account" element={<Account user={user} setUser={setUser} />} />
+          
+          <Route path="/admin/login" element={<AdminLogin setAdmin={setAdmin} />} />
+          <Route 
+            path="/admin/dashboard" 
+            element={admin ? <AdminDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+          />
+          <Route 
+            path="/admin/products" 
+            element={admin ? <AdminProducts admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+          />
+          <Route 
+            path="/admin/orders" 
+            element={admin ? <AdminOrders admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+          />
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-right" />
     </div>
   );
 }
