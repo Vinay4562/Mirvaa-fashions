@@ -9,10 +9,12 @@ import Wishlist from "./pages/Wishlist";
 import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import Account from "./pages/Account";
+import LegalPage from "./pages/LegalPage";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminSettings from "./pages/admin/AdminSettings";
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
@@ -46,6 +48,7 @@ function App() {
           <Route path="/checkout" element={<Checkout user={user} setUser={setUser} />} />
           <Route path="/order-confirmation/:orderId" element={<OrderConfirmation user={user} setUser={setUser} />} />
           <Route path="/account" element={<Account user={user} setUser={setUser} />} />
+          <Route path="/legal/:slug" element={<LegalPage user={user} setUser={setUser} />} />
           
           <Route path="/admin/login" element={<AdminLogin setAdmin={setAdmin} />} />
           <Route 
@@ -59,6 +62,10 @@ function App() {
           <Route 
             path="/admin/orders" 
             element={admin ? <AdminOrders admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+          />
+          <Route 
+            path="/admin/settings" 
+            element={admin ? <AdminSettings admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
           />
         </Routes>
       </BrowserRouter>
