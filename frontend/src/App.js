@@ -15,6 +15,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminCMS from "./pages/admin/AdminCMS";
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
@@ -66,6 +67,10 @@ function App() {
           <Route 
             path="/admin/settings" 
             element={admin ? <AdminSettings admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+          />
+          <Route 
+            path="/admin/cms" 
+            element={admin ? <AdminCMS admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
           />
         </Routes>
       </BrowserRouter>
