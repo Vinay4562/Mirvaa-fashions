@@ -799,6 +799,229 @@ async def get_categories():
     ]
     return categories
 
+# ==================== CMS Routes ====================
+
+@api_router.get("/cms/{slug}")
+async def get_cms_page(slug: str):
+    page = await db.cms_pages.find_one({"slug": slug}, {"_id": 0})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    if isinstance(page.get('created_at'), str):
+        page['created_at'] = datetime.fromisoformat(page['created_at'])
+    if isinstance(page.get('updated_at'), str):
+        page['updated_at'] = datetime.fromisoformat(page['updated_at'])
+    
+    return page
+
+@api_router.get("/cms")
+async def get_all_cms_pages():
+    pages = await db.cms_pages.find({}, {"_id": 0}).to_list(100)
+    for page in pages:
+        if isinstance(page.get('created_at'), str):
+            page['created_at'] = datetime.fromisoformat(page['created_at'])
+        if isinstance(page.get('updated_at'), str):
+            page['updated_at'] = datetime.fromisoformat(page['updated_at'])
+    return pages
+
+@api_router.put("/admin/cms/{slug}")
+async def update_cms_page(slug: str, page_data: CMSPageUpdate, admin: Dict = Depends(get_current_admin)):
+    existing = await db.cms_pages.find_one({"slug": slug})
+    if not existing:
+        # Create new page
+        new_page = CMSPage(
+            slug=slug,
+            title=page_data.title,
+            content=page_data.content,
+            meta_description=page_data.meta_description
+        )
+        page_dict = new_page.model_dump()
+        page_dict['created_at'] = page_dict['created_at'].isoformat()
+        page_dict['updated_at'] = page_dict['updated_at'].isoformat()
+        await db.cms_pages.insert_one(page_dict)
+    else:
+        # Update existing
+        await db.cms_pages.update_one(
+            {"slug": slug},
+            {
+                "$set": {
+                    "title": page_data.title,
+                    "content": page_data.content,
+                    "meta_description": page_data.meta_description,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+    
+    updated_page = await db.cms_pages.find_one({"slug": slug}, {"_id": 0})
+    return updated_page
+
+# ==================== Admin Settings Routes ====================
+
+async def create_audit_log(admin_id: str, admin_username: str, action: str, details: str, ip_address: Optional[str] = None):
+    log = AuditLog(
+        admin_id=admin_id,
+        admin_username=admin_username,
+        action=action,
+        details=details,
+        ip_address=ip_address
+    )
+    log_dict = log.model_dump()
+    log_dict['created_at'] = log_dict['created_at'].isoformat()
+    await db.audit_logs.insert_one(log_dict)
+
+@api_router.get("/admin/profile")
+async def get_admin_profile(admin: Dict = Depends(get_current_admin)):
+    return {
+        "id": admin['id'],
+        "username": admin['username'],
+        "name": admin.get('name', ''),
+        "email": admin.get('email', ''),
+        "phone": admin.get('phone', ''),
+        "address": admin.get('address', ''),
+        "role": admin['role']
+    }
+
+@api_router.put("/admin/profile")
+async def update_admin_profile(profile_data: AdminProfile, admin: Dict = Depends(get_current_admin)):
+    await db.admins.update_one(
+        {"id": admin['id']},
+        {
+            "$set": {
+                "name": profile_data.name,
+                "email": profile_data.email,
+                "phone": profile_data.phone,
+                "address": profile_data.address
+            }
+        }
+    )
+    
+    await create_audit_log(admin['id'], admin['username'], "profile_update", "Admin profile updated")
+    
+    return {"message": "Profile updated successfully"}
+
+@api_router.post("/admin/change-password")
+async def change_admin_password(
+    password_data: AdminPasswordChange,
+    admin: Dict = Depends(get_current_admin),
+    request: Request = None
+):
+    # Verify current password
+    admin_doc = await db.admins.find_one({"id": admin['id']})
+    if not verify_password(password_data.current_password, admin_doc['password']):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password
+    if password_data.new_password != password_data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    if len(password_data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    
+    # Update password
+    new_hashed = hash_password(password_data.new_password)
+    await db.admins.update_one(
+        {"id": admin['id']},
+        {"$set": {"password": new_hashed}}
+    )
+    
+    # Create audit log
+    ip_address = request.client.host if request else None
+    await create_audit_log(admin['id'], admin['username'], "password_change", "Admin password changed", ip_address)
+    
+    return {"message": "Password changed successfully"}
+
+@api_router.post("/admin/change-username")
+async def change_admin_username(
+    username_data: AdminUsernameChange,
+    admin: Dict = Depends(get_current_admin),
+    request: Request = None
+):
+    # Verify current password
+    admin_doc = await db.admins.find_one({"id": admin['id']})
+    if not verify_password(username_data.current_password, admin_doc['password']):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Check if new username already exists
+    existing = await db.admins.find_one({"username": username_data.new_username})
+    if existing and existing['id'] != admin['id']:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    
+    old_username = admin['username']
+    
+    # Update username
+    await db.admins.update_one(
+        {"id": admin['id']},
+        {"$set": {"username": username_data.new_username}}
+    )
+    
+    # Create audit log
+    ip_address = request.client.host if request else None
+    await create_audit_log(
+        admin['id'],
+        username_data.new_username,
+        "username_change",
+        f"Username changed from {old_username} to {username_data.new_username}",
+        ip_address
+    )
+    
+    # Generate new token
+    token = create_token(admin['id'], username_data.new_username)
+    
+    return {
+        "message": "Username changed successfully",
+        "token": token,
+        "username": username_data.new_username
+    }
+
+# ==================== Store Settings Routes ====================
+
+@api_router.get("/settings/store")
+async def get_store_settings():
+    settings = await db.store_settings.find_one({}, {"_id": 0})
+    
+    if not settings:
+        # Create default settings
+        default_settings = StoreSettings()
+        settings_dict = default_settings.model_dump()
+        settings_dict['updated_at'] = settings_dict['updated_at'].isoformat()
+        await db.store_settings.insert_one(settings_dict)
+        return default_settings.model_dump()
+    
+    if isinstance(settings.get('updated_at'), str):
+        settings['updated_at'] = datetime.fromisoformat(settings['updated_at'])
+    
+    return settings
+
+@api_router.put("/admin/settings/store")
+async def update_store_settings(
+    settings_data: StoreSettingsUpdate,
+    admin: Dict = Depends(get_current_admin)
+):
+    update_dict = {k: v for k, v in settings_data.model_dump().items() if v is not None}
+    update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
+    
+    await db.store_settings.update_one(
+        {},
+        {"$set": update_dict},
+        upsert=True
+    )
+    
+    await create_audit_log(admin['id'], admin['username'], "store_settings_update", "Store settings updated")
+    
+    updated_settings = await db.store_settings.find_one({}, {"_id": 0})
+    return updated_settings
+
+@api_router.get("/admin/audit-logs")
+async def get_audit_logs(admin: Dict = Depends(get_current_admin), limit: int = 50):
+    logs = await db.audit_logs.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    for log in logs:
+        if isinstance(log.get('created_at'), str):
+            log['created_at'] = datetime.fromisoformat(log['created_at'])
+    
+    return logs
+
 # Include router
 app.include_router(api_router)
 
