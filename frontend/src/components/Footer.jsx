@@ -45,27 +45,36 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Contact Us</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Track Order</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Returns & Exchanges</a></li>
+              <li><Link to="/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Returns & Exchanges</Link></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Shipping Info</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">FAQs</a></li>
             </ul>
           </div>
 
-          {/* About */}
+          {/* Company */}
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4">About Mirvaa</h4>
+            <h4 className="font-semibold text-gray-900 mb-4">Company</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Our Story</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">About Us</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Careers</a></li>
-              <li><Link to="/legal/privacy-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/legal/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Return Policy</Link></li>
-              <li><Link to="/legal/terms-conditions" className="text-gray-600 hover:text-blue-600 transition-colors">Terms & Conditions</Link></li>
+              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Blog</a></li>
+              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Press</a></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-4">Legal</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/privacy-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Return Policy</Link></li>
+              <li><Link to="/terms-and-conditions" className="text-gray-600 hover:text-blue-600 transition-colors">Terms & Conditions</Link></li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 mt-8 pt-8 text-center text-sm text-gray-600">
-          <p>&copy; {new Date().getFullYear()} Mirvaa Fashions. All rights reserved.</p>
+        <div className="border-t border-gray-200 mt-12 pt-8 text-center text-sm text-gray-500">
+          <p>© {new Date().getFullYear()} Mirvaa Fashions. All rights reserved.</p>
         </div>
       </div>
     </footer>

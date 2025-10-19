@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, User as UserIcon } from 'lucide-react';
+import { Package, User as UserIcon, PencilIcon, PlusIcon, TrashIcon, HomeIcon, BriefcaseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
@@ -126,14 +126,28 @@ export default function Account({ user, setUser }) {
                           <p className="text-sm text-gray-600">Total Amount</p>
                           <p className="text-xl font-bold">₹{order.total.toLocaleString()}</p>
                         </div>
-                        <Button
-                          onClick={() => navigate(`/order-confirmation/${order.id}`)}
-                          variant="outline"
-                          className="btn-hover"
-                          data-testid={`view-order-${order.id}`}
-                        >
-                          View Details
-                        </Button>
+                        <div className="flex gap-2">
+                          {/* Check if order is delivered and within 3 days */}
+                          {order.status === 'delivered' && 
+                            (new Date() - new Date(order.created_at)) / (1000 * 60 * 60 * 24) <= 3 && (
+                            <Button
+                              onClick={() => navigate(`/return-request/${order.id}`)}
+                              variant="outline"
+                              className="btn-hover"
+                              data-testid={`return-order-${order.id}`}
+                            >
+                              Return
+                            </Button>
+                          )}
+                          <Button
+                            onClick={() => navigate(`/order-confirmation/${order.id}`)}
+                            variant="outline"
+                            className="btn-hover"
+                            data-testid={`view-order-${order.id}`}
+                          >
+                            View Details
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -153,27 +167,81 @@ export default function Account({ user, setUser }) {
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="mt-6">
-            <Card data-testid="profile-section">
-              <CardContent className="p-6">
-                <h2 className="text-xl font-bold mb-6">Profile Information</h2>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Name</p>
-                    <p className="font-semibold">{user.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-semibold">{user.email}</p>
-                  </div>
-                  {user.phone && (
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Profile Information */}
+              <Card data-testid="profile-section">
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-bold mb-6">Profile Information</h2>
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-gray-600">Phone</p>
-                      <p className="font-semibold">{user.phone}</p>
+                      <p className="text-sm text-gray-600">Name</p>
+                      <p className="font-semibold">{user.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-semibold">{user.email}</p>
+                    </div>
+                    {user.phone && (
+                      <div>
+                        <p className="text-sm text-gray-600">Phone</p>
+                        <p className="font-semibold">{user.phone}</p>
+                      </div>
+                    )}
+                    <Button 
+                      onClick={() => navigate('/account/edit-profile')} 
+                      className="mt-4 btn-hover"
+                      data-testid="edit-profile-button"
+                    >
+                      Edit Profile
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Saved Addresses */}
+              <Card data-testid="addresses-section">
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-bold mb-6">Saved Addresses</h2>
+                  {user.addresses && user.addresses.length > 0 ? (
+                    <div className="space-y-4">
+                      {user.addresses.map((address, index) => (
+                        <div key={index} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="font-semibold">{address.name}</div>
+                            <Badge>{address.type || 'Home'}</Badge>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {address.street}, {address.city}, {address.state} {address.pincode}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            Phone: {address.phone}
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/account/edit-address/${index}`)}>
+                              Edit
+                            </Button>
+                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 mb-4">No addresses saved yet</p>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                  <Button 
+                    onClick={() => navigate('/account/add-address')} 
+                    className="mt-4 w-full btn-hover"
+                    data-testid="add-address-button"
+                  >
+                    Add New Address
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

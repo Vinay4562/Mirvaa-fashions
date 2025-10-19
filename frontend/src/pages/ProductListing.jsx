@@ -24,6 +24,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function ProductListing({ user, setUser }) {
@@ -54,11 +55,33 @@ export default function ProductListing({ user, setUser }) {
       const search = searchParams.get('search');
       
       const params = new URLSearchParams();
-      if (category) params.append('category', category);
+      
+      // Handle category from URL or selected categories from filters
+      if (category) {
+        params.append('category', category);
+        // Update selected categories if not already selected
+        const formattedCategory = category.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+        if (!selectedCategories.includes(formattedCategory) && categories.includes(formattedCategory)) {
+          setSelectedCategories([formattedCategory]);
+        }
+      } else if (selectedCategories.length > 0) {
+        // If no category in URL but filters are selected
+        selectedCategories.forEach(cat => {
+          params.append('category', cat.toLowerCase().replace(/[''\s]/g, '-'));
+        });
+      }
+      
       if (search) params.append('search', search);
       if (sortBy) params.append('sort', sortBy);
       if (priceRange[0] > 0) params.append('min_price', priceRange[0]);
       if (priceRange[1] < 10000) params.append('max_price', priceRange[1]);
+      
+      // Add size filters if selected
+      if (selectedSizes.length > 0) {
+        selectedSizes.forEach(size => {
+          params.append('size', size);
+        });
+      }
 
       const response = await axios.get(`${API}/products?${params.toString()}`);
       setProducts(response.data);
@@ -182,7 +205,43 @@ export default function ProductListing({ user, setUser }) {
       </div>
 
       {/* Apply Filters */}
-      <Button onClick={fetchProducts} className="w-full btn-hover" data-testid="apply-filters-button">
+      <Button 
+        onClick={() => {
+          // Update URL params based on selected filters
+          const newParams = new URLSearchParams(searchParams);
+          
+          // Handle categories
+          newParams.delete('category');
+          if (selectedCategories.length > 0) {
+            const categoryParam = selectedCategories[0].toLowerCase().replace(/[''\s]/g, '-');
+            newParams.set('category', categoryParam);
+          }
+          
+          // Handle price range
+          if (priceRange[0] > 0) {
+            newParams.set('min_price', priceRange[0]);
+          } else {
+            newParams.delete('min_price');
+          }
+          
+          if (priceRange[1] < 10000) {
+            newParams.set('max_price', priceRange[1]);
+          } else {
+            newParams.delete('max_price');
+          }
+          
+          // Handle sizes
+          newParams.delete('size');
+          selectedSizes.forEach(size => {
+            newParams.append('size', size);
+          });
+          
+          // Update URL and trigger fetch
+          setSearchParams(newParams);
+        }} 
+        className="w-full btn-hover" 
+        data-testid="apply-filters-button"
+      >
         Apply Filters
       </Button>
     </div>
@@ -270,7 +329,7 @@ export default function ProductListing({ user, setUser }) {
                     <Link to={`/products/${product.id}`}>
                       <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                         <img
-                          src={product.images[0] || 'https://via.placeholder.com/400x500'}
+                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
                           alt={product.title}
                           className="w-full h-full object-cover image-zoom"
                         />

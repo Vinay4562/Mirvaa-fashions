@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Checkout({ user, setUser }) {
@@ -28,6 +29,9 @@ export default function Checkout({ user, setUser }) {
     state: '',
     pincode: '',
   });
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedSavedAddress, setSelectedSavedAddress] = useState(null);
+  const [showNewAddressForm, setShowNewAddressForm] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -36,6 +40,14 @@ export default function Checkout({ user, setUser }) {
     }
     fetchData();
   }, [user]);
+  
+  // Suggest a saved address when addresses are loaded
+  useEffect(() => {
+    if (savedAddresses.length > 0) {
+      // Suggest the most recently used address (assuming it's the first in the array)
+      handleSelectAddress(savedAddresses[0]);
+    }
+  }, [savedAddresses]);
 
   const fetchData = async () => {
     try {
@@ -52,12 +64,43 @@ export default function Checkout({ user, setUser }) {
 
       setCartItems(cartRes.data);
       setWishlistCount(wishlistRes.data.length);
+      
+      // Load saved addresses from user object
+      if (user && user.addresses && user.addresses.length > 0) {
+        setSavedAddresses(user.addresses);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load checkout');
     } finally {
       setLoading(false);
     }
+  };
+  
+  const handleSelectAddress = (address) => {
+    setSelectedSavedAddress(address);
+    setShowNewAddressForm(false); // Hide new address form when saved address is selected
+    setShippingAddress({
+      name: address.name || user?.name || '',
+      phone: address.phone || user?.phone || '',
+      address: address.address || '',
+      city: address.city || '',
+      state: address.state || '',
+      pincode: address.pincode || '',
+    });
+  };
+
+  const handleUseNewAddress = () => {
+    setSelectedSavedAddress(null);
+    setShowNewAddressForm(true);
+    setShippingAddress({
+      name: user?.name || '',
+      phone: user?.phone || '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+    });
   };
 
   const calculateSubtotal = () => {
@@ -77,11 +120,36 @@ export default function Checkout({ user, setUser }) {
     setProcessing(true);
 
     try {
-      // Validate address
-      if (!shippingAddress.address || !shippingAddress.city || !shippingAddress.pincode) {
-        toast.error('Please fill in all address fields');
+      // Skip validation if a saved address is selected
+      if (!selectedSavedAddress && (!shippingAddress.address || !shippingAddress.city || !shippingAddress.pincode)) {
+        toast.error('Please select a saved address or fill in all address fields');
         setProcessing(false);
         return;
+      }
+      
+      // Save the address if it's a new one
+      if (!selectedSavedAddress && showNewAddressForm) {
+        try {
+          const updatedUser = {...user};
+          if (!updatedUser.addresses) {
+            updatedUser.addresses = [];
+          }
+          
+          // Only add if it doesn't already exist
+          const addressExists = updatedUser.addresses.some(addr => 
+            addr.address === shippingAddress.address && 
+            addr.pincode === shippingAddress.pincode
+          );
+          
+          if (!addressExists) {
+            updatedUser.addresses.push(shippingAddress);
+            await apiClient.put('/users/update-profile', updatedUser);
+            setUser(updatedUser);
+          }
+        } catch (error) {
+          console.error('Error saving address:', error);
+          // Continue with order even if saving address fails
+        }
       }
 
       const orderData = {
@@ -145,7 +213,51 @@ export default function Checkout({ user, setUser }) {
               <Card data-testid="shipping-address-section">
                 <CardContent className="p-6">
                   <h2 className="text-xl font-bold mb-4">Shipping Address</h2>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  
+                  {savedAddresses.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-md font-semibold mb-2">Select from saved addresses:</h3>
+                      <div className="grid gap-4 mb-4">
+                        {savedAddresses.map((address, index) => (
+                          <div 
+                            key={index}
+                            className={`border rounded-md p-3 cursor-pointer hover:border-primary ${selectedSavedAddress === address ? 'border-primary bg-primary/5' : ''}`}
+                            onClick={() => handleSelectAddress(address)}
+                          >
+                            {index === 0 && (
+                              <div className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded mb-2 inline-block">
+                                Suggested Address
+                              </div>
+                            )}
+                            {selectedSavedAddress === address && (
+                              <div className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded mb-2 inline-block">
+                                Selected
+                              </div>
+                            )}
+                            <p className="font-medium">{address.name}</p>
+                            <p className="text-sm text-gray-600">{address.address}</p>
+                            <p className="text-sm text-gray-600">{address.city}, {address.state} - {address.pincode}</p>
+                            <p className="text-sm text-gray-600">{address.phone}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <Separator className="my-4" />
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm text-gray-500">Or enter a new address below:</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleUseNewAddress}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          Use New Address
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {showNewAddressForm && (
+                    <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="name">Full Name*</Label>
                       <Input
@@ -208,7 +320,8 @@ export default function Checkout({ user, setUser }) {
                         required
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -249,7 +362,7 @@ export default function Checkout({ user, setUser }) {
                       <div key={item.id} className="flex gap-3">
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                           <img
-                            src={item.product.images[0] || 'https://via.placeholder.com/100'}
+                            src={getImageUrl(item.product.images[0])}
                             alt={item.product.title}
                             className="w-full h-full object-cover"
                           />

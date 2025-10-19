@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, User, Search, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ShoppingCart, Heart, User, Search, Menu, X, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,6 +16,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const categories = [
     'Sarees', 'T-Shirts', 'Shirts', 'Hoodies', 
@@ -94,6 +95,15 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
               >
                 {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </Button>
+              
+              {/* Home button - only show when not on home page */}
+              {location.pathname !== '/' && (
+                <Link to="/" data-testid="home-link">
+                  <Button variant="ghost" size="icon" className="btn-hover">
+                    <Home className="h-6 w-6" />
+                  </Button>
+                </Link>
+              )}
 
               {/* Wishlist */}
               <Link to="/wishlist" data-testid="wishlist-link">
@@ -123,8 +133,9 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="btn-hover" data-testid="user-menu">
+                    <Button variant="ghost" className="btn-hover flex items-center gap-2" data-testid="user-menu">
                       <User className="h-6 w-6" />
+                      <span className="hidden md:inline text-sm font-medium">{user.name.split(' ')[0]}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">

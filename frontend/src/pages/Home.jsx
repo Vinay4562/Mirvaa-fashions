@@ -14,6 +14,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Home({ user, setUser }) {
@@ -34,16 +35,21 @@ export default function Home({ user, setUser }) {
   const fetchData = async () => {
     try {
       const [categoriesRes, featuredRes, newRes] = await Promise.all([
-        axios.get(`${API}/categories`),
-        axios.get(`${API}/products/featured`),
-        axios.get(`${API}/products?sort=newest&limit=8`),
+        axios.get(`${API}/categories`).catch(() => ({ data: [] })),
+        axios.get(`${API}/products/featured`).catch(() => ({ data: [] })),
+        axios.get(`${API}/products?sort=newest&limit=8`).catch(() => ({ data: [] })),
       ]);
 
-      setCategories(categoriesRes.data);
-      setFeaturedProducts(featuredRes.data);
-      setNewArrivals(newRes.data);
+      setCategories(categoriesRes.data || []);
+      setFeaturedProducts(featuredRes.data || []);
+      setNewArrivals(newRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Set default empty arrays to prevent rendering issues
+      setCategories([]);
+      setFeaturedProducts([]);
+      setNewArrivals([]);
+      toast.error('Unable to connect to server. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -80,7 +86,7 @@ export default function Home({ user, setUser }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
+        <div className="text-xl">Loading...</div>
       </div>
     );
   }
@@ -191,7 +197,7 @@ export default function Home({ user, setUser }) {
                   <Link to={`/products/${product.id}`}>
                     <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                       <img
-                        src={product.images[0] || 'https://via.placeholder.com/400x500'}
+                        src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
                         alt={product.title}
                         className="w-full h-full object-cover image-zoom"
                       />
@@ -253,7 +259,7 @@ export default function Home({ user, setUser }) {
                       <Link to={`/products/${product.id}`}>
                         <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                           <img
-                            src={product.images[0] || 'https://via.placeholder.com/400x500'}
+                            src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
                             alt={product.title}
                             className="w-full h-full object-cover image-zoom"
                           />

@@ -2,13 +2,20 @@
 
 A full-featured e-commerce platform for fashion retail built with React, FastAPI, and MongoDB.
 
-## 🚀 Live Demo
+## 🚀 Local Development
 
-- **Frontend**: https://fashion-hub-357.preview.emergentagent.com
-- **Admin Panel**: https://fashion-hub-357.preview.emergentagent.com/admin/login
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **Admin Panel**: http://localhost:3000/admin/login
 - **Admin Credentials**: `admin / admin123`
 
 ## ✨ Key Features
+
+server start:
+uvicorn server:app --reload 
+
+frontend start:
+npm start
 
 ### Customer Features
 - Modern homepage with hero section, categories, featured & new arrival products

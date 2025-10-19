@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Cart({ user, setUser }) {
@@ -102,7 +103,7 @@ export default function Cart({ user, setUser }) {
                       <Link to={`/products/${item.product.id}`} className="flex-shrink-0">
                         <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
                           <img
-                            src={item.product.images[0] || 'https://via.placeholder.com/100'}
+                            src={getImageUrl(item.product.images[0])}
                             alt={item.product.title}
                             className="w-full h-full object-cover"
                           />

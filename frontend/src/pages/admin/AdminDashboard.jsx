@@ -2,8 +2,33 @@ import { Link } from 'react-router-dom';
 import { Package, ShoppingBag, Users, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { adminClient } from '@/utils/api';
 
 export default function AdminDashboard({ admin, setAdmin }) {
+  const [stats, setStats] = useState({
+    products_count: 0,
+    orders_count: 0,
+    users_count: 0,
+    total_revenue: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await adminClient.get('/admin/dashboard/stats');
+        setStats(response.data);
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardStats();
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminData');
@@ -15,7 +40,9 @@ export default function AdminDashboard({ admin, setAdmin }) {
       {/* Admin Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold gradient-text" data-testid="admin-dashboard-heading">Mirvaa Admin</h1>
+          <h1 className="text-2xl font-bold gradient-text" data-testid="admin-dashboard-heading">
+            Mirvaa Admin
+          </h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
             <Button onClick={handleLogout} variant="outline" className="btn-hover" data-testid="admin-logout">
@@ -31,49 +58,59 @@ export default function AdminDashboard({ admin, setAdmin }) {
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="card-hover">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <Package className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <p className="text-xs text-gray-600 mt-1">Manage in Products section</p>
-            </CardContent>
-          </Card>
+          <Link to="/admin/analytics/products">
+            <Card className="card-hover cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                <Package className="h-5 w-5 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{loading ? 'Loading...' : stats.products_count}</div>
+                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="card-hover">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <ShoppingBag className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <p className="text-xs text-gray-600 mt-1">View all orders</p>
-            </CardContent>
-          </Card>
+          <Link to="/admin/analytics/orders">
+            <Card className="card-hover cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                <ShoppingBag className="h-5 w-5 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{loading ? 'Loading...' : stats.orders_count}</div>
+                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="card-hover">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-5 w-5 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <p className="text-xs text-gray-600 mt-1">Registered customers</p>
-            </CardContent>
-          </Card>
+          <Link to="/admin/analytics/users">
+            <Card className="card-hover cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                <Users className="h-5 w-5 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{loading ? 'Loading...' : stats.users_count}</div>
+                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="card-hover">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-              <TrendingUp className="h-5 w-5 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-              <p className="text-xs text-gray-600 mt-1">Total sales</p>
-            </CardContent>
-          </Card>
+          <Link to="/admin/analytics/revenue">
+            <Card className="card-hover cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                <TrendingUp className="h-5 w-5 text-orange-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {loading ? 'Loading...' : `₹${stats.total_revenue.toLocaleString()}`}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Quick Actions */}

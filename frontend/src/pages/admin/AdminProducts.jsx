@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { adminClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { API } from '@/utils/api';
@@ -32,7 +33,9 @@ export default function AdminProducts({ admin, setAdmin }) {
     sku: '',
     tags: '',
     is_featured: false,
+    returnable: false,
   });
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   useEffect(() => {
     fetchProducts();
@@ -73,7 +76,9 @@ export default function AdminProducts({ admin, setAdmin }) {
         sku: product.sku || '',
         tags: product.tags.join(', '),
         is_featured: product.is_featured,
+        returnable: product.returnable || false,
       });
+      setUploadedFiles([]); // Reset uploaded files
     } else {
       setEditingProduct(null);
       setFormData({
@@ -90,9 +95,49 @@ export default function AdminProducts({ admin, setAdmin }) {
         sku: '',
         tags: '',
         is_featured: false,
+        returnable: false,
       });
+      setUploadedFiles([]); // Reset uploaded files
     }
     setShowDialog(true);
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
+    }
+    
+    try {
+      const response = await axios.post(`${API}/upload-multiple`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        }
+      });
+      
+      const newUploadedFiles = response.data.files;
+      setUploadedFiles(prev => [...prev, ...newUploadedFiles]);
+      
+      // Update the images field with all image paths
+      const allImagePaths = [
+        ...(formData.images ? formData.images.split(',').map(img => img.trim()).filter(Boolean) : []),
+        ...newUploadedFiles.map(file => file.path)
+      ];
+      
+      setFormData(prev => ({
+        ...prev,
+        images: allImagePaths.join(', ')
+      }));
+      
+      toast.success(`${newUploadedFiles.length} images uploaded successfully`);
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      toast.error('Failed to upload images');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -112,7 +157,13 @@ export default function AdminProducts({ admin, setAdmin }) {
       sku: formData.sku || null,
       tags: formData.tags.split(',').map((t) => t.trim()).filter(Boolean),
       is_featured: formData.is_featured,
+      returnable: formData.returnable,
     };
+
+    // Set the first image as the main image if available
+    if (productData.images.length > 0) {
+      productData.image = productData.images[0];
+    }
 
     try {
       if (editingProduct) {
@@ -189,7 +240,7 @@ export default function AdminProducts({ admin, setAdmin }) {
             <Card key={product.id} className="overflow-hidden" data-testid={`admin-product-${product.id}`}>
               <div className="aspect-[3/4] overflow-hidden bg-gray-100">
                 <img
-                  src={product.images[0] || 'https://via.placeholder.com/400x500'}
+                  src={getImageUrl(product.images[0])}
                   alt={product.title}
                   className="w-full h-full object-cover"
                 />
@@ -328,15 +379,42 @@ export default function AdminProducts({ admin, setAdmin }) {
                 />
               </div>
             </div>
-            <div>
-              <Label htmlFor="images">Images (comma-separated URLs)</Label>
-              <Input
-                id="images"
-                data-testid="product-images-input"
-                value={formData.images}
-                onChange={(e) => setFormData({ ...formData, images: e.target.value })}
-                placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-              />
+            <div className="space-y-2">
+              <Label htmlFor="images">Product Images</Label>
+              <div className="flex flex-col space-y-2">
+                <Input
+                  id="images"
+                  data-testid="product-images-input"
+                  value={formData.images}
+                  onChange={(e) => setFormData({ ...formData, images: e.target.value })}
+                  placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="flex-1"
+                    data-testid="product-image-upload"
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('images').focus()}>
+                    Upload Images
+                  </Button>
+                </div>
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500 mb-1">Uploaded images:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {uploadedFiles.map((file, index) => (
+                        <div key={index} className="relative w-16 h-16 bg-gray-100 rounded overflow-hidden">
+                          <img src={getImageUrl(file.path)} alt={`Uploaded ${index + 1}`} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
@@ -381,16 +459,29 @@ export default function AdminProducts({ admin, setAdmin }) {
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                id="is_featured"
-                data-testid="product-featured-checkbox"
-                type="checkbox"
-                checked={formData.is_featured}
-                onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
-                className="rounded"
-              />
-              <Label htmlFor="is_featured" className="cursor-pointer">Mark as Featured</Label>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  id="is_featured"
+                  data-testid="product-featured-checkbox"
+                  type="checkbox"
+                  checked={formData.is_featured}
+                  onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="is_featured" className="cursor-pointer">Mark as Featured</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  id="returnable"
+                  data-testid="product-returnable-checkbox"
+                  type="checkbox"
+                  checked={formData.returnable}
+                  onChange={(e) => setFormData({ ...formData, returnable: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="returnable" className="cursor-pointer">Returnable (3-day window)</Label>
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>

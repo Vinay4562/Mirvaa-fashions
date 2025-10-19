@@ -1,5 +1,7 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,26 +15,90 @@ from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
 import razorpay
+from shiprocket import ShiprocketClient
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# Handle .env file loading with error handling
+try:
+    load_dotenv(ROOT_DIR / '.env', encoding='utf-8')
+    print("Successfully loaded .env file")
+except Exception as e:
+    print(f"Warning: Error loading .env file: {e}")
+    # Continue execution even if .env file is missing or has encoding issues
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.environ.get('MONGO_URL', 'mongodb+srv://vkvinaykumar391:PBripjgsBotYLRsf@cluster0.uk8dvnt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+print(f"Using MongoDB URL: {mongo_url}")
 
-# Razorpay client (will be mocked for now)
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'mock_key_id')
-RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'mock_secret')
+try:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get('DB_NAME', 'mirvaa_fashions')]
+    print("Successfully connected to MongoDB")
+except Exception as e:
+    print(f"Error connecting to MongoDB: {e}")
+    # Still create a client and db object to prevent errors
+    client = None
+    db = None
 
-# JWT Secret
-JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
-JWT_ALGORITHM = 'HS256'
-JWT_EXPIRATION_DAYS = 7
+# Razorpay client
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET')
+
+if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
+    razorpay_client = razorpay.Client(
+        auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)
+    )
+else:
+    print("Warning: Razorpay credentials not provided, using mock client")
+    razorpay_client = None
+
+# Initialize Shiprocket client
+SHIPROCKET_EMAIL = os.environ.get("SHIPROCKET_EMAIL")
+SHIPROCKET_PASSWORD = os.environ.get("SHIPROCKET_PASSWORD")
+
+if SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD:
+    try:
+        shiprocket_client = ShiprocketClient(
+            email=SHIPROCKET_EMAIL,
+            password=SHIPROCKET_PASSWORD
+        )
+    except Exception as e:
+        print(f"Warning: Failed to initialize Shiprocket client: {e}")
+        shiprocket_client = None
+else:
+    print("Warning: Shiprocket credentials not provided")
+    shiprocket_client = None
+
+# JWT Configuration
+JWT_SECRET = os.environ.get('JWT_SECRET', 'your-super-secret-jwt-key-change-this-in-production')
+print(f"JWT Secret configured")
+
+JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
+JWT_EXPIRATION_DAYS = int(os.environ.get('JWT_EXPIRATION_DAYS', '7'))
 
 # Create the main app
 app = FastAPI()
+
+# CORS Configuration
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+print(f"CORS allowed origins: {ALLOWED_ORIGINS}")
+
+# Add CORS middleware with expanded configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins temporarily for debugging
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    expose_headers=["Content-Type", "Authorization"],
+)
+
+# Create uploads directory if it doesn't exist
+os.makedirs("uploads", exist_ok=True)
+
+# Mount the uploads directory to serve static files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 
@@ -85,6 +151,7 @@ class Product(BaseModel):
     rating: float = 0.0
     reviews_count: int = 0
     is_featured: bool = False
+    returnable: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProductCreate(BaseModel):
@@ -184,6 +251,21 @@ class CMSPageUpdate(BaseModel):
     title: str
     content: str
     meta_description: Optional[str] = None
+    
+class ReturnRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    order_id: str
+    product_id: str
+    reason: str
+    status: str = "pending"  # pending, approved, rejected, completed
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
+class ReturnRequestCreate(BaseModel):
+    order_id: str
+    product_id: str
+    reason: str
 
 # Admin Profile Models
 class AdminProfile(BaseModel):
@@ -310,6 +392,22 @@ async def register(user_data: UserRegister):
     token = create_token(user.id, user.email)
     return TokenResponse(token=token, user=user)
 
+@api_router.put("/users/addresses")
+async def update_user_addresses(addresses: List[Dict[str, Any]], current_user: Dict = Depends(get_current_user)):
+    result = await db.users.update_one(
+        {"id": current_user['id']},
+        {"$set": {"addresses": addresses}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    updated_user = await db.users.find_one({"id": current_user['id']}, {"_id": 0})
+    if isinstance(updated_user['created_at'], str):
+        updated_user['created_at'] = datetime.fromisoformat(updated_user['created_at'])
+    
+    return {"message": "Addresses updated", "user": updated_user}
+
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     user_doc = await db.users.find_one({"email": credentials.email}, {"_id": 0})
@@ -365,6 +463,32 @@ async def admin_login(credentials: AdminLogin):
     token = create_token(admin_doc['id'], credentials.username)
     return {"token": token, "username": credentials.username, "role": admin_doc['role']}
 
+@api_router.get("/admin/dashboard/stats")
+async def get_dashboard_stats(admin: Dict = Depends(get_current_admin)):
+    # Get total products count
+    products_count = await db.products.count_documents({})
+    
+    # Get total orders count
+    orders_count = await db.orders.count_documents({})
+    
+    # Get total users count
+    users_count = await db.users.count_documents({})
+    
+    # Calculate total revenue
+    pipeline = [
+        {"$match": {"status": {"$ne": "cancelled"}}},
+        {"$group": {"_id": None, "total_revenue": {"$sum": "$total"}}}
+    ]
+    revenue_result = await db.orders.aggregate(pipeline).to_list(1)
+    total_revenue = revenue_result[0]["total_revenue"] if revenue_result else 0
+    
+    return {
+        "products_count": products_count,
+        "orders_count": orders_count,
+        "users_count": users_count,
+        "total_revenue": total_revenue
+    }
+
 # ==================== Product Routes ====================
 
 @api_router.get("/products", response_model=List[Product])
@@ -381,7 +505,14 @@ async def get_products(
     query = {}
     
     if category:
-        query['category'] = category
+        # Convert hyphenated category to proper format (e.g., "men's-wear" to "Men's Wear")
+        formatted_category = category.replace('-', ' ').title()
+        # Special cases to handle apostrophes and specific formatting
+        if formatted_category == "Men S Wear":
+            formatted_category = "Men's Wear"
+        elif formatted_category == "T Shirts":
+            formatted_category = "T-Shirts"
+        query['category'] = formatted_category
     if subcategory:
         query['subcategory'] = subcategory
     if search:
@@ -446,6 +577,18 @@ async def create_product(product_data: ProductCreate, admin: Dict = Depends(get_
     product = Product(**product_data.model_dump())
     product.discount_percent = int(((product.mrp - product.price) / product.mrp) * 100) if product.mrp > 0 else 0
     
+    # Ensure images field exists
+    if not product.images:
+        product.images = []
+    
+    # If main image exists, add it to images array if not already there
+    if hasattr(product_data, 'image') and product_data.image and product_data.image not in product.images:
+        product.images.insert(0, product_data.image)
+    
+    # Set returnable flag if not present
+    if not hasattr(product, 'returnable'):
+        product.returnable = False
+    
     product_dict = product.model_dump()
     product_dict['created_at'] = product_dict['created_at'].isoformat()
     
@@ -478,6 +621,11 @@ async def delete_product(product_id: str, admin: Dict = Depends(get_current_admi
     return {"message": "Product deleted successfully"}
 
 # ==================== Cart Routes ====================
+
+@api_router.get("/cart/count")
+async def get_cart_count(current_user: Dict = Depends(get_current_user)):
+    count = await db.cart.count_documents({"user_id": current_user['id']})
+    return {"count": count}
 
 @api_router.get("/cart")
 async def get_cart(current_user: Dict = Depends(get_current_user)):
@@ -561,6 +709,11 @@ async def clear_cart(current_user: Dict = Depends(get_current_user)):
 
 # ==================== Wishlist Routes ====================
 
+@api_router.get("/wishlist/count")
+async def get_wishlist_count(current_user: Dict = Depends(get_current_user)):
+    count = await db.wishlist.count_documents({"user_id": current_user['id']})
+    return {"count": count}
+
 @api_router.get("/wishlist")
 async def get_wishlist(current_user: Dict = Depends(get_current_user)):
     wishlist_items = await db.wishlist.find({"user_id": current_user['id']}, {"_id": 0}).to_list(100)
@@ -615,6 +768,68 @@ async def remove_from_wishlist(product_id: str, current_user: Dict = Depends(get
     
     return {"message": "Removed from wishlist"}
 
+# ==================== Shipping Routes ====================
+
+@api_router.post("/shipping/create")
+async def create_shipping(order_id: str, current_user: Dict = Depends(get_current_user)):
+    """Create a shipping order with Shiprocket"""
+    try:
+        # Get order details
+        order = await db.orders.find_one({"id": order_id})
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        # Get user details
+        user = await db.users.find_one({"id": order["user_id"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get address from order
+        address = order["shipping_address"]
+        
+        # Get order items
+        items = order["items"]
+        
+        # Format order for Shiprocket
+        shiprocket_order = shiprocket_client.format_mirvaa_order(order, user, address, items)
+        
+        # Create order in Shiprocket
+        response = shiprocket_client.create_order(shiprocket_order)
+        
+        # Update order with Shiprocket details
+        await db.orders.update_one(
+            {"id": order_id},
+            {"$set": {
+                "shiprocket_order_id": response.get("order_id"),
+                "shiprocket_shipment_id": response.get("shipment_id"),
+                "shipping_status": "created"
+            }}
+        )
+        
+        return {"success": True, "shiprocket_data": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create shipping: {str(e)}")
+
+@api_router.get("/shipping/track/{order_id}")
+async def track_shipping(order_id: str, current_user: Dict = Depends(get_current_user)):
+    """Track a shipping order"""
+    try:
+        # Get order details
+        order = await db.orders.find_one({"id": order_id})
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        # Check if order has Shiprocket shipment ID
+        if "shiprocket_shipment_id" not in order:
+            raise HTTPException(status_code=400, detail="Order not shipped yet")
+        
+        # Track shipment
+        tracking_data = shiprocket_client.track_order(order["shiprocket_shipment_id"])
+        
+        return {"success": True, "tracking_data": tracking_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to track shipping: {str(e)}")
+
 # ==================== Order Routes ====================
 
 @api_router.post("/orders/create")
@@ -645,12 +860,16 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
     order_dict['created_at'] = order_dict['created_at'].isoformat()
     order_dict['updated_at'] = order_dict['updated_at'].isoformat()
     
-    await db.orders.insert_one(order_dict)
+    result = await db.orders.insert_one(order_dict)
     
     # Clear cart after order
     await db.cart.delete_many({"user_id": current_user['id']})
     
-    return {**order_dict, "razorpay_key_id": RAZORPAY_KEY_ID}
+    # Convert ObjectId to string to make it JSON serializable
+    response_dict = {**order_dict, "razorpay_key_id": RAZORPAY_KEY_ID}
+    response_dict["_id"] = str(result.inserted_id)
+    
+    return response_dict
 
 @api_router.post("/orders/{order_id}/payment-success")
 async def payment_success(
@@ -705,7 +924,203 @@ async def get_order(order_id: str, current_user: Dict = Depends(get_current_user
     
     return order
 
-# ==================== Admin Order Routes ====================
+# ==================== Admin Routes ====================
+
+# Admin audit log
+class AuditLogEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    admin_id: str
+    action: str
+    details: Dict[str, Any] = {}
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+@api_router.post("/admin/audit-log", status_code=201)
+async def create_audit_log(
+    log_entry: AuditLogEntry,
+    admin: dict = Depends(get_current_admin)
+):
+    """Create an audit log entry for admin actions"""
+    log_entry.admin_id = admin["id"]
+    await db.audit_logs.insert_one(log_entry.dict())
+    return {"status": "success"}
+
+# Store settings model
+class StoreSettings(BaseModel):
+    store_name: str
+    business_address: str
+    customer_care_email: EmailStr
+    customer_support_phone: str
+    return_address: str
+    social_facebook: Optional[str] = None
+    social_instagram: Optional[str] = None
+    social_twitter: Optional[str] = None
+    logo_url: Optional[str] = None
+    favicon_url: Optional[str] = None
+    maintenance_mode: bool = False
+    theme: str = "light"
+
+@api_router.get("/settings/store")
+async def get_store_settings(admin: dict = Depends(get_current_admin)):
+    """Get store settings"""
+    settings = await db.settings.find_one({"type": "store"})
+    if not settings:
+        # Create default settings if not exist
+        default_settings = StoreSettings(
+            store_name="Mirvaa Fashions",
+            business_address="",
+            customer_care_email="support@mirvaa.com",
+            customer_support_phone="",
+            return_address="",
+            maintenance_mode=False,
+            theme="light"
+        )
+        await db.settings.insert_one({"type": "store", **default_settings.dict()})
+        return default_settings.dict()
+    return settings
+
+@api_router.put("/settings/store")
+async def update_store_settings(
+    settings: StoreSettings,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update store settings"""
+    # Create audit log
+    await create_audit_log(
+        AuditLogEntry(
+            action="update_store_settings",
+            details={"settings": settings.dict()}
+        )
+    )
+    
+    result = await db.settings.update_one(
+        {"type": "store"},
+        {"$set": settings.dict()},
+        upsert=True
+    )
+    return {"status": "success", "updated": result.modified_count > 0}
+
+# Admin profile model
+class AdminProfile(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str
+    address: str
+
+@api_router.get("/admin/profile")
+async def get_admin_profile(admin: dict = Depends(get_current_admin)):
+    """Get admin profile"""
+    admin_data = await db.admins.find_one({"_id": ObjectId(admin["id"])})
+    if not admin_data:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    return {
+        "name": admin_data.get("name", ""),
+        "email": admin_data.get("email", ""),
+        "phone": admin_data.get("phone", ""),
+        "address": admin_data.get("address", "")
+    }
+
+@api_router.put("/admin/profile")
+async def update_admin_profile(
+    profile: AdminProfile,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update admin profile"""
+    # Create audit log
+    await create_audit_log(
+        AuditLogEntry(
+            action="update_admin_profile",
+            details={"profile": profile.dict()}
+        )
+    )
+    
+    result = await db.admins.update_one(
+        {"_id": ObjectId(admin["id"])},
+        {"$set": profile.dict()}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    return {"status": "success"}
+
+# Password change model
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+@api_router.put("/admin/change-password")
+async def change_admin_password(
+    password_data: PasswordChange,
+    admin: dict = Depends(get_current_admin)
+):
+    """Change admin password"""
+    # Verify current password
+    admin_data = await db.admins.find_one({"_id": ObjectId(admin["id"])})
+    if not admin_data:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    if not verify_password(password_data.current_password, admin_data["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Hash new password
+    hashed_password = get_password_hash(password_data.new_password)
+    
+    # Create audit log
+    await create_audit_log(
+        AuditLogEntry(
+            action="change_password",
+            details={"admin_id": str(admin_data["_id"])}
+        )
+    )
+    
+    # Update password
+    await db.admins.update_one(
+        {"_id": ObjectId(admin["id"])},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    return {"status": "success"}
+
+# Username change model
+class UsernameChange(BaseModel):
+    current_password: str
+    new_username: str
+
+@api_router.put("/admin/change-username")
+async def change_admin_username(
+    username_data: UsernameChange,
+    admin: dict = Depends(get_current_admin)
+):
+    """Change admin username"""
+    # Verify current password
+    admin_data = await db.admins.find_one({"_id": ObjectId(admin["id"])})
+    if not admin_data:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    
+    if not verify_password(username_data.current_password, admin_data["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Check if username already exists
+    existing = await db.admins.find_one({"username": username_data.new_username})
+    if existing and str(existing["_id"]) != admin["id"]:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    # Create audit log
+    await create_audit_log(
+        AuditLogEntry(
+            action="change_username",
+            details={"admin_id": str(admin_data["_id"]), "old_username": admin_data["username"]}
+        )
+    )
+    
+    # Update username
+    await db.admins.update_one(
+        {"_id": ObjectId(admin["id"])},
+        {"$set": {"username": username_data.new_username}}
+    )
+    
+    return {"status": "success"}
 
 @api_router.get("/admin/orders")
 async def get_all_orders(admin: Dict = Depends(get_current_admin)):
@@ -855,6 +1270,52 @@ async def update_cms_page(slug: str, page_data: CMSPageUpdate, admin: Dict = Dep
     
     updated_page = await db.cms_pages.find_one({"slug": slug}, {"_id": 0})
     return updated_page
+
+# ==================== File Upload Routes ====================
+
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file"""
+    try:
+        contents = await file.read()
+        filename = f"{uuid.uuid4()}_{file.filename}"
+        file_path = os.path.join("uploads", filename)
+        
+        # Create uploads directory if it doesn't exist
+        os.makedirs("uploads", exist_ok=True)
+        
+        with open(file_path, "wb") as f:
+            f.write(contents)
+        
+        return {"filename": filename, "path": f"/uploads/{filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/upload-multiple")
+async def upload_multiple_files(files: List[UploadFile] = File(...)):
+    """Upload multiple files"""
+    try:
+        uploaded_files = []
+        
+        # Create uploads directory if it doesn't exist
+        os.makedirs("uploads", exist_ok=True)
+        
+        for file in files:
+            contents = await file.read()
+            filename = f"{uuid.uuid4()}_{file.filename}"
+            file_path = os.path.join("uploads", filename)
+            
+            with open(file_path, "wb") as f:
+                f.write(contents)
+            
+            uploaded_files.append({
+                "filename": filename,
+                "path": f"/uploads/{filename}"
+            })
+        
+        return {"files": uploaded_files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== Admin Settings Routes ====================
 
@@ -1022,21 +1483,865 @@ async def get_audit_logs(admin: Dict = Depends(get_current_admin), limit: int = 
     
     return logs
 
+# ==================== Admin Orders Management ====================
+
+@api_router.get("/admin/orders")
+async def get_admin_orders(
+    page: int = 1,
+    limit: int = 50,
+    status: Optional[str] = None,
+    user_id: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Get all orders for admin management"""
+    try:
+        # Build filter
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if user_id:
+            filter_dict["user_id"] = user_id
+
+        # Calculate skip
+        skip = (page - 1) * limit
+
+        # Get orders with pagination
+        orders = await db.orders.find(filter_dict).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        # Get total count
+        total = await db.orders.count_documents(filter_dict)
+
+        return {
+            "orders": orders,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": (total + limit - 1) // limit
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching orders: {str(e)}")
+
+# ==================== Admin Analytics Routes ====================
+
+@api_router.get("/admin/analytics/overview")
+async def get_analytics_overview(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Get overview analytics data"""
+    try:
+        # Parse dates
+        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        
+        # Get basic counts
+        total_products = await db.products.count_documents({})
+        total_orders = await db.orders.count_documents({
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
+        })
+        total_users = await db.users.count_documents({})
+        
+        # Calculate revenue
+        revenue_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {"_id": None, "total_revenue": {"$sum": "$total"}}}
+        ]
+        revenue_result = await db.orders.aggregate(revenue_pipeline).to_list(1)
+        total_revenue = revenue_result[0]["total_revenue"] if revenue_result else 0
+        
+        # Recent orders (last 7 days)
+        recent_orders = await db.orders.count_documents({
+            "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()}
+        })
+        
+        # Calculate conversion rate (simplified)
+        conversion_rate = (total_orders / max(total_users, 1)) * 100 if total_users > 0 else 0
+        
+        return {
+            "totalProducts": total_products,
+            "totalOrders": total_orders,
+            "totalUsers": total_users,
+            "totalRevenue": total_revenue,
+            "recentOrders": recent_orders,
+            "conversionRate": round(conversion_rate, 2)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching overview data: {str(e)}")
+
+@api_router.get("/admin/analytics/products")
+async def get_products_analytics(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Get products analytics data"""
+    try:
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
+        
+        # Performance metrics
+        total_products = await db.products.count_documents({})
+        featured_products = await db.products.count_documents({"is_featured": True})
+        low_stock_count = await db.products.count_documents({"stock": {"$lt": 10}})
+        
+        # Average rating - simplified
+        try:
+            # Simple approach to avoid aggregation errors
+            products_with_rating = await db.products.find({"rating": {"$exists": True}}).to_list(1000)
+            if products_with_rating:
+                total_rating = sum(p.get("rating", 0) for p in products_with_rating)
+                average_rating = round(total_rating / len(products_with_rating), 1)
+            else:
+                average_rating = 0
+        except Exception as e:
+            print(f"Error calculating average rating: {str(e)}")
+            average_rating = 0
+        
+        # Top selling products - Simplified approach
+        try:
+            # Get basic sales data first
+            basic_pipeline = [
+                {"$unwind": "$items"},
+                {"$match": {
+                    "$or": [
+                        {"created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}},
+                        {"created_at": {"$exists": False}}  # Include orders without dates
+                    ],
+                    "$or": [
+                        {"status": {"$ne": "cancelled"}},
+                        {"status": {"$exists": False}}  # Include orders without status
+                    ]
+                }},
+                {"$group": {
+                    "_id": "$items.product_id",
+                    "quantitySold": {"$sum": "$items.quantity"},
+                    "totalRevenue": {"$sum": {"$multiply": [{"$ifNull": ["$items.price", 0]}, {"$ifNull": ["$items.quantity", 0]}]}}
+                }},
+                {"$sort": {"quantitySold": -1}},
+                {"$limit": 10}
+            ]
+            
+            sales_data = await db.orders.aggregate(basic_pipeline).to_list(10)
+            
+            # Get product details separately
+            top_selling = []
+            for item in sales_data:
+                if not item["_id"]:
+                    continue
+                    
+                try:
+                    product = await db.products.find_one({"id": item["_id"]})
+                    if product:
+                        top_selling.append({
+                            "id": item["_id"],
+                            "title": product.get("title", "Unknown Product"),
+                            "images": product.get("images", [""])[0] if product.get("images") and len(product.get("images")) > 0 else "",
+                            "quantitySold": item["quantitySold"],
+                            "totalRevenue": item["totalRevenue"]
+                        })
+                except Exception as e:
+                    print(f"Error getting product {item['_id']}: {str(e)}")
+            
+            # If no products found, return empty list
+            if not top_selling:
+                top_selling = []
+                
+        except Exception as e:
+            print(f"Error in top selling pipeline: {str(e)}")
+            top_selling = []
+        
+        # Low stock products
+        low_stock = await db.products.find(
+            {"stock": {"$lt": 10}},
+            {"_id": 0, "id": 1, "title": 1, "images": 1, "stock": 1}
+        ).to_list(20)
+        
+        # Add max stock for low stock items (assuming 50 as default max)
+        for item in low_stock:
+            item["maxStock"] = 50
+        
+        # Category statistics - Simplified to avoid complex aggregation issues
+        category_pipeline = [
+            {"$group": {
+                "_id": "$category",
+                "productCount": {"$sum": 1},
+                "averagePrice": {"$avg": "$price"}
+            }},
+            {"$project": {
+                "name": {"$ifNull": ["$_id", "Uncategorized"]},
+                "productCount": 1,
+                "averagePrice": {"$round": [{"$ifNull": ["$averagePrice", 0]}, 2]},
+                "revenue": 0,  
+                "topSeller": "N/A"
+            }},
+            {"$sort": {"productCount": -1}}
+        ]
+        
+        try:
+            category_stats = await db.products.aggregate(category_pipeline).to_list(20)
+        except Exception as e:
+            print(f"Error in category statistics pipeline: {str(e)}")
+            category_stats = []
+        
+        # Price distribution
+        price_ranges = [
+            {"range": "Under ₹500", "min": 0, "max": 500},
+            {"range": "₹500 - ₹1000", "min": 500, "max": 1000},
+            {"range": "₹1000 - ₹2000", "min": 1000, "max": 2000},
+            {"range": "₹2000 - ₹5000", "min": 2000, "max": 5000},
+            {"range": "Above ₹5000", "min": 5000, "max": float('inf')}
+        ]
+        
+        price_distribution = []
+        total_products_for_dist = await db.products.count_documents({})
+        
+        for range_def in price_ranges:
+            if range_def["max"] == float('inf'):
+                count = await db.products.count_documents({"price": {"$gte": range_def["min"]}})
+            else:
+                count = await db.products.count_documents({
+                    "price": {"$gte": range_def["min"], "$lt": range_def["max"]}
+                })
+            
+            percentage = (count / max(total_products_for_dist, 1)) * 100
+            price_distribution.append({
+                "range": range_def["range"],
+                "count": count,
+                "percentage": round(percentage, 1)
+            })
+        
+        return {
+            "topSelling": top_selling,
+            "lowStock": low_stock,
+            "categoryStats": category_stats,
+            "priceDistribution": price_distribution,
+            "performanceMetrics": {
+                "totalProducts": total_products,
+                "featuredProducts": featured_products,
+                "lowStockCount": low_stock_count,
+                "averageRating": average_rating
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching products analytics: {str(e)}")
+
+@api_router.get("/admin/analytics/orders")
+async def get_orders_analytics(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Get orders analytics data"""
+    try:
+        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        
+        # Performance metrics
+        total_orders = await db.orders.count_documents({
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
+        })
+        
+        completed_orders = await db.orders.count_documents({
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+            "status": "delivered"
+        })
+        
+        # Average order value
+        avg_order_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {"_id": None, "avg_value": {"$avg": "$total"}}}
+        ]
+        avg_result = await db.orders.aggregate(avg_order_pipeline).to_list(1)
+        average_order_value = avg_result[0]["avg_value"] if avg_result else 0
+        
+        # Cancellation rate
+        cancelled_orders = await db.orders.count_documents({
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+            "status": "cancelled"
+        })
+        cancellation_rate = (cancelled_orders / max(total_orders, 1)) * 100
+        
+        # Status distribution
+        status_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
+            }},
+            {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+            {"$project": {
+                "status": "$_id",
+                "count": 1,
+                "percentage": {"$multiply": [{"$divide": ["$count", total_orders]}, 100]}
+            }},
+            {"$sort": {"count": -1}}
+        ]
+        status_distribution = await db.orders.aggregate(status_pipeline).to_list(10)
+        
+        # Payment method statistics
+        payment_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
+            }},
+            {"$group": {"_id": "$payment_method", "count": {"$sum": 1}}},
+            {"$project": {
+                "method": "$_id",
+                "count": 1,
+                "percentage": {"$multiply": [{"$divide": ["$count", total_orders]}, 100]}
+            }},
+            {"$sort": {"count": -1}}
+        ]
+        payment_method_stats = await db.orders.aggregate(payment_pipeline).to_list(10)
+        
+        # Recent orders with customer details
+        recent_orders = await db.orders.find(
+            {"created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(20).to_list(20)
+        
+        # Add customer details to recent orders
+        for order in recent_orders:
+            user = await db.users.find_one({"id": order["user_id"]}, {"_id": 0})
+            if user:
+                order["customer_name"] = user.get("name", "Unknown")
+                order["customer_email"] = user.get("email", "Unknown")
+        
+        # Order trends (daily)
+        trend_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {
+                "_id": {
+                    "year": {"$year": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "month": {"$month": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "day": {"$dayOfMonth": {"$dateFromString": {"dateString": "$created_at"}}}
+                },
+                "orders": {"$sum": 1},
+                "revenue": {"$sum": "$total"}
+            }},
+            {"$project": {
+                "period": {
+                    "$dateFromParts": {
+                        "year": "$_id.year",
+                        "month": "$_id.month",
+                        "day": "$_id.day"
+                    }
+                },
+                "orders": 1,
+                "revenue": 1
+            }},
+            {"$sort": {"period": -1}},
+            {"$limit": 7}
+        ]
+        order_trends = await db.orders.aggregate(trend_pipeline).to_list(7)
+        
+        # Format trends data
+        for trend in order_trends:
+            trend["period"] = trend["period"].strftime("%Y-%m-%d")
+            trend["growth"] = 0  # Simplified - would need previous period data
+        
+        return {
+            "recentOrders": recent_orders,
+            "statusDistribution": status_distribution,
+            "paymentMethodStats": payment_method_stats,
+            "orderTrends": order_trends,
+            "performanceMetrics": {
+                "totalOrders": total_orders,
+                "completedOrders": completed_orders,
+                "averageOrderValue": round(average_order_value, 2),
+                "cancellationRate": round(cancellation_rate, 2)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching orders analytics: {str(e)}")
+
+@api_router.get("/admin/analytics/users")
+async def get_users_analytics(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Get users analytics data"""
+    try:
+        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        
+        # Performance metrics
+        total_users = await db.users.count_documents({})
+        
+        new_users = await db.users.count_documents({
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
+        })
+        
+        # Active users (users who made purchases in the period)
+        active_users = await db.orders.distinct("user_id", {
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+            "status": {"$ne": "cancelled"}
+        })
+        active_users_count = len(active_users)
+        
+        # Average order value per customer
+        avg_order_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {"_id": None, "avg_value": {"$avg": "$total"}}}
+        ]
+        avg_result = await db.orders.aggregate(avg_order_pipeline).to_list(1)
+        average_order_value = avg_result[0]["avg_value"] if avg_result else 0
+        
+        # Recent users
+        recent_users = await db.users.find(
+            {},
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(20).to_list(20)
+        
+        # Add order statistics to recent users
+        for user in recent_users:
+            user_orders = await db.orders.find(
+                {"user_id": user["id"], "status": {"$ne": "cancelled"}},
+                {"_id": 0, "total": 1, "created_at": 1}
+            ).to_list(1000)
+            
+            user["orderCount"] = len(user_orders)
+            user["totalSpent"] = sum(order["total"] for order in user_orders)
+            user["lastOrderDate"] = max([order["created_at"] for order in user_orders]) if user_orders else None
+        
+        # User segments based on spending
+        user_segments = [
+            {"segment": "VIP (₹50k+)", "count": 0, "percentage": 0},
+            {"segment": "Gold (₹25k-50k)", "count": 0, "percentage": 0},
+            {"segment": "Silver (₹10k-25k)", "count": 0, "percentage": 0},
+            {"segment": "Bronze (Under ₹10k)", "count": 0, "percentage": 0}
+        ]
+        
+        # Calculate user segments
+        for user in recent_users:
+            total_spent = user.get("totalSpent", 0)
+            if total_spent >= 50000:
+                user_segments[0]["count"] += 1
+            elif total_spent >= 25000:
+                user_segments[1]["count"] += 1
+            elif total_spent >= 10000:
+                user_segments[2]["count"] += 1
+            else:
+                user_segments[3]["count"] += 1
+        
+        # Calculate percentages
+        for segment in user_segments:
+            segment["percentage"] = round((segment["count"] / max(total_users, 1)) * 100, 1)
+        
+        # User activity
+        user_activity = [
+            {"type": "registered", "count": new_users},
+            {"type": "made purchase", "count": active_users_count},
+            {"type": "multiple orders", "count": len([u for u in recent_users if u.get("orderCount", 0) > 1])}
+        ]
+        
+        # Registration trends (simplified)
+        registration_trends = [
+            {"period": "This Month", "newUsers": new_users, "growth": 0},
+            {"period": "Last Month", "newUsers": 0, "growth": 0}  # Simplified
+        ]
+        
+        # Top customers
+        top_customers = sorted(recent_users, key=lambda x: x.get("totalSpent", 0), reverse=True)[:10]
+        
+        return {
+            "recentUsers": recent_users,
+            "userSegments": user_segments,
+            "registrationTrends": registration_trends,
+            "userActivity": user_activity,
+            "topCustomers": top_customers,
+            "performanceMetrics": {
+                "totalUsers": total_users,
+                "newUsers": new_users,
+                "activeUsers": active_users_count,
+                "averageOrderValue": round(average_order_value, 2)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching users analytics: {str(e)}")
+
+@api_router.get("/admin/analytics/revenue")
+async def get_revenue_analytics(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Get revenue analytics data"""
+    try:
+        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        
+        # Performance metrics
+        total_revenue_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {"_id": None, "total_revenue": {"$sum": "$total"}}}
+        ]
+        total_revenue_result = await db.orders.aggregate(total_revenue_pipeline).to_list(1)
+        total_revenue = total_revenue_result[0]["total_revenue"] if total_revenue_result else 0
+        
+        # Calculate days in period
+        days_in_period = (to_dt - from_dt).days + 1
+        average_daily_revenue = total_revenue / max(days_in_period, 1)
+        
+        # Revenue growth (simplified - would need previous period data)
+        revenue_growth = 0  # Placeholder
+        
+        # Best day revenue
+        best_day_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {
+                "_id": {
+                    "year": {"$year": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "month": {"$month": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "day": {"$dayOfMonth": {"$dateFromString": {"dateString": "$created_at"}}}
+                },
+                "daily_revenue": {"$sum": "$total"}
+            }},
+            {"$sort": {"daily_revenue": -1}},
+            {"$limit": 1}
+        ]
+        best_day_result = await db.orders.aggregate(best_day_pipeline).to_list(1)
+        best_day_revenue = best_day_result[0]["daily_revenue"] if best_day_result else 0
+        
+        # Daily revenue trend
+        daily_revenue_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {
+                "_id": {
+                    "year": {"$year": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "month": {"$month": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "day": {"$dayOfMonth": {"$dateFromString": {"dateString": "$created_at"}}}
+                },
+                "revenue": {"$sum": "$total"}
+            }},
+            {"$project": {
+                "date": {
+                    "$dateFromParts": {
+                        "year": "$_id.year",
+                        "month": "$_id.month",
+                        "day": "$_id.day"
+                    }
+                },
+                "revenue": 1
+            }},
+            {"$sort": {"date": -1}},
+            {"$limit": 30}
+        ]
+        daily_revenue = await db.orders.aggregate(daily_revenue_pipeline).to_list(30)
+        
+        # Format daily revenue data
+        for day in daily_revenue:
+            day["date"] = day["date"].strftime("%Y-%m-%d")
+        
+        # Payment method revenue
+        payment_revenue_pipeline = [
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$group": {
+                "_id": "$payment_method",
+                "revenue": {"$sum": "$total"},
+                "count": {"$sum": 1}
+            }},
+            {"$project": {
+                "method": "$_id",
+                "revenue": 1,
+                "count": 1,
+                "percentage": {"$multiply": [{"$divide": ["$revenue", total_revenue]}, 100]}
+            }},
+            {"$sort": {"revenue": -1}}
+        ]
+        payment_method_revenue = await db.orders.aggregate(payment_revenue_pipeline).to_list(10)
+        
+        # Category revenue
+        category_revenue_pipeline = [
+            {"$unwind": "$items"},
+            {"$match": {
+                "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                "status": {"$ne": "cancelled"}
+            }},
+            {"$lookup": {
+                "from": "products",
+                "localField": "items.product_id",
+                "foreignField": "id",
+                "as": "product"
+            }},
+            {"$unwind": "$product"},
+            {"$group": {
+                "_id": "$product.category",
+                "revenue": {"$sum": {"$multiply": ["$items.price", "$items.quantity"]}},
+                "orderCount": {"$sum": 1}
+            }},
+            {"$project": {
+                "name": "$_id",
+                "revenue": 1,
+                "orderCount": 1,
+                "averageOrderValue": {"$divide": ["$revenue", "$orderCount"]},
+                "growth": 0  # Placeholder
+            }},
+            {"$sort": {"revenue": -1}}
+        ]
+        category_revenue = await db.orders.aggregate(category_revenue_pipeline).to_list(20)
+        
+        # Monthly revenue comparison (simplified)
+        monthly_revenue = [
+            {"month": "Current Month", "revenue": total_revenue, "orders": 0, "growth": 0},
+            {"month": "Previous Month", "revenue": 0, "orders": 0, "growth": 0}  # Placeholder
+        ]
+        
+        # Revenue forecast (simplified)
+        forecast = {
+            "nextWeek": total_revenue * 0.25,  # Simplified calculation
+            "nextMonth": total_revenue * 1.1,  # 10% growth assumption
+            "nextQuarter": total_revenue * 3.3  # 3 months with 10% growth
+        }
+        
+        return {
+            "dailyRevenue": daily_revenue,
+            "monthlyRevenue": monthly_revenue,
+            "categoryRevenue": category_revenue,
+            "paymentMethodRevenue": payment_method_revenue,
+            "forecast": forecast,
+            "performanceMetrics": {
+                "totalRevenue": total_revenue,
+                "averageDailyRevenue": round(average_daily_revenue, 2),
+                "revenueGrowth": revenue_growth,
+                "bestDayRevenue": best_day_revenue
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching revenue analytics: {str(e)}")
+
+@api_router.get("/admin/analytics/export/{data_type}")
+async def export_analytics_data(
+    data_type: str,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    """Export analytics data as CSV"""
+    try:
+        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        
+        if data_type == "products":
+            # Export products data
+            products = await db.products.find({}, {"_id": 0}).to_list(1000)
+            csv_data = "ID,Title,Category,Price,Stock,Rating,Reviews Count,Featured\n"
+            for product in products:
+                csv_data += f"{product['id']},{product['title']},{product['category']},{product['price']},{product['stock']},{product['rating']},{product['reviews_count']},{product['is_featured']}\n"
+        
+        elif data_type == "orders":
+            # Export orders data
+            orders = await db.orders.find(
+                {"created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}},
+                {"_id": 0}
+            ).to_list(1000)
+            csv_data = "Order Number,Customer ID,Status,Payment Method,Total,Date\n"
+            for order in orders:
+                csv_data += f"{order['order_number']},{order['user_id']},{order['status']},{order['payment_method']},{order['total']},{order['created_at']}\n"
+        
+        elif data_type == "users":
+            # Export users data
+            users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+            csv_data = "ID,Name,Email,Phone,Registration Date\n"
+            for user in users:
+                csv_data += f"{user['id']},{user['name']},{user['email']},{user.get('phone', '')},{user['created_at']}\n"
+        
+        elif data_type == "revenue":
+            # Export revenue data
+            revenue_pipeline = [
+                {"$match": {
+                    "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+                    "status": {"$ne": "cancelled"}
+                }},
+                {"$group": {
+                    "_id": {
+                        "year": {"$year": {"$dateFromString": {"dateString": "$created_at"}}},
+                        "month": {"$month": {"$dateFromString": {"dateString": "$created_at"}}},
+                        "day": {"$dayOfMonth": {"$dateFromString": {"dateString": "$created_at"}}}
+                    },
+                    "revenue": {"$sum": "$total"},
+                    "orders": {"$sum": 1}
+                }},
+                {"$project": {
+                    "date": {
+                        "$dateFromParts": {
+                            "year": "$_id.year",
+                            "month": "$_id.month",
+                            "day": "$_id.day"
+                        }
+                    },
+                    "revenue": 1,
+                    "orders": 1
+                }},
+                {"$sort": {"date": 1}}
+            ]
+            revenue_data = await db.orders.aggregate(revenue_pipeline).to_list(1000)
+            csv_data = "Date,Revenue,Orders\n"
+            for data in revenue_data:
+                date_str = data["date"].strftime("%Y-%m-%d")
+                csv_data += f"{date_str},{data['revenue']},{data['orders']}\n"
+        
+        else:
+            raise HTTPException(status_code=400, detail="Invalid data type")
+        
+        # Return CSV data
+        from fastapi.responses import Response
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={data_type}-analytics.csv"}
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
+
+# ==================== Return Request Routes ====================
+
+@api_router.post("/returns")
+async def create_return_request(
+    return_data: ReturnRequestCreate,
+    user: Dict = Depends(get_current_user)
+):
+    # Check if order exists and belongs to user
+    order = await db.orders.find_one({"id": return_data.order_id, "user_id": user["id"]})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Check if product exists in order
+    product_in_order = False
+    product_returnable = False
+    for item in order["items"]:
+        if item["product_id"] == return_data.product_id:
+            product_in_order = True
+            if "product" in item and "returnable" in item["product"]:
+                product_returnable = item["product"]["returnable"]
+            break
+    
+    if not product_in_order:
+        raise HTTPException(status_code=400, detail="Product not found in order")
+    
+    if not product_returnable:
+        raise HTTPException(status_code=400, detail="This product is not eligible for return")
+    
+    # Check if return is within 3-day window
+    order_date = order["created_at"]
+    if isinstance(order_date, str):
+        order_date = datetime.fromisoformat(order_date)
+    
+    current_date = datetime.now(timezone.utc)
+    days_difference = (current_date - order_date).days
+    
+    if days_difference > 3:
+        raise HTTPException(status_code=400, detail="Return window of 3 days has expired")
+    
+    # Check if return request already exists
+    existing_return = await db.return_requests.find_one({
+        "user_id": user["id"],
+        "order_id": return_data.order_id,
+        "product_id": return_data.product_id
+    })
+    
+    if existing_return:
+        raise HTTPException(status_code=400, detail="Return request already exists for this product")
+    
+    # Create return request
+    return_request = ReturnRequest(
+        user_id=user["id"],
+        order_id=return_data.order_id,
+        product_id=return_data.product_id,
+        reason=return_data.reason
+    )
+    
+    return_dict = return_request.model_dump()
+    await db.return_requests.insert_one(return_dict)
+    
+    return {"message": "Return request created successfully", "return_id": return_request.id}
+
+@api_router.get("/returns")
+async def get_user_return_requests(user: Dict = Depends(get_current_user)):
+    return_requests = await db.return_requests.find({"user_id": user["id"]}).to_list(100)
+    
+    # Format dates
+    for request in return_requests:
+        if "_id" in request:
+            del request["_id"]
+        if isinstance(request.get("created_at"), str):
+            request["created_at"] = datetime.fromisoformat(request["created_at"])
+    
+    return return_requests
+
+@api_router.get("/admin/returns")
+async def get_all_return_requests(admin: Dict = Depends(get_current_admin)):
+    return_requests = await db.return_requests.find({}).to_list(100)
+    
+    # Format dates and remove _id
+    for request in return_requests:
+        if "_id" in request:
+            del request["_id"]
+        if isinstance(request.get("created_at"), str):
+            request["created_at"] = datetime.fromisoformat(request["created_at"])
+    
+    return return_requests
+
+@api_router.put("/admin/returns/{return_id}")
+async def update_return_status(
+    return_id: str,
+    status: str,
+    admin: Dict = Depends(get_current_admin)
+):
+    if status not in ["pending", "approved", "rejected", "completed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.return_requests.update_one(
+        {"id": return_id},
+        {"$set": {"status": status}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Return request not found")
+    
+    return {"message": f"Return request status updated to {status}"}
+
 # Include router
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Note: CORS middleware is already added above
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Add this at the end to run the server
+if __name__ == "__main__":
+    import uvicorn
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', '8000'))
+    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+    uvicorn.run("server:app", host=host, port=port, reload=debug)
 logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")

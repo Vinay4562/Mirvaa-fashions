@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 const API = `${BACKEND_URL}/api`;
 
 // Create axios instance with auth
 const apiClient = axios.create({
   baseURL: API,
+  timeout: 5000, // Add timeout to prevent long loading times
 });
 
 // Add auth token to requests
@@ -17,9 +18,22 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Add response interceptor to handle errors globally
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle network errors gracefully
+    if (error.code === 'ECONNABORTED' || !error.response) {
+      console.error('Network error or server not responding');
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Add admin token to admin requests
 const adminClient = axios.create({
   baseURL: API,
+  timeout: 5000, // Add timeout to prevent long loading times
 });
 
 adminClient.interceptors.request.use((config) => {
@@ -29,5 +43,17 @@ adminClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Add response interceptor to handle errors globally for admin client
+adminClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle network errors gracefully
+    if (error.code === 'ECONNABORTED' || !error.response) {
+      console.error('Network error or server not responding');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export { API, apiClient, adminClient };

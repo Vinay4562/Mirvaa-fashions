@@ -48,6 +48,8 @@ export default function AdminSettings({ admin, setAdmin }) {
     social_facebook: '',
     social_instagram: '',
     social_twitter: '',
+    logo_url: '',
+    favicon_url: '',
     maintenance_mode: false,
     theme: 'light'
   });

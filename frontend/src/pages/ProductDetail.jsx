@@ -10,6 +10,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function ProductDetail({ user, setUser }) {
@@ -130,7 +131,7 @@ export default function ProductDetail({ user, setUser }) {
     );
   }
 
-  const images = product.images.length > 0 ? product.images : ['https://via.placeholder.com/800'];
+  const images = product.images.length > 0 ? product.images.map(img => getImageUrl(img)) : [getImageUrl()];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -418,7 +419,7 @@ export default function ProductDetail({ user, setUser }) {
                   <Card className="group overflow-hidden card-hover border-0 shadow-lg">
                     <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                       <img
-                        src={relProduct.images[0] || 'https://via.placeholder.com/400x500'}
+                        src={getImageUrl(relProduct.images[0])}
                         alt={relProduct.title}
                         className="w-full h-full object-cover image-zoom"
                       />
