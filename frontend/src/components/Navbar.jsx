@@ -42,7 +42,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
     <>
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         {/* Top bar */}
-        <div className="bg-gradient-to-r from-blue-50 to-green-50 py-2 px-4">
+        <div className="hidden md:block bg-gradient-to-r from-blue-50 to-green-50 py-2 px-4">
           <div className="max-w-7xl mx-auto flex justify-between items-center text-sm">
             <span className="text-gray-700">Free Shipping on Orders Above ₹999</span>
             <div className="flex gap-4">

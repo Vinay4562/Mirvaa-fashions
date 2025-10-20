@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Wishlist({ user, setUser }) {
@@ -92,13 +93,13 @@ export default function Wishlist({ user, setUser }) {
         </h1>
 
         {wishlistItems.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="wishlist-items">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" data-testid="wishlist-items">
             {wishlistItems.map((item) => (
               <Card key={item.id} className="group overflow-hidden border-0 shadow-lg relative" data-testid={`wishlist-item-${item.product.id}`}>
                 <Link to={`/products/${item.product.id}`}>
                   <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                     <img
-                      src={item.product.images[0] || 'https://via.placeholder.com/400x500'}
+                      src={(item.product.images && item.product.images[0]) ? getImageUrl(item.product.images[0]) : 'https://via.placeholder.com/400x500'}
                       alt={item.product.title}
                       className="w-full h-full object-cover image-zoom"
                     />
