@@ -14,6 +14,11 @@ import AddAddress from "./pages/AddAddress";
 import EditAddress from "./pages/EditAddress";
 import ReturnRequest from "./pages/ReturnRequest";
 import LegalPage from "./pages/LegalPage";
+import Contact from "./pages/Contact";
+import About from "./pages/About";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import ReturnPolicy from "./pages/ReturnPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
@@ -53,9 +58,11 @@ function App() {
           <Route path="/wishlist" element={<Wishlist user={user} setUser={setUser} />} />
           <Route path="/checkout" element={<Checkout user={user} setUser={setUser} />} />
           <Route path="/order-confirmation/:orderId" element={<OrderConfirmation user={user} setUser={setUser} />} />
-          <Route path="/privacy-policy" element={<LegalPage user={user} setUser={setUser} />} />
-          <Route path="/return-policy" element={<LegalPage user={user} setUser={setUser} />} />
-          <Route path="/terms-and-conditions" element={<LegalPage user={user} setUser={setUser} />} />
+          <Route path="/contact" element={<Contact user={user} setUser={setUser} />} />
+          <Route path="/about" element={<About user={user} setUser={setUser} />} />
+          <Route path="/privacy" element={<PrivacyPolicy user={user} setUser={setUser} />} />
+          <Route path="/returns" element={<ReturnPolicy user={user} setUser={setUser} />} />
+          <Route path="/terms" element={<TermsAndConditions user={user} setUser={setUser} />} />
           <Route path="/account" element={user ? <Account user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />

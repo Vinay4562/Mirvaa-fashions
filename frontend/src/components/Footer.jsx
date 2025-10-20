@@ -39,21 +39,23 @@ export default function Footer() {
             </ul>
           </div>
           
-          {/* Legal */}
+          {/* Legal */
+          }
           <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Legal</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/privacy-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Return Policy</Link></li>
-              <li><Link to="/terms-and-conditions" className="text-gray-600 hover:text-blue-600 transition-colors">Terms & Conditions</Link></li>
+              <li><Link to="/privacy" className="text-gray-600 hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/returns" className="text-gray-600 hover:text-blue-600 transition-colors">Return Policy</Link></li>
+              <li><Link to="/terms" className="text-gray-600 hover:text-blue-600 transition-colors">Terms & Conditions</Link></li>
             </ul>
           </div>
 
-          {/* Customer Service */}
+          {/* Customer Service */
+          }
           <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Customer Service</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Contact Us</a></li>
+              <li><Link to="/contact" className="text-gray-600 hover:text-blue-600 transition-colors">Contact Us</Link></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Track Order</a></li>
               <li><Link to="/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Returns & Exchanges</Link></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Shipping Info</a></li>
@@ -61,11 +63,12 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Company */}
+          {/* Company */
+          }
           <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Company</h4>
             <ul className="space-y-2 text-sm">
-              <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">About Us</a></li>
+              <li><Link to="/about" className="text-gray-600 hover:text-blue-600 transition-colors">About Us</Link></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Careers</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Blog</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Press</a></li>
