@@ -416,6 +416,58 @@ async def register(user_data: UserRegister):
     token = create_token(user.id, user.email)
     return TokenResponse(token=token, user=user)
 
+# User profile update model
+class UserProfileUpdate(BaseModel):
+    name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    currentPassword: Optional[str] = None
+    newPassword: Optional[str] = None
+
+@api_router.put("/users/profile")
+async def update_user_profile(profile_data: UserProfileUpdate, current_user: Dict = Depends(get_current_user)):
+    # Check if email is being changed and if it's already taken
+    if profile_data.email != current_user['email']:
+        existing_user = await db.users.find_one({"email": profile_data.email, "id": {"$ne": current_user['id']}})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use")
+    
+    # Prepare update data
+    update_data = {
+        "name": profile_data.name,
+        "email": profile_data.email,
+        "phone": profile_data.phone
+    }
+    
+    # Handle password change if provided
+    if profile_data.newPassword:
+        if not profile_data.currentPassword:
+            raise HTTPException(status_code=400, detail="Current password is required to change password")
+        
+        # Verify current password
+        user_doc = await db.users.find_one({"id": current_user['id']})
+        if not verify_password(profile_data.currentPassword, user_doc['password']):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Hash new password
+        update_data['password'] = hash_password(profile_data.newPassword)
+    
+    # Update user in database
+    result = await db.users.update_one(
+        {"id": current_user['id']},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get updated user data
+    updated_user = await db.users.find_one({"id": current_user['id']}, {"_id": 0, "password": 0})
+    if isinstance(updated_user['created_at'], str):
+        updated_user['created_at'] = datetime.fromisoformat(updated_user['created_at'])
+    
+    return updated_user
+
 @api_router.put("/users/addresses")
 async def update_user_addresses(addresses: List[Dict[str, Any]] = Body(...), current_user: Dict = Depends(get_current_user)):
     result = await db.users.update_one(

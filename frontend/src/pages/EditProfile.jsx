@@ -109,37 +109,16 @@ export default function EditProfile({ user, setUser }) {
         updateData.newPassword = formData.newPassword;
       }
       
-      try {
-        const response = await apiClient.put('/users/profile', updateData);
-        
-        // Update local user state
-        setUser(response.data);
-        
-        // Update localStorage
-        localStorage.setItem('user', JSON.stringify(response.data));
-        
-        toast.success('Profile updated successfully');
-        navigate('/account');
-      } catch (apiError) {
-        console.error('API Error updating profile:', apiError);
-        
-        // Handle API error but still update local data
-        const updatedUser = {
-          ...user,
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone
-        };
-        
-        // Update local user state with form data
-        setUser(updatedUser);
-        
-        // Update localStorage
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        
-        toast.success('Profile updated locally. Some changes may sync later.');
-        navigate('/account');
-      }
+      const response = await apiClient.put('/users/profile', updateData);
+      
+      // Update local user state
+      setUser(response.data);
+      
+      // Update localStorage
+      localStorage.setItem('user', JSON.stringify(response.data));
+      
+      toast.success('Profile updated successfully');
+      navigate('/account');
     } catch (error) {
       console.error('Error updating profile:', error);
       if (error.response?.status === 401) {
