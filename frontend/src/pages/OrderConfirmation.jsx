@@ -7,12 +7,14 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function OrderConfirmation({ user, setUser }) {
   const { orderId } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [productImageById, setProductImageById] = useState({});
 
   useEffect(() => {
     if (!user) {
@@ -24,7 +26,22 @@ export default function OrderConfirmation({ user, setUser }) {
   const fetchOrder = async () => {
     try {
       const response = await apiClient.get(`/orders/${orderId}`);
-      setOrder(response.data);
+      const ord = response.data;
+      setOrder(ord);
+      // Prefetch product images if missing
+      const missing = (ord.items || []).filter((it) => !it.product_image && !it.product?.images?.[0]);
+      const uniqueIds = [...new Set(missing.map((it) => it.product_id))];
+      if (uniqueIds.length) {
+        const results = await Promise.allSettled(uniqueIds.map((id) => apiClient.get(`/products/${id}`)));
+        const map = {};
+        results.forEach((res, idx) => {
+          if (res.status === 'fulfilled' && res.value?.data) {
+            const imgs = res.value.data.images || [];
+            if (imgs.length) map[uniqueIds[idx]] = imgs[0];
+          }
+        });
+        setProductImageById(map);
+      }
     } catch (error) {
       console.error('Error fetching order:', error);
       toast.error('Order not found');
@@ -92,7 +109,7 @@ export default function OrderConfirmation({ user, setUser }) {
                 <div key={idx} className="flex gap-4">
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                     <img
-                      src={item.product_image || 'https://via.placeholder.com/100'}
+                      src={getImageUrl(item.product_image || productImageById[item.product_id] || item.product?.images?.[0]) || 'https://via.placeholder.com/100'}
                       alt={item.product_title}
                       className="w-full h-full object-cover"
                     />
