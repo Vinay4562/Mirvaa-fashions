@@ -35,10 +35,9 @@ print("Using MongoDB URL from environment")
 try:
     client = AsyncIOMotorClient(mongo_url)
     db = client[os.environ.get('DB_NAME', 'mirvaa_fashions')]
-    print("Successfully connected to MongoDB")
+    print("MongoDB client initialized; will verify connectivity on startup")
 except Exception as e:
-    print(f"Error connecting to MongoDB: {e}")
-    # Still create a client and db object to prevent errors
+    print(f"Error initializing MongoDB client: {e}")
     client = None
     db = None
 
@@ -103,6 +102,29 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
+# Health endpoint and startup check
+@app.on_event("startup")
+async def verify_db_connection_on_startup():
+    try:
+        if db is None:
+            raise RuntimeError("DB is not initialized")
+        # motor connects lazily; force a ping to verify credentials/network
+        await db.command("ping")
+        print("MongoDB connectivity check: OK")
+    except Exception as e:
+        print(f"MongoDB connectivity check failed: {e}")
+
+
+@api_router.get("/health")
+async def health():
+    try:
+        if db is None:
+            return {"ok": False, "db": "uninitialized"}
+        await db.command("ping")
+        return {"ok": True, "db": "connected"}
+    except Exception as e:
+        return {"ok": False, "db": "error", "error": str(e)}
+
 
 # ==================== Models ====================
 
