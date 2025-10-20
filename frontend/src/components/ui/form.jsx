@@ -103,7 +103,33 @@ FormDescription.displayName = "FormDescription"
 
 const FormMessage = React.forwardRef(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message ?? "") : children
+  
+  // Safely extract error message
+  const getErrorMessage = (error) => {
+    if (!error) return null;
+    
+    // If error is a string, return it
+    if (typeof error === 'string') return error;
+    
+    // If error has a message property, return it
+    if (error.message && typeof error.message === 'string') return error.message;
+    
+    // If error has a msg property (validation error), return it
+    if (error.msg && typeof error.msg === 'string') return error.msg;
+    
+    // If error is an object, try to stringify it safely
+    if (typeof error === 'object') {
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return 'Validation error';
+      }
+    }
+    
+    return 'Validation error';
+  }
+  
+  const body = error ? getErrorMessage(error) : children
 
   if (!body) {
     return null

@@ -65,10 +65,35 @@ export default function AdminSettings({ admin, setAdmin }) {
         adminClient.get('/settings/store')
       ]);
       
-      setProfile(profileRes.data);
-      setStoreSettings(storeRes.data);
+      console.log('Profile data:', profileRes.data);
+      console.log('Store settings data:', storeRes.data);
+      
+      // Set profile data with defaults
+      setProfile({
+        name: profileRes.data.name || '',
+        email: profileRes.data.email || '',
+        phone: profileRes.data.phone || '',
+        address: profileRes.data.address || ''
+      });
+      
+      // Set store settings with defaults
+      setStoreSettings({
+        store_name: storeRes.data.store_name || '',
+        business_address: storeRes.data.business_address || '',
+        customer_care_email: storeRes.data.customer_care_email || '',
+        customer_support_phone: storeRes.data.customer_support_phone || '',
+        return_address: storeRes.data.return_address || '',
+        social_facebook: storeRes.data.social_facebook || '',
+        social_instagram: storeRes.data.social_instagram || '',
+        social_twitter: storeRes.data.social_twitter || '',
+        logo_url: storeRes.data.logo_url || '',
+        favicon_url: storeRes.data.favicon_url || '',
+        maintenance_mode: storeRes.data.maintenance_mode || false,
+        theme: storeRes.data.theme || 'light'
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
+      console.error('Error details:', error.response?.data);
       toast.error('Failed to load settings');
     } finally {
       setLoading(false);
@@ -86,9 +111,15 @@ export default function AdminSettings({ admin, setAdmin }) {
     setSaving(true);
 
     try {
-      await adminClient.put('/admin/profile', profile);
+      console.log('Updating profile:', profile);
+      const response = await adminClient.put('/admin/profile', profile);
+      console.log('Profile update response:', response.data);
       toast.success('Profile updated successfully');
+      
+      // Refresh data to show updated values
+      fetchData();
     } catch (error) {
+      console.error('Profile update error:', error);
       toast.error(error.response?.data?.detail || 'Failed to update profile');
     } finally {
       setSaving(false);
@@ -111,10 +142,13 @@ export default function AdminSettings({ admin, setAdmin }) {
     setSaving(true);
 
     try {
-      await adminClient.post('/admin/change-password', passwordData);
+      console.log('Changing password...');
+      const response = await adminClient.post('/admin/change-password', passwordData);
+      console.log('Password change response:', response.data);
       toast.success('Password changed successfully');
       setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
     } catch (error) {
+      console.error('Password change error:', error);
       toast.error(error.response?.data?.detail || 'Failed to change password');
     } finally {
       setSaving(false);
@@ -126,7 +160,9 @@ export default function AdminSettings({ admin, setAdmin }) {
     setSaving(true);
 
     try {
+      console.log('Changing username:', usernameData);
       const response = await adminClient.post('/admin/change-username', usernameData);
+      console.log('Username change response:', response.data);
       
       // Update local storage with new token and username
       localStorage.setItem('adminToken', response.data.token);
@@ -138,6 +174,7 @@ export default function AdminSettings({ admin, setAdmin }) {
       toast.success('Username changed successfully');
       setUsernameData({ current_password: '', new_username: '' });
     } catch (error) {
+      console.error('Username change error:', error);
       toast.error(error.response?.data?.detail || 'Failed to change username');
     } finally {
       setSaving(false);
@@ -149,9 +186,15 @@ export default function AdminSettings({ admin, setAdmin }) {
     setSaving(true);
 
     try {
-      await adminClient.put('/admin/settings/store', storeSettings);
+      console.log('Updating store settings:', storeSettings);
+      const response = await adminClient.put('/settings/store', storeSettings);
+      console.log('Store settings update response:', response.data);
       toast.success('Store settings updated successfully');
+      
+      // Refresh data to show updated values
+      fetchData();
     } catch (error) {
+      console.error('Store settings update error:', error);
       toast.error(error.response?.data?.detail || 'Failed to update store settings');
     } finally {
       setSaving(false);
@@ -491,8 +534,8 @@ export default function AdminSettings({ admin, setAdmin }) {
                       id="store-logo"
                       data-testid="store-logo-input"
                       placeholder="https://example.com/logo.png"
-                      value={storeSettings.store_logo_url}
-                      onChange={(e) => setStoreSettings({ ...storeSettings, store_logo_url: e.target.value })}
+                      value={storeSettings.logo_url}
+                      onChange={(e) => setStoreSettings({ ...storeSettings, logo_url: e.target.value })}
                     />
                   </div>
                   <div>

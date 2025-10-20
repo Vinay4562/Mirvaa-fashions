@@ -1,3 +1,22 @@
+// Auto-detect backend URL based on environment
+const getBackendUrl = () => {
+  // If explicitly set via environment variable, use that
+  if (process.env.REACT_APP_BACKEND_URL) {
+    return process.env.REACT_APP_BACKEND_URL;
+  }
+  
+  // Auto-detect based on current hostname
+  const hostname = window.location.hostname;
+  
+  // Production frontend should use production backend
+  if (hostname === 'mirvaa-fashions.vercel.app' || hostname.includes('vercel.app')) {
+    return 'https://mirvaa-backend.onrender.com';
+  }
+  
+  // Development or localhost
+  return 'http://localhost:8000';
+};
+
 /**
  * Helper function to get the full image URL
  * @param {string} imagePath - The relative or absolute image path
@@ -15,18 +34,18 @@ export const getImageUrl = (imagePath) => {
 
   // If it starts with /uploads, it's a relative path from the backend
   if (imagePath.startsWith('/uploads/')) {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = getBackendUrl();
     return `${backendUrl}${imagePath}`;
   }
 
   // If it's just a filename, assume it's in uploads
   if (!imagePath.startsWith('/')) {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = getBackendUrl();
     return `${backendUrl}/uploads/${imagePath}`;
   }
 
   // For any other relative paths, prepend backend URL
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+  const backendUrl = getBackendUrl();
   return `${backendUrl}${imagePath}`;
 };
 

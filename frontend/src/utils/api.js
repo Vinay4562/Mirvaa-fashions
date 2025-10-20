@@ -1,7 +1,28 @@
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+// Auto-detect backend URL based on environment
+const getBackendUrl = () => {
+  // If explicitly set via environment variable, use that
+  if (process.env.REACT_APP_BACKEND_URL) {
+    return process.env.REACT_APP_BACKEND_URL;
+  }
+  
+  // Auto-detect based on current hostname
+  const hostname = window.location.hostname;
+  
+  // Production frontend should use production backend
+  if (hostname === 'mirvaa-fashions.vercel.app' || hostname.includes('vercel.app')) {
+    return 'https://mirvaa-backend.onrender.com';
+  }
+  
+  // Development or localhost
+  return 'http://localhost:8000';
+};
+
+const BACKEND_URL = getBackendUrl();
 const API = `${BACKEND_URL}/api`;
+
+console.log('Using backend URL:', BACKEND_URL);
 
 // Create axios instance with auth
 const apiClient = axios.create({

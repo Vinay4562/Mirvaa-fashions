@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 import os
 import logging
 from pathlib import Path
@@ -81,13 +82,13 @@ JWT_EXPIRATION_DAYS = int(os.environ.get('JWT_EXPIRATION_DAYS', '7'))
 app = FastAPI()
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,https://mirvaa-fashions.vercel.app').split(',')
 print(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
 # Add CORS middleware with expanded configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins temporarily for debugging
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -124,6 +125,10 @@ async def health():
         return {"ok": True, "db": "connected"}
     except Exception as e:
         return {"ok": False, "db": "error", "error": str(e)}
+
+@api_router.get("/")
+async def root():
+    return {"message": "Mirvaa Backend API is running", "version": "1.0.0"}
 
 
 # ==================== Models ====================
@@ -291,12 +296,7 @@ class ReturnRequestCreate(BaseModel):
     product_id: str
     reason: str
 
-# Admin Profile Models
-class AdminProfile(BaseModel):
-    name: str
-    email: EmailStr
-    phone: Optional[str] = None
-    address: Optional[str] = None
+# Admin Profile Models (moved to avoid duplication)
 
 class AdminPasswordChange(BaseModel):
     current_password: str
@@ -1010,15 +1010,6 @@ class AuditLogEntry(BaseModel):
     details: Dict[str, Any] = {}
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-@api_router.post("/admin/audit-log", status_code=201)
-async def create_audit_log(
-    log_entry: AuditLogEntry,
-    admin: dict = Depends(get_current_admin)
-):
-    """Create an audit log entry for admin actions"""
-    log_entry.admin_id = admin["id"]
-    await db.audit_logs.insert_one(log_entry.dict())
-    return {"status": "success"}
 
 # Store settings model
 class StoreSettings(BaseModel):
@@ -1052,6 +1043,10 @@ async def get_store_settings(admin: dict = Depends(get_current_admin)):
         )
         await db.settings.insert_one({"type": "store", **default_settings.dict()})
         return default_settings.dict()
+    
+    # Remove the type field and return clean settings
+    settings.pop('type', None)
+    settings.pop('_id', None)
     return settings
 
 @api_router.put("/settings/store")
@@ -1062,10 +1057,10 @@ async def update_store_settings(
     """Update store settings"""
     # Create audit log
     await create_audit_log(
-        AuditLogEntry(
-            action="update_store_settings",
-            details={"settings": settings.dict()}
-        )
+        admin["id"],
+        admin.get("username", "admin"),
+        "update_store_settings",
+        f"Store settings updated: {settings.dict()}"
     )
     
     result = await db.settings.update_one(
@@ -1075,25 +1070,28 @@ async def update_store_settings(
     )
     return {"status": "success", "updated": result.modified_count > 0}
 
-# Admin profile model
+# Admin profile model (updated to match frontend)
 class AdminProfile(BaseModel):
     name: str
     email: EmailStr
-    phone: str
-    address: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
 
 @api_router.get("/admin/profile")
 async def get_admin_profile(admin: dict = Depends(get_current_admin)):
     """Get admin profile"""
-    admin_data = await db.admins.find_one({"_id": ObjectId(admin["id"])})
+    admin_data = await db.admins.find_one({"id": admin["id"]})
     if not admin_data:
         raise HTTPException(status_code=404, detail="Admin not found")
     
     return {
+        "id": admin_data.get("id", ""),
+        "username": admin_data.get("username", ""),
         "name": admin_data.get("name", ""),
         "email": admin_data.get("email", ""),
         "phone": admin_data.get("phone", ""),
-        "address": admin_data.get("address", "")
+        "address": admin_data.get("address", ""),
+        "role": admin_data.get("role", "")
     }
 
 @api_router.put("/admin/profile")
@@ -1104,14 +1102,14 @@ async def update_admin_profile(
     """Update admin profile"""
     # Create audit log
     await create_audit_log(
-        AuditLogEntry(
-            action="update_admin_profile",
-            details={"profile": profile.dict()}
-        )
+        admin["id"],
+        admin.get("username", "admin"),
+        "update_admin_profile",
+        f"Admin profile updated: {profile.dict()}"
     )
     
     result = await db.admins.update_one(
-        {"_id": ObjectId(admin["id"])},
+        {"id": admin["id"]},
         {"$set": profile.dict()}
     )
     
@@ -1125,14 +1123,14 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str
 
-@api_router.put("/admin/change-password")
+@api_router.post("/admin/change-password")
 async def change_admin_password(
     password_data: PasswordChange,
     admin: dict = Depends(get_current_admin)
 ):
     """Change admin password"""
     # Verify current password
-    admin_data = await db.admins.find_one({"_id": ObjectId(admin["id"])})
+    admin_data = await db.admins.find_one({"id": admin["id"]})
     if not admin_data:
         raise HTTPException(status_code=404, detail="Admin not found")
     
@@ -1140,19 +1138,19 @@ async def change_admin_password(
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     
     # Hash new password
-    hashed_password = get_password_hash(password_data.new_password)
+    hashed_password = hash_password(password_data.new_password)
     
     # Create audit log
     await create_audit_log(
-        AuditLogEntry(
-            action="change_password",
-            details={"admin_id": str(admin_data["_id"])}
-        )
+        admin["id"],
+        admin.get("username", "admin"),
+        "change_password",
+        "Admin password changed"
     )
     
     # Update password
     await db.admins.update_one(
-        {"_id": ObjectId(admin["id"])},
+        {"id": admin["id"]},
         {"$set": {"password": hashed_password}}
     )
     
@@ -1163,14 +1161,14 @@ class UsernameChange(BaseModel):
     current_password: str
     new_username: str
 
-@api_router.put("/admin/change-username")
+@api_router.post("/admin/change-username")
 async def change_admin_username(
     username_data: UsernameChange,
     admin: dict = Depends(get_current_admin)
 ):
     """Change admin username"""
     # Verify current password
-    admin_data = await db.admins.find_one({"_id": ObjectId(admin["id"])})
+    admin_data = await db.admins.find_one({"id": admin["id"]})
     if not admin_data:
         raise HTTPException(status_code=404, detail="Admin not found")
     
@@ -1179,24 +1177,27 @@ async def change_admin_username(
     
     # Check if username already exists
     existing = await db.admins.find_one({"username": username_data.new_username})
-    if existing and str(existing["_id"]) != admin["id"]:
+    if existing and existing["id"] != admin["id"]:
         raise HTTPException(status_code=400, detail="Username already exists")
     
     # Create audit log
     await create_audit_log(
-        AuditLogEntry(
-            action="change_username",
-            details={"admin_id": str(admin_data["_id"]), "old_username": admin_data["username"]}
-        )
+        admin["id"],
+        admin_data["username"],
+        "change_username",
+        f"Username changed from {admin_data['username']} to {username_data.new_username}"
     )
     
     # Update username
     await db.admins.update_one(
-        {"_id": ObjectId(admin["id"])},
+        {"id": admin["id"]},
         {"$set": {"username": username_data.new_username}}
     )
     
-    return {"status": "success"}
+    # Generate new token with updated username
+    new_token = create_token(admin["id"], username_data.new_username)
+    
+    return {"status": "success", "token": new_token, "username": username_data.new_username}
 
 @api_router.get("/admin/orders")
 async def get_all_orders(admin: Dict = Depends(get_current_admin)):
@@ -1436,144 +1437,12 @@ async def create_audit_log(admin_id: str, admin_username: str, action: str, deta
     log_dict['created_at'] = log_dict['created_at'].isoformat()
     await db.audit_logs.insert_one(log_dict)
 
-@api_router.get("/admin/profile")
-async def get_admin_profile(admin: Dict = Depends(get_current_admin)):
-    return {
-        "id": admin['id'],
-        "username": admin['username'],
-        "name": admin.get('name', ''),
-        "email": admin.get('email', ''),
-        "phone": admin.get('phone', ''),
-        "address": admin.get('address', ''),
-        "role": admin['role']
-    }
-
-@api_router.put("/admin/profile")
-async def update_admin_profile(profile_data: AdminProfile, admin: Dict = Depends(get_current_admin)):
-    await db.admins.update_one(
-        {"id": admin['id']},
-        {
-            "$set": {
-                "name": profile_data.name,
-                "email": profile_data.email,
-                "phone": profile_data.phone,
-                "address": profile_data.address
-            }
-        }
-    )
-    
-    await create_audit_log(admin['id'], admin['username'], "profile_update", "Admin profile updated")
     
     return {"message": "Profile updated successfully"}
 
-@api_router.post("/admin/change-password")
-async def change_admin_password(
-    password_data: AdminPasswordChange,
-    admin: Dict = Depends(get_current_admin),
-    request: Request = None
-):
-    # Verify current password
-    admin_doc = await db.admins.find_one({"id": admin['id']})
-    if not verify_password(password_data.current_password, admin_doc['password']):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
-    
-    # Validate new password
-    if password_data.new_password != password_data.confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-    
-    if len(password_data.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
-    
-    # Update password
-    new_hashed = hash_password(password_data.new_password)
-    await db.admins.update_one(
-        {"id": admin['id']},
-        {"$set": {"password": new_hashed}}
-    )
-    
-    # Create audit log
-    ip_address = request.client.host if request else None
-    await create_audit_log(admin['id'], admin['username'], "password_change", "Admin password changed", ip_address)
-    
-    return {"message": "Password changed successfully"}
-
-@api_router.post("/admin/change-username")
-async def change_admin_username(
-    username_data: AdminUsernameChange,
-    admin: Dict = Depends(get_current_admin),
-    request: Request = None
-):
-    # Verify current password
-    admin_doc = await db.admins.find_one({"id": admin['id']})
-    if not verify_password(username_data.current_password, admin_doc['password']):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
-    
-    # Check if new username already exists
-    existing = await db.admins.find_one({"username": username_data.new_username})
-    if existing and existing['id'] != admin['id']:
-        raise HTTPException(status_code=400, detail="Username already taken")
-    
-    old_username = admin['username']
-    
-    # Update username
-    await db.admins.update_one(
-        {"id": admin['id']},
-        {"$set": {"username": username_data.new_username}}
-    )
-    
-    # Create audit log
-    ip_address = request.client.host if request else None
-    await create_audit_log(
-        admin['id'],
-        username_data.new_username,
-        "username_change",
-        f"Username changed from {old_username} to {username_data.new_username}",
-        ip_address
-    )
-    
-    # Generate new token
-    token = create_token(admin['id'], username_data.new_username)
-    
-    return {
-        "message": "Username changed successfully",
-        "token": token,
-        "username": username_data.new_username
-    }
 
 # ==================== Store Settings Routes ====================
 
-@api_router.get("/settings/store")
-async def get_store_settings():
-    settings = await db.store_settings.find_one({}, {"_id": 0})
-    
-    if not settings:
-        # Create default settings
-        default_settings = StoreSettings()
-        settings_dict = default_settings.model_dump()
-        settings_dict['updated_at'] = settings_dict['updated_at'].isoformat()
-        await db.store_settings.insert_one(settings_dict)
-        return default_settings.model_dump()
-    
-    if isinstance(settings.get('updated_at'), str):
-        settings['updated_at'] = datetime.fromisoformat(settings['updated_at'])
-    
-    return settings
-
-@api_router.put("/admin/settings/store")
-async def update_store_settings(
-    settings_data: StoreSettingsUpdate,
-    admin: Dict = Depends(get_current_admin)
-):
-    update_dict = {k: v for k, v in settings_data.model_dump().items() if v is not None}
-    update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
-    
-    await db.store_settings.update_one(
-        {},
-        {"$set": update_dict},
-        upsert=True
-    )
-    
-    await create_audit_log(admin['id'], admin['username'], "store_settings_update", "Store settings updated")
     
     updated_settings = await db.store_settings.find_one({}, {"_id": 0})
     return updated_settings
