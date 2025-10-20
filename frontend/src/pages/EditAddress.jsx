@@ -75,15 +75,13 @@ export default function EditAddress({ user, setUser }) {
       addresses[addressIndex] = formData;
       
       // Update user profile with updated addresses
-      const response = await apiClient.put('/users/addresses', {
-        addresses: addresses
-      });
+      const response = await apiClient.put('/users/addresses', addresses);
       
-      // Update local user state
-      setUser(response.data);
+      const updatedUserFromApi = response.data?.user || response.data;
+      setUser(updatedUserFromApi);
       
       // Update localStorage
-      localStorage.setItem('user', JSON.stringify(response.data));
+      localStorage.setItem('user', JSON.stringify(updatedUserFromApi));
       
       toast.success('Address updated successfully');
       navigate('/account');

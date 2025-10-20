@@ -249,7 +249,24 @@ export default function Account({ user, setUser }) {
                             <Button variant="outline" size="sm" onClick={() => navigate(`/account/edit-address/${index}`)}>
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-500 hover:text-red-700"
+                              onClick={async () => {
+                                try {
+                                  const newAddresses = (user.addresses || []).filter((_, i) => i !== index);
+                                  const resp = await apiClient.put('/users/addresses', newAddresses);
+                                  const updatedUserFromApi = resp.data?.user || resp.data;
+                                  setUser(updatedUserFromApi);
+                                  localStorage.setItem('user', JSON.stringify(updatedUserFromApi));
+                                  toast.success('Address deleted');
+                                } catch (err) {
+                                  console.error('Delete address failed', err);
+                                  toast.error('Failed to delete address');
+                                }
+                              }}
+                            >
                               Delete
                             </Button>
                           </div>

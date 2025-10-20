@@ -92,15 +92,14 @@ export default function AddAddress({ user, setUser }) {
       
       try {
         // Update user profile with new address
-        const response = await apiClient.put('/users/addresses', {
-          addresses: updatedAddresses
-        });
+        const response = await apiClient.put('/users/addresses', updatedAddresses);
         
-        // Update local user state
-        setUser(response.data);
+        // Update local user state (API returns { message, user })
+        const updatedUserFromApi = response.data?.user || response.data;
+        setUser(updatedUserFromApi);
         
         // Update localStorage
-        localStorage.setItem('user', JSON.stringify(response.data));
+        localStorage.setItem('user', JSON.stringify(updatedUserFromApi));
         
         toast.success('Address added successfully');
       } catch (apiError) {

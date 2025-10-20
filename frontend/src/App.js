@@ -27,17 +27,31 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import AdminCMS from "./pages/admin/AdminCMS";
 import AnalyticsDashboard from "./pages/admin/analytics/AnalyticsDashboard";
 import { Toaster } from "@/components/ui/sonner";
+import { apiClient } from "@/utils/api";
 
 function App() {
   const [user, setUser] = useState(null);
   const [admin, setAdmin] = useState(null);
 
   useEffect(() => {
-    // Check for stored auth
+    // Check for stored auth and refresh user from backend
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
-    if (token && userData) {
-      setUser(JSON.parse(userData));
+    if (token) {
+      // Seed from localStorage first for fast paint
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+      // Then fetch authoritative user (with latest addresses) from API
+      apiClient
+        .get('/auth/me')
+        .then((res) => {
+          setUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
+        })
+        .catch(() => {
+          // ignore; fallback to local storage user
+        });
     }
 
     const adminToken = localStorage.getItem('adminToken');
