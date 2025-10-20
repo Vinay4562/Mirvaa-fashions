@@ -37,7 +37,7 @@ export default function Home({ user, setUser }) {
       const [categoriesRes, featuredRes, newRes] = await Promise.all([
         axios.get(`${API}/categories`).catch(() => ({ data: [] })),
         axios.get(`${API}/products/featured`).catch(() => ({ data: [] })),
-        axios.get(`${API}/products?sort=newest&limit=8`).catch(() => ({ data: [] })),
+        axios.get(`${API}/products?sort=newest&limit=16`).catch(() => ({ data: [] })),
       ]);
 
       setCategories(categoriesRes.data || []);
@@ -195,45 +195,89 @@ export default function Home({ user, setUser }) {
           </div>
 
           {featuredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredProducts.map((product) => (
-                <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
-                  <Link to={`/products/${product.id}`}>
-                    <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                      <img
-                        src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                        alt={product.title}
-                        className="w-full h-full object-cover image-zoom"
-                      />
-                    </div>
-                  </Link>
-                  <CardContent className="p-4">
+            <>
+              {/* Mobile 2x2 grid */}
+              <div className="md:hidden grid grid-cols-2 gap-3">
+                {featuredProducts.slice(0, 4).map((product) => (
+                  <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
                     <Link to={`/products/${product.id}`}>
-                      <h3 className="font-semibold text-lg mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                        {product.title}
-                      </h3>
-                    </Link>
-                    <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl font-bold">₹{product.price.toLocaleString()}</span>
-                      {product.mrp > product.price && (
-                        <>
-                          <span className="text-sm text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
-                          <span className="text-sm text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                        </>
-                      )}
-                    </div>
-                    {product.rating > 0 && (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">{product.rating}</span>
-                        <span className="text-gray-500">({product.reviews_count})</span>
+                      <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
+                        <img
+                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                          alt={product.title}
+                          className="w-full h-full object-cover image-zoom"
+                        />
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </Link>
+                    <CardContent className="p-2">
+                      <Link to={`/products/${product.id}`}>
+                        <h3 className="font-semibold text-xs mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
+                          {product.title}
+                        </h3>
+                      </Link>
+                      <p className="text-[10px] text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
+                      <div className="flex items-center gap-1 mb-2">
+                        <span className="text-sm font-bold">₹{product.price.toLocaleString()}</span>
+                        {product.mrp > product.price && (
+                          <>
+                            <span className="text-[10px] text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
+                            <span className="text-[10px] text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
+                          </>
+                        )}
+                      </div>
+                      {product.rating > 0 && (
+                        <div className="flex items-center gap-1 text-[10px]">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium">{product.rating}</span>
+                          <span className="text-gray-500">({product.reviews_count})</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop/Tablet grid */}
+              <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-6">
+                {featuredProducts.map((product) => (
+                  <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
+                    <Link to={`/products/${product.id}`}>
+                      <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
+                        <img
+                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                          alt={product.title}
+                          className="w-full h-full object-cover image-zoom"
+                        />
+                      </div>
+                    </Link>
+                    <CardContent className="p-4">
+                      <Link to={`/products/${product.id}`}>
+                        <h3 className="font-semibold text-lg mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
+                          {product.title}
+                        </h3>
+                      </Link>
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl font-bold">₹{product.price.toLocaleString()}</span>
+                        {product.mrp > product.price && (
+                          <>
+                            <span className="text-sm text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
+                            <span className="text-sm text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
+                          </>
+                        )}
+                      </div>
+                      {product.rating > 0 && (
+                        <div className="flex items-center gap-1 text-sm">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium">{product.rating}</span>
+                          <span className="text-gray-500">({product.reviews_count})</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="text-center py-12 text-gray-500">
               <p>No featured products available</p>
@@ -255,41 +299,76 @@ export default function Home({ user, setUser }) {
           </div>
 
           {newArrivals.length > 0 && (
-            <Carousel className="w-full">
-              <CarouselContent className="-ml-4">
-                {newArrivals.map((product) => (
-                  <CarouselItem key={product.id} className="pl-4 md:basis-1/2 lg:basis-1/4">
-                    <Card className="group overflow-hidden card-hover border-0 shadow-lg">
+            <>
+              {/* Mobile 2x2 grid */}
+              <div className="md:hidden grid grid-cols-2 gap-3">
+                {newArrivals.slice(0, 4).map((product) => (
+                  <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg">
+                    <Link to={`/products/${product.id}`}>
+                      <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
+                        <img
+                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                          alt={product.title}
+                          className="w-full h-full object-cover image-zoom"
+                        />
+                      </div>
+                    </Link>
+                    <CardContent className="p-2">
                       <Link to={`/products/${product.id}`}>
-                        <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                          <img
-                            src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                            alt={product.title}
-                            className="w-full h-full object-cover image-zoom"
-                          />
-                        </div>
+                        <h3 className="font-semibold text-xs mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                          {product.title}
+                        </h3>
                       </Link>
-                      <CardContent className="p-4">
-                        <Link to={`/products/${product.id}`}>
-                          <h3 className="font-semibold mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                            {product.title}
-                          </h3>
-                        </Link>
-                        <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.category}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
-                          {product.mrp > product.price && (
-                            <span className="text-xs text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </CarouselItem>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-bold">₹{product.price.toLocaleString()}</span>
+                        {product.mrp > product.price && (
+                          <span className="text-[10px] text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
+              </div>
+
+              {/* Desktop/Tablet: carousel */}
+              <div className="hidden md:block">
+                <Carousel className="w-full">
+                  <CarouselContent className="-ml-4">
+                    {newArrivals.map((product) => (
+                      <CarouselItem key={product.id} className="pl-4 md:basis-1/2 lg:basis-1/4">
+                        <Card className="group overflow-hidden card-hover border-0 shadow-lg">
+                          <Link to={`/products/${product.id}`}>
+                            <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
+                              <img
+                                src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                                alt={product.title}
+                                className="w-full h-full object-cover image-zoom"
+                              />
+                            </div>
+                          </Link>
+                          <CardContent className="p-4">
+                            <Link to={`/products/${product.id}`}>
+                              <h3 className="font-semibold mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
+                                {product.title}
+                              </h3>
+                            </Link>
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.category}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
+                              {product.mrp > product.price && (
+                                <span className="text-xs text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
+              </div>
+            </>
           )}
         </div>
       </section>
