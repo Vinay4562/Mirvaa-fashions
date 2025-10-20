@@ -7,12 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { apiClient } from '@/utils/api';
+import axios from 'axios';
+import { API, apiClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Account({ user, setUser }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [productImageById, setProductImageById] = useState({});
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -33,9 +36,35 @@ export default function Account({ user, setUser }) {
         apiClient.get('/wishlist'),
       ]);
       setOrders(ordersRes.data);
+      // Prefetch product images for orders that are missing product_image
+      const allItems = ordersRes.data.flatMap((o) => o.items || []);
+      const missingIds = Array.from(new Set(
+        allItems
+          .filter((it) => !it.product_image && it.product_id)
+          .map((it) => it.product_id)
+      ));
+      if (missingIds.length > 0) {
+        try {
+          const responses = await Promise.all(
+            missingIds.map((id) => axios.get(`${API}/products/${id}`).catch(() => null))
+          );
+          const map = {};
+          responses.forEach((res, idx) => {
+            if (res && res.data) {
+              const firstImage = (res.data.images && res.data.images[0]) ? res.data.images[0] : '';
+              map[missingIds[idx]] = firstImage;
+            }
+          });
+          if (Object.keys(map).length > 0) setProductImageById(map);
+        } catch {}
+      }
       setCartCount(cartRes.data.length);
       setWishlistCount(wishlistRes.data.length);
     } catch (error) {
+      if (error?.response?.status === 401) {
+        navigate('/');
+        return;
+      }
       console.error('Error fetching data:', error);
       toast.error('Failed to load account data');
     } finally {
@@ -108,7 +137,7 @@ export default function Account({ user, setUser }) {
                         {order.items.slice(0, 4).map((item, idx) => (
                           <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                             <img
-                              src={item.product_image || 'https://via.placeholder.com/100'}
+                              src={getImageUrl(productImageById[item.product_id] || item.product_image || 'https://via.placeholder.com/100')}
                               alt={item.product_title}
                               className="w-full h-full object-cover"
                             />

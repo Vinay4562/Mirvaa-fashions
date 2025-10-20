@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { adminClient } from '@/utils/api';
+import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function AdminOrders({ admin, setAdmin }) {
@@ -121,7 +122,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                         {order.items.slice(0, 3).map((item, idx) => (
                           <div key={idx} className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
                             <img
-                              src={item.product_image || 'https://via.placeholder.com/100'}
+                              src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
                               alt={item.product_title}
                               className="w-full h-full object-cover"
                             />

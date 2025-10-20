@@ -28,6 +28,10 @@ export default function Wishlist({ user, setUser }) {
       const response = await apiClient.get('/wishlist');
       setWishlistItems(response.data);
     } catch (error) {
+      if (error?.response?.status === 401) {
+        navigate('/');
+        return;
+      }
       console.error('Error fetching wishlist:', error);
       toast.error('Failed to load wishlist');
     } finally {
@@ -40,6 +44,7 @@ export default function Wishlist({ user, setUser }) {
       const response = await apiClient.get('/cart');
       setCartCount(response.data.length);
     } catch (error) {
+      if (error?.response?.status === 401) return;
       console.error('Error fetching cart:', error);
     }
   };

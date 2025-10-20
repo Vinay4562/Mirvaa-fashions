@@ -290,10 +290,10 @@ export default function ProductDetail({ user, setUser }) {
               </div>
             </div>
 
-            {/* Stock Status */}
+            {/* Stock Status - Only showing if in stock or not */}
             {product.stock > 0 ? (
               <Badge variant="outline" className="text-green-600 border-green-600" data-testid="stock-status">
-                In Stock ({product.stock} available)
+                In Stock
               </Badge>
             ) : (
               <Badge variant="outline" className="text-red-600 border-red-600" data-testid="stock-status">

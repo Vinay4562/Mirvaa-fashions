@@ -30,6 +30,11 @@ export default function Cart({ user, setUser }) {
       const response = await apiClient.get('/cart');
       setCartItems(response.data);
     } catch (error) {
+      if (error?.response?.status === 401) {
+        // Redirect to home if unauthenticated
+        navigate('/');
+        return;
+      }
       console.error('Error fetching cart:', error);
       toast.error('Failed to load cart');
     } finally {
@@ -42,6 +47,7 @@ export default function Cart({ user, setUser }) {
       const response = await apiClient.get('/wishlist');
       setWishlistCount(response.data.length);
     } catch (error) {
+      if (error?.response?.status === 401) return;
       console.error('Error fetching wishlist:', error);
     }
   };

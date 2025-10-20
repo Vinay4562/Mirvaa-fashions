@@ -184,7 +184,8 @@ export default function EditAddress({ user, setUser }) {
               <div>
                 <Label>Address Type</Label>
                 <RadioGroup 
-                  value={formData.type} 
+                  value={formData.type || 'home'} 
+                  defaultValue="home"
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
                   className="flex gap-4 mt-2"
                 >

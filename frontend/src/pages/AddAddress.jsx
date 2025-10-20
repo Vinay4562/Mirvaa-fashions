@@ -21,6 +21,14 @@ export default function AddAddress({ user, setUser }) {
     pincode: '',
     type: 'home'
   });
+  
+  // Add defaultValue to prevent uncontrolled to controlled component warnings
+  useEffect(() => {
+    if (user?.addresses?.length > 0) {
+      // Optionally pre-fill with user's existing address data if editing
+      // This helps prevent uncontrolled to controlled component issues
+    }
+  }, [user]);
   const [loading, setLoading] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -211,7 +219,8 @@ export default function AddAddress({ user, setUser }) {
               <div>
                 <Label>Address Type</Label>
                 <RadioGroup 
-                  value={formData.type} 
+                  value={formData.type || 'home'} 
+                  defaultValue="home"
                   onValueChange={(value) => setFormData({ ...formData, type: value })}
                   className="flex gap-4 mt-2"
                 >

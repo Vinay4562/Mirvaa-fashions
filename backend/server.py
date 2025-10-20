@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,8 +27,10 @@ except Exception as e:
     # Continue execution even if .env file is missing or has encoding issues
 
 # MongoDB connection
-mongo_url = os.environ.get('MONGO_URL', 'mongodb+srv://vkvinaykumar391:PBripjgsBotYLRsf@cluster0.uk8dvnt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
-print(f"Using MongoDB URL: {mongo_url}")
+mongo_url = os.environ.get('MONGO_URL')
+if not mongo_url:
+    raise RuntimeError("MONGO_URL is not set. Please define it in backend/.env")
+print("Using MongoDB URL from environment")
 
 try:
     client = AsyncIOMotorClient(mongo_url)
@@ -393,7 +395,7 @@ async def register(user_data: UserRegister):
     return TokenResponse(token=token, user=user)
 
 @api_router.put("/users/addresses")
-async def update_user_addresses(addresses: List[Dict[str, Any]], current_user: Dict = Depends(get_current_user)):
+async def update_user_addresses(addresses: List[Dict[str, Any]] = Body(...), current_user: Dict = Depends(get_current_user)):
     result = await db.users.update_one(
         {"id": current_user['id']},
         {"$set": {"addresses": addresses}}
@@ -1140,6 +1142,12 @@ async def update_order_status(
     status: str,
     admin: Dict = Depends(get_current_admin)
 ):
+    # Get the order first to check if status is changing to "shipped"
+    order = await db.orders.find_one({"id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Update order status
     result = await db.orders.update_one(
         {"id": order_id},
         {
@@ -1150,8 +1158,31 @@ async def update_order_status(
         }
     )
     
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Order not found")
+    # If status is changed to "shipped", update product stock and sold_count
+    if status == "shipped" and order["status"] != "shipped":
+        for item in order["items"]:
+            product_id = item["product_id"]
+            quantity = item["quantity"]
+            
+            # Get current product data
+            product = await db.products.find_one({"id": product_id})
+            if product:
+                # Update product stock and sold_count
+                current_sold_count = product.get('sold_count', 0)
+                new_sold_count = current_sold_count + quantity
+                
+                await db.products.update_one(
+                    {"id": product_id},
+                    {
+                        "$inc": {
+                            "stock": -quantity  # Decrease available stock
+                        },
+                        "$set": {
+                            "sold_count": new_sold_count  # Set the sold count explicitly
+                        }
+                    }
+                )
+                print(f"Stock updated for product {product_id}: new stock = {product['stock'] - quantity}, sold count = {new_sold_count}")
     
     return {"message": "Order status updated", "status": status}
 
@@ -1745,6 +1776,12 @@ async def get_orders_analytics(
             "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
         })
         
+        # Get shipped and delivered orders
+        shipped_orders = await db.orders.count_documents({
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
+            "status": "shipped"
+        })
+        
         completed_orders = await db.orders.count_documents({
             "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()},
             "status": "delivered"
@@ -1847,13 +1884,42 @@ async def get_orders_analytics(
             trend["period"] = trend["period"].strftime("%Y-%m-%d")
             trend["growth"] = 0  # Simplified - would need previous period data
         
+        # Get sold stock information
+        sold_stock_pipeline = [
+            {"$match": {
+                "status": {"$in": ["shipped", "delivered"]}
+            }},
+            {"$unwind": "$items"},
+            {"$group": {
+                "_id": "$items.product_id",
+                "sold_quantity": {"$sum": "$items.quantity"}
+            }},
+            {"$lookup": {
+                "from": "products",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "product"
+            }},
+            {"$unwind": "$product"},
+            {"$project": {
+                "product_id": "$_id",
+                "product_title": "$product.title",
+                "product_category": "$product.category",
+                "sold_quantity": 1,
+                "current_stock": "$product.stock"
+            }}
+        ]
+        sold_stock_data = await db.orders.aggregate(sold_stock_pipeline).to_list(100)
+        
         return {
             "recentOrders": recent_orders,
             "statusDistribution": status_distribution,
             "paymentMethodStats": payment_method_stats,
             "orderTrends": order_trends,
+            "soldStockData": sold_stock_data,
             "performanceMetrics": {
                 "totalOrders": total_orders,
+                "shippedOrders": shipped_orders,
                 "completedOrders": completed_orders,
                 "averageOrderValue": round(average_order_value, 2),
                 "cancellationRate": round(cancellation_rate, 2)

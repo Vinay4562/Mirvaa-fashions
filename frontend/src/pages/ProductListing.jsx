@@ -102,6 +102,7 @@ export default function ProductListing({ user, setUser }) {
       setCartCount(cartRes.data.length);
       setWishlistCount(wishlistRes.data.length);
     } catch (error) {
+      if (error?.response?.status === 401) return;
       console.error('Error fetching counts:', error);
     }
   };

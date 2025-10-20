@@ -19,6 +19,8 @@ export default function AdminProducts({ admin, setAdmin }) {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [categories, setCategories] = useState(['All', 'Sarees', 'T-Shirts', 'Shirts', 'Hoodies', 'Jewelry', 'Kids Wear', 'Ladies Dresses', 'Men\'s Wear']);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -203,9 +205,9 @@ export default function AdminProducts({ admin, setAdmin }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Admin Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-white shadow-lg sticky top-0 z-10 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Link to="/admin/dashboard">
@@ -213,11 +215,14 @@ export default function AdminProducts({ admin, setAdmin }) {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold gradient-text">Product Management</h1>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Product Management</h1>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
-            <Button onClick={handleLogout} variant="outline" className="btn-hover">
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              className="border-gray-300 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300">
               Logout
             </Button>
           </div>
@@ -234,15 +239,33 @@ export default function AdminProducts({ admin, setAdmin }) {
           </Button>
         </div>
 
+        {/* Category Filter */}
+        <div className="mb-6 overflow-x-auto">
+          <div className="flex space-x-2 pb-2">
+            {categories.map((category) => (
+              <Button
+                key={category}
+                variant={selectedCategory === category ? "default" : "outline"}
+                className={`whitespace-nowrap ${selectedCategory === category ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Products Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="admin-products-grid">
-          {products.map((product) => (
-            <Card key={product.id} className="overflow-hidden" data-testid={`admin-product-${product.id}`}>
+          {products
+            .filter(product => selectedCategory === 'All' || product.category === selectedCategory)
+            .map((product) => (
+            <Card key={product.id} className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-300" data-testid={`admin-product-${product.id}`}>
               <div className="aspect-[3/4] overflow-hidden bg-gray-100">
                 <img
                   src={getImageUrl(product.images[0])}
                   alt={product.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform hover:scale-105"
                 />
               </div>
               <CardContent className="p-4">
@@ -313,23 +336,21 @@ export default function AdminProducts({ admin, setAdmin }) {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="category">Category*</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger data-testid="product-category-select">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Sarees">Sarees</SelectItem>
-                    <SelectItem value="T-Shirts">T-Shirts</SelectItem>
-                    <SelectItem value="Shirts">Shirts</SelectItem>
-                    <SelectItem value="Hoodies">Hoodies</SelectItem>
-                    <SelectItem value="Jewelry">Jewelry</SelectItem>
-                    <SelectItem value="Ladies Dresses">Ladies Dresses</SelectItem>
-                    <SelectItem value="Kids Wear">Kids Wear</SelectItem>
-                    <SelectItem value="Men's Wear">Men's Wear</SelectItem>
-                  </SelectContent>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                required
+              >
+                <SelectTrigger id="category" data-testid="product-category-input">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.filter(cat => cat !== 'All').map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
                 </Select>
               </div>
               <div>

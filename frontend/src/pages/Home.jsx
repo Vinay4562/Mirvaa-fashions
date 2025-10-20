@@ -64,6 +64,10 @@ export default function Home({ user, setUser }) {
       setCartCount(cartRes.data.length);
       setWishlistCount(wishlistRes.data.length);
     } catch (error) {
+      if (error?.response?.status === 401) {
+        // Not logged in or token expired; keep counts at 0 without noise
+        return;
+      }
       console.error('Error fetching counts:', error);
     }
   };

@@ -61,6 +61,11 @@
     -->
 <!-- Emergent badge removed -->
         <script>
+            // Disable PostHog in local development to avoid CORS errors
+            if (
+                window.location.hostname !== 'localhost' &&
+                window.location.hostname !== '127.0.0.1'
+            ) {
             !(function (t, e) {
                 var o, n, p, r;
                 e.__SV ||
@@ -126,6 +131,7 @@
                 api_host: "https://us.i.posthog.com",
                 person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well
             });
+            }
         </script>
     </body>
 </html>

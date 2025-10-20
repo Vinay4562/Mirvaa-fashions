@@ -5,9 +5,9 @@ export default function Footer() {
   return (
     <footer className="bg-white border-t border-gray-200 mt-20">
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="flex flex-wrap justify-between gap-8">
           {/* Brand */}
-          <div>
+          <div className="flex-1 min-w-[200px]">
             <h3 className="text-2xl font-bold gradient-text mb-4">Mirvaa</h3>
             <p className="text-gray-600 text-sm mb-4">
               Your trusted destination for quality fashion. From traditional sarees to modern streetwear.
@@ -29,7 +29,7 @@ export default function Footer() {
           </div>
 
           {/* Shop */}
-          <div>
+          <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Shop</h4>
             <ul className="space-y-2 text-sm">
               <li><Link to="/products?category=sarees" className="text-gray-600 hover:text-blue-600 transition-colors">Sarees</Link></li>
@@ -38,9 +38,19 @@ export default function Footer() {
               <li><Link to="/products?category=jewelry" className="text-gray-600 hover:text-blue-600 transition-colors">Jewelry</Link></li>
             </ul>
           </div>
+          
+          {/* Legal */}
+          <div className="flex-1 min-w-[120px]">
+            <h4 className="font-semibold text-gray-900 mb-4">Legal</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link to="/privacy-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Return Policy</Link></li>
+              <li><Link to="/terms-and-conditions" className="text-gray-600 hover:text-blue-600 transition-colors">Terms & Conditions</Link></li>
+            </ul>
+          </div>
 
           {/* Customer Service */}
-          <div>
+          <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Customer Service</h4>
             <ul className="space-y-2 text-sm">
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Contact Us</a></li>
@@ -52,23 +62,13 @@ export default function Footer() {
           </div>
 
           {/* Company */}
-          <div>
+          <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Company</h4>
             <ul className="space-y-2 text-sm">
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">About Us</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Careers</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Blog</a></li>
               <li><a href="#" className="text-gray-600 hover:text-blue-600 transition-colors">Press</a></li>
-            </ul>
-          </div>
-
-          {/* Legal */}
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-4">Legal</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link to="/privacy-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/return-policy" className="text-gray-600 hover:text-blue-600 transition-colors">Return Policy</Link></li>
-              <li><Link to="/terms-and-conditions" className="text-gray-600 hover:text-blue-600 transition-colors">Terms & Conditions</Link></li>
             </ul>
           </div>
         </div>

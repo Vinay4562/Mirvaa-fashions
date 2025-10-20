@@ -36,16 +36,16 @@ export default function AdminDashboard({ admin, setAdmin }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Admin Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-white border-b border-gray-200 shadow-lg sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold gradient-text" data-testid="admin-dashboard-heading">
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-500" data-testid="admin-dashboard-heading">
             Mirvaa Admin
           </h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
-            <Button onClick={handleLogout} variant="outline" className="btn-hover" data-testid="admin-logout">
+            <span className="text-sm font-medium text-gray-700">Welcome, {admin.username}</span>
+            <Button onClick={handleLogout} variant="outline" className="hover:bg-blue-50 transition-colors border-blue-200" data-testid="admin-logout">
               Logout
             </Button>
           </div>
@@ -54,60 +54,80 @@ export default function AdminDashboard({ admin, setAdmin }) {
 
       {/* Admin Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <h2 className="text-3xl font-bold mb-8">Dashboard</h2>
+        <h2 className="text-3xl font-bold mb-8 text-gray-800">Dashboard</h2>
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Link to="/admin/analytics/products">
-            <Card className="card-hover cursor-pointer">
+            <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-                <Package className="h-5 w-5 text-blue-600" />
+                <div className="p-2 rounded-full bg-blue-50">
+                  <Package className="h-5 w-5 text-blue-600" />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{loading ? 'Loading...' : stats.products_count}</div>
-                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+                <p className="text-xs text-gray-600">
+                  Products in inventory
+                </p>
               </CardContent>
             </Card>
           </Link>
 
           <Link to="/admin/analytics/orders">
-            <Card className="card-hover cursor-pointer">
+            <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-green-400 to-green-600"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-                <ShoppingBag className="h-5 w-5 text-green-600" />
+                <div className="p-2 rounded-full bg-green-50">
+                  <ShoppingBag className="h-5 w-5 text-green-600" />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{loading ? 'Loading...' : stats.orders_count}</div>
-                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+                <p className="text-xs text-gray-600">
+                  Orders processed
+                </p>
               </CardContent>
             </Card>
           </Link>
 
           <Link to="/admin/analytics/users">
-            <Card className="card-hover cursor-pointer">
+            <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple-400 to-purple-600"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-5 w-5 text-purple-600" />
+                <div className="p-2 rounded-full bg-purple-50">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{loading ? 'Loading...' : stats.users_count}</div>
-                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+                <p className="text-xs text-gray-600">
+                  Registered customers
+                </p>
               </CardContent>
             </Card>
           </Link>
 
           <Link to="/admin/analytics/revenue">
-            <Card className="card-hover cursor-pointer">
+            <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-amber-600"></div>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                <TrendingUp className="h-5 w-5 text-orange-600" />
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <div className="p-2 rounded-full bg-amber-50">
+                  <TrendingUp className="h-5 w-5 text-amber-600" />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   {loading ? 'Loading...' : `₹${stats.total_revenue.toLocaleString()}`}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">Click for detailed analytics</p>
+                <p className="text-xs text-gray-600">
+                  Lifetime revenue
+                </p>
               </CardContent>
             </Card>
           </Link>

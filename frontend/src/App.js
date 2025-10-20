@@ -62,6 +62,7 @@ function App() {
           <Route path="/account/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/account/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/edit-address/:index" element={user ? <EditAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
+          <Route path="/account/edit-address/:index" element={user ? <EditAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/return-request/:orderId" element={user ? <ReturnRequest user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/legal/:page" element={<LegalPage user={user} setUser={setUser} />} />
           
