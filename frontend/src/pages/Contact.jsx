@@ -9,8 +9,8 @@ export default function Contact({ user, setUser }) {
         <h1 className="text-3xl font-bold mb-6">Contact Us</h1>
         <div className="space-y-4 text-gray-700 leading-7">
           <p>We’d love to hear from you. If you have any questions about your orders, returns, or our products, reach out to us through the details below.</p>
-          <p><strong>Email:</strong> support@mirvaa.com</p>
-          <p><strong>Phone:</strong> +91 98765 43210</p>
+          <p><strong>Email:</strong> mirvaafashions@gmail.com</p>
+          <p><strong>Phone:</strong> +91 9391243377</p>
           <p><strong>Working Hours:</strong> Monday to Saturday, 10 AM – 7 PM</p>
           <div>
             <p><strong>Address:</strong></p>
