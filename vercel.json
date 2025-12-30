@@ -24,6 +24,5 @@
         { "key": "Permissions-Policy", "value": "accelerometer=(), gyroscope=(), magnetometer=(), geolocation=(), microphone=(), camera=()" }
       ]
     }
-  ],
-  "installCommand": "npm install --legacy-peer-deps"
+  ]
 }
