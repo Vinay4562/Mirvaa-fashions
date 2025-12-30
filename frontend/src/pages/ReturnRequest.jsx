@@ -104,6 +104,16 @@ export default function ReturnRequest() {
     }
   };
 
+  const REASONS = [
+    "Damaged Product",
+    "Wrong Item Sent",
+    "Size Issue",
+    "Quality Issue",
+    "Defective",
+    "Item Missing",
+    "Other"
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -179,9 +189,17 @@ export default function ReturnRequest() {
   }
 
   // Check if return window is valid (3 days)
-  const orderDate = new Date(order.created_at);
+  const deliveryDate = order.delivered_at 
+    ? new Date(order.delivered_at) 
+    : (order.status === 'delivered' ? new Date(order.updated_at) : null);
+    
+  // If not delivered yet (and status is not delivered), return window is not applicable/not started
+  // But if we are here, we probably assume it is delivered or testing.
+  // If deliveryDate is null, we can fallback to created_at for safety or handle it.
+  const referenceDate = deliveryDate || new Date(order.created_at);
+  
   const currentDate = new Date();
-  const daysDifference = Math.floor((currentDate - orderDate) / (1000 * 60 * 60 * 24));
+  const daysDifference = Math.floor((currentDate - referenceDate) / (1000 * 60 * 60 * 24));
   const isReturnWindowValid = daysDifference <= 3;
 
   return (
@@ -205,7 +223,7 @@ export default function ReturnRequest() {
             {!isReturnWindowValid ? (
               <div className="bg-red-50 p-4 rounded-md mb-4">
                 <p className="text-red-600">
-                  Return window of 3 days has expired. This order was placed on {orderDate.toLocaleDateString()}.
+                  Return window of 3 days has expired. This order was delivered on {referenceDate.toLocaleDateString()}.
                 </p>
               </div>
             ) : (
@@ -244,14 +262,22 @@ export default function ReturnRequest() {
                 
                 <div>
                   <Label htmlFor="reason">Reason for Return</Label>
-                  <Textarea 
-                    id="reason" 
-                    value={formData.reason}
-                    onChange={(e) => setFormData({...formData, reason: e.target.value})}
-                    placeholder="Please explain why you want to return this product"
-                    rows={4}
+                  <Select 
+                    value={formData.reason} 
+                    onValueChange={(value) => setFormData({...formData, reason: value})}
                     disabled={submitting}
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REASONS.map((reason) => (
+                        <SelectItem key={reason} value={reason}>
+                          {reason}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <Button 

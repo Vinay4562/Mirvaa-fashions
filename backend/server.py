@@ -244,6 +244,11 @@ class Order(BaseModel):
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
     shipping_address: Dict[str, Any]
+    tracking_id: Optional[str] = None
+    courier_name: Optional[str] = None
+    tracking_url: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    return_window_closes_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -901,16 +906,146 @@ async def track_shipping(order_id: str, current_user: Dict = Depends(get_current
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         
+        # Check if order has Delhivery waybill
+        if "delhivery_waybill" in order and order["delhivery_waybill"]:
+            # Track with Delhivery
+            tracking_url = f"https://track.delhivery.com/api/v1/packages/json/?waybill={order['delhivery_waybill']}&token={DELHIVERY_API_KEY}"
+            try:
+                response = requests.get(tracking_url)
+                if response.ok:
+                    return {"success": True, "tracking_data": response.json(), "courier": "Delhivery"}
+            except Exception as e:
+                print(f"Delhivery tracking error: {e}")
+        
         # Check if order has Shiprocket shipment ID
-        if "shiprocket_shipment_id" not in order:
-            raise HTTPException(status_code=400, detail="Order not shipped yet")
-        
-        # Track shipment
-        tracking_data = shiprocket_client.track_order(order["shiprocket_shipment_id"])
-        
-        return {"success": True, "tracking_data": tracking_data}
+        if "shiprocket_shipment_id" in order:
+            # Track shipment
+            tracking_data = shiprocket_client.track_order(order["shiprocket_shipment_id"])
+            return {"success": True, "tracking_data": tracking_data, "courier": "Shiprocket"}
+            
+        # Fallback if no tracking info
+        if "tracking_id" in order:
+             return {
+                 "success": True, 
+                 "tracking_data": {
+                     "tracking_url": order.get("tracking_url"),
+                     "tracking_id": order.get("tracking_id"),
+                     "courier_name": order.get("courier_name")
+                 },
+                 "courier": order.get("courier_name", "Unknown")
+             }
+
+        # Return pending status for orders without tracking info yet
+        return {
+            "success": True,
+            "tracking_data": [],
+            "courier": "Pending",
+            "status": "Processing"
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to track shipping: {str(e)}")
+
+# ==================== Return Routes ====================
+
+@api_router.post("/returns")
+async def create_return_request(return_data: ReturnRequestCreate, current_user: Dict = Depends(get_current_user)):
+    # Verify order
+    order = await db.orders.find_one({"id": return_data.order_id, "user_id": current_user['id']})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Check if product is in order
+    product_in_order = False
+    for item in order['items']:
+        if item['product_id'] == return_data.product_id:
+            product_in_order = True
+            break
+    
+    if not product_in_order:
+        raise HTTPException(status_code=400, detail="Product not found in order")
+
+    # Check return window (3 days from delivered_at)
+    # If delivered_at is not set, we assume it's not delivered yet, or we might check status
+    if order.get('status') != 'delivered':
+         raise HTTPException(status_code=400, detail="Order is not delivered yet")
+         
+    delivered_at = order.get('delivered_at')
+    if delivered_at:
+        if isinstance(delivered_at, str):
+            delivered_at = datetime.fromisoformat(delivered_at)
+        
+        # Ensure delivered_at is offset-aware if using timezone.utc
+        if delivered_at.tzinfo is None:
+            delivered_at = delivered_at.replace(tzinfo=timezone.utc)
+            
+        now = datetime.now(timezone.utc)
+        if (now - delivered_at).days > 3:
+            raise HTTPException(status_code=400, detail="Return window has expired (3 days)")
+    
+    # Check if return already exists
+    existing_return = await db.returns.find_one({
+        "order_id": return_data.order_id, 
+        "product_id": return_data.product_id
+    })
+    if existing_return:
+        raise HTTPException(status_code=400, detail="Return request already exists for this product")
+    
+    # Create return request
+    return_request = ReturnRequest(
+        user_id=current_user['id'],
+        order_id=return_data.order_id,
+        product_id=return_data.product_id,
+        reason=return_data.reason
+    )
+    
+    return_dict = return_request.model_dump()
+    return_dict['created_at'] = return_dict['created_at'].isoformat()
+    
+    await db.returns.insert_one(return_dict)
+    
+    return {"message": "Return request submitted successfully", "id": return_request.id}
+
+@api_router.get("/returns")
+async def get_user_returns(current_user: Dict = Depends(get_current_user)):
+    returns = await db.returns.find({"user_id": current_user['id']}, {"_id": 0}).to_list(100)
+    return returns
+
+@api_router.get("/admin/returns")
+async def get_admin_returns(current_admin: Dict = Depends(get_current_admin)):
+    returns = await db.returns.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Enrich with user and product details
+    enriched_returns = []
+    for ret in returns:
+        user = await db.users.find_one({"id": ret['user_id']}, {"_id": 0})
+        product = await db.products.find_one({"id": ret['product_id']}, {"_id": 0})
+        order = await db.orders.find_one({"id": ret['order_id']}, {"_id": 0})
+        
+        enriched_returns.append({
+            **ret,
+            "user_email": user.get('email') if user else "Unknown",
+            "user_name": user.get('name') if user else "Unknown",
+            "product_name": product.get('title') if product else "Unknown",
+            "product_image": product.get('images', [])[0] if product and product.get('images') else None,
+            "order_number": order.get('order_number') if order else "Unknown"
+        })
+        
+    return enriched_returns
+
+@api_router.put("/admin/returns/{return_id}")
+async def update_return_status(return_id: str, status: str = Body(..., embed=True), current_admin: Dict = Depends(get_current_admin)):
+    result = await db.returns.update_one(
+        {"id": return_id},
+        {"$set": {"status": status}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Return request not found")
+        
+    return {"message": "Return status updated"}
+
 
 # ==================== Order Routes ====================
 

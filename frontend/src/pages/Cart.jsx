@@ -105,9 +105,9 @@ export default function Cart({ user, setUser }) {
               {cartItems.map((item) => (
                 <Card key={item.id} className="overflow-hidden" data-testid={`cart-item-${item.id}`}>
                   <CardContent className="p-4">
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 md:gap-4">
                       <Link to={`/products/${item.product.id}`} className="flex-shrink-0">
-                        <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-gray-100">
                           <img
                             src={getImageUrl(item.product.images[0])}
                             alt={item.product.title}

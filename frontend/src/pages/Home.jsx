@@ -1,30 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronRight, Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronRight, ArrowRight, Truck, ShieldCheck, Clock, Star, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from '@/components/ui/carousel';
 import Navbar from '@/components/Navbar';
+import AuthDialog from '@/components/AuthDialog';
 import Footer from '@/components/Footer';
-import axios from 'axios';
-import { API, apiClient } from '@/utils/api';
+import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Home({ user, setUser }) {
+  const navigate = useNavigate();
+  const [showAuth, setShowAuth] = useState(false);
   const [categories, setCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
-  // Removed blocking loading state to allow instant render
-
 
   useEffect(() => {
     // Load cached home data for instant paint
@@ -46,11 +39,10 @@ export default function Home({ user, setUser }) {
 
   const fetchData = async () => {
     try {
-      // Use apiClient with timeout to avoid long hangs
       const [categoriesRes, featuredRes, newRes] = await Promise.all([
         apiClient.get('/categories').catch(() => ({ data: [] })),
         apiClient.get('/products/featured').catch(() => ({ data: [] })),
-        apiClient.get('/products?sort=newest&limit=16').catch(() => ({ data: [] })),
+        apiClient.get('/products?sort=newest&limit=8').catch(() => ({ data: [] })),
       ]);
 
       const categoriesData = categoriesRes.data || [];
@@ -61,7 +53,6 @@ export default function Home({ user, setUser }) {
       setFeaturedProducts(featuredData);
       setNewArrivals(newData);
 
-      // Cache for fast subsequent loads
       try {
         localStorage.setItem('homeData', JSON.stringify({
           categories: categoriesData,
@@ -71,12 +62,6 @@ export default function Home({ user, setUser }) {
       } catch {}
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Graceful fallback: keep current state, avoid noisy toast on startup
-      setCategories((prev) => Array.isArray(prev) ? prev : []);
-      setFeaturedProducts((prev) => Array.isArray(prev) ? prev : []);
-      setNewArrivals((prev) => Array.isArray(prev) ? prev : []);
-    } finally {
-      // no loading gate; render remains instant and data hydrates
     }
   };
 
@@ -89,11 +74,7 @@ export default function Home({ user, setUser }) {
       setCartCount(cartRes.data.length);
       setWishlistCount(wishlistRes.data.length);
     } catch (error) {
-      if (error?.response?.status === 401) {
-        // Not logged in or token expired; keep counts at 0 without noise
-        return;
-      }
-      console.error('Error fetching counts:', error);
+      // Silent fail for auth errors
     }
   };
 
@@ -102,7 +83,6 @@ export default function Home({ user, setUser }) {
       toast.error('Please login to add to wishlist');
       return;
     }
-
     try {
       await apiClient.post(`/wishlist/${productId}`);
       toast.success('Added to wishlist');
@@ -112,249 +92,231 @@ export default function Home({ user, setUser }) {
     }
   };
 
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-green-50">
+    <div className="min-h-screen bg-white font-sans selection:bg-black selection:text-white">
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
-      {/* Hero Section */}
-      <section className="relative py-20 px-4 overflow-hidden" data-testid="hero-section">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6 animate-fade-in">
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
-                Discover Your
-                <span className="gradient-text block">Perfect Style</span>
-              </h1>
-              <p className="text-lg md:text-xl text-gray-600">
-                From traditional elegance to modern fashion. Shop the latest trends in clothing, jewelry, and accessories.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link to="/products">
-                  <Button size="lg" className="btn-hover rounded-full px-8" data-testid="shop-now-button">
-                    Shop Now
-                    <ChevronRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link to="/products?category=sarees">
-                  <Button size="lg" variant="outline" className="btn-hover rounded-full px-8" data-testid="explore-sarees-button">
-                    Explore Sarees
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <div className="relative animate-slide-in-right">
-              <div className="aspect-square rounded-3xl overflow-hidden shadow-2xl image-zoom-container">
-                <img
-                  src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800"
-                  alt="Fashion"
-                  className="w-full h-full object-cover image-zoom"
-                />
-              </div>
-              <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-6 glass">
-                <div className="text-sm text-gray-600">Special Offer</div>
-                <div className="text-2xl font-bold gradient-text">50% OFF</div>
-                <div className="text-sm text-gray-600">On First Order</div>
-              </div>
-            </div>
+      {/* Hero Section - Full Screen & Immersive */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gray-900 pb-24">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop" 
+            alt="Hero Fashion" 
+            className="w-full h-full object-cover opacity-60 scale-105 animate-slow-zoom"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 container mx-auto px-6 text-center text-white space-y-8">
+          <div className="inline-block animate-fade-in-up">
+            <span className="py-2 px-4 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-sm font-medium tracking-wider uppercase">
+              New Collection 2025
+            </span>
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter animate-fade-in-up delay-100">
+            DEFINE YOUR <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">SIGNATURE</span>
+          </h1>
+          
+          <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-300 font-light leading-relaxed animate-fade-in-up delay-200">
+            Experience the fusion of traditional elegance and contemporary fashion. 
+            Curated styles that speak to your individuality.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8 animate-fade-in-up delay-300">
+            <Link to="/products" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto min-h-[3.5rem] h-auto px-8 rounded-full text-lg bg-white text-black hover:bg-gray-200 transition-all duration-300 hover:scale-105 whitespace-normal py-2">
+                Shop The Collection
+              </Button>
+            </Link>
+            <Link to="/products?sort=newest" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto min-h-[3.5rem] h-auto px-8 rounded-full text-lg border-white/30 text-white hover:bg-white/10 hover:text-white transition-all duration-300 backdrop-blur-sm whitespace-normal py-2">
+                View Lookbook
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Categories Section */}
-      <section className="py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold">Shop by Category</h2>
-            <Link to="/products">
-              <Button variant="ghost" className="btn-hover" data-testid="view-all-categories">
-                View All <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
+      {/* Features Banner - Floating */}
+      <div className="relative z-20 -mt-12 md:-mt-16 container mx-auto px-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          {[
+            { icon: Truck, title: "Free Shipping", desc: "On all orders over ₹999" },
+            { icon: ShieldCheck, title: "Secure Payment", desc: "100% protected transactions" },
+            { icon: Clock, title: "Fast Delivery", desc: "Receive within 3-5 days" }
+          ].map((feature, idx) => (
+            <div key={idx} className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+              <div className="p-3 bg-black text-white rounded-full">
+                <feature.icon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{feature.title}</h3>
+                <p className="text-gray-500 text-sm">{feature.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Categories - Bento Grid Style */}
+      <section className="pt-20 pb-4 px-6 bg-gray-50">
+        <div className="container mx-auto">
+          <div className="flex justify-between items-end mb-12">
+            <div>
+              <h2 className="text-4xl font-black tracking-tight mb-2">SHOP BY CATEGORY</h2>
+              <p className="text-gray-500">Explore our wide range of collections</p>
+            </div>
+            <Link to="/products" className="hidden md:flex items-center gap-2 text-sm font-semibold hover:text-purple-600 transition-colors">
+              VIEW ALL <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {categories.map((category, idx) => (
-              <Link
-                key={category.slug || idx}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 auto-rows-[200px] md:auto-rows-[280px]">
+            {categories.slice(0, 5).map((category, idx) => (
+              <Link 
+                key={idx} 
                 to={`/products?category=${category.slug}`}
-                className="group"
-                data-testid={`category-card-${category.slug || idx}`}
+                className={`relative group overflow-hidden rounded-3xl ${idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'}`}
               >
-                <Card className="overflow-hidden card-hover border-0 shadow-lg">
-                  <div className="aspect-square overflow-hidden image-zoom-container">
-                    <img
-                      src={category.image}
-                      alt={category.name}
-                      className="w-full h-full object-cover image-zoom"
-                    />
-                  </div>
-                  <CardContent className="p-4 text-center">
-                    <h3 className="font-semibold text-lg group-hover:text-blue-600 transition-colors">
-                      {category.name}
-                    </h3>
-                  </CardContent>
-                </Card>
+                <img 
+                  src={category.image} 
+                  alt={category.name}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80" />
+                <div className="absolute bottom-6 left-6 text-white transform transition-transform duration-500 group-hover:translate-x-2">
+                  <h3 className={`font-bold ${idx === 0 ? 'text-3xl' : 'text-xl'}`}>{category.name}</h3>
+                  <span className="text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1 mt-2">
+                    Shop Now <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="py-16 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold">Featured Products</h2>
-            <Link to="/products">
-              <Button variant="ghost" className="btn-hover" data-testid="view-all-featured">
-                View All <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+      {/* New Arrivals - Horizontal Scroll */}
+      <section className="pt-4 pb-4 px-6 bg-white overflow-hidden">
+        <div className="container mx-auto">
+          <div className="flex items-center gap-4 mb-12">
+            <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <h2 className="text-4xl font-black tracking-tight">NEW ARRIVALS</h2>
           </div>
 
-          {featuredProducts.length > 0 ? (
-            <FeaturedCarousel products={featuredProducts} />
-          ) : (
-            // If empty, render nothing (instant paint), data will hydrate when available
-            <div className="text-sm text-gray-500">No featured products yet.</div>
-          )}
+          <div className="flex gap-6 overflow-x-auto pb-8 snap-x scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0">
+            {newArrivals.map((product) => (
+              <div key={product.id} className="min-w-[280px] md:min-w-[320px] snap-start">
+                <Link to={`/products/${product.id}`} className="group block">
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 mb-4">
+                    <img 
+                      src={getImageUrl(product.images?.[0])} 
+                      alt={product.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    {/* Quick Action Overlay */}
+                    <div className="absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                      <Button className="w-full bg-white text-black hover:bg-gray-100 shadow-lg rounded-xl">
+                        View Details
+                      </Button>
+                    </div>
+                    {/* Tags */}
+                    {product.is_new && (
+                      <span className="absolute top-4 left-4 bg-black text-white text-xs font-bold px-3 py-1 rounded-full">
+                        NEW
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-lg truncate pr-4">{product.title}</h3>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-gray-500 text-sm">{product.category}</p>
+                    <span className="font-bold text-lg">₹{product.price}</span>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* New Arrivals */}
-      <section className="py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold">New Arrivals</h2>
-            <Link to="/products">
-              <Button variant="ghost" className="btn-hover" data-testid="view-all-new">
-                View All <ChevronRight className="ml-2 h-4 w-4" />
+      {/* Featured Products - Carousel */}
+      <section className="pt-4 pb-12 px-6 bg-gray-50 overflow-hidden">
+        <div className="container mx-auto">
+          <div className="flex items-center gap-4 mb-12">
+            <div className="p-2 bg-black text-white rounded-lg">
+              <Star className="w-6 h-6" />
+            </div>
+            <h2 className="text-4xl font-black tracking-tight">FEATURED COLLECTION</h2>
+          </div>
+
+          <div className="flex gap-6 overflow-x-auto pb-8 snap-x scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0">
+            {featuredProducts.map((product) => (
+              <div key={product.id} className="min-w-[280px] md:min-w-[320px] snap-start">
+                <Link to={`/products/${product.id}`} className="group block">
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-white mb-4 shadow-sm">
+                    <img 
+                      src={getImageUrl(product.images?.[0])} 
+                      alt={product.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    {/* Quick Action Overlay */}
+                    <div className="absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                      <Button className="w-full bg-black text-white hover:bg-gray-800 shadow-lg rounded-xl">
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                  <h3 className="font-bold text-lg truncate pr-4">{product.title}</h3>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-gray-500 text-sm">{product.category}</p>
+                    <span className="font-bold text-lg">₹{product.price}</span>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Promotional / CTA Section */}
+      <section className="py-24 px-6 bg-black text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 -left-1/4 w-1/2 h-full bg-gradient-to-r from-purple-900 to-transparent transform -skew-x-12" />
+          <div className="absolute bottom-0 -right-1/4 w-1/2 h-full bg-gradient-to-l from-blue-900 to-transparent transform -skew-x-12" />
+        </div>
+        
+        <div className="container mx-auto relative z-10 text-center">
+          <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tight">
+            ELEVATE YOUR WARDROBE
+          </h2>
+          <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
+            Join thousands of satisfied customers who have found their unique style with Mirvaa Fashions.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+            <Button 
+              size="lg" 
+              className="w-full sm:w-auto min-h-[3.5rem] h-auto px-10 rounded-full bg-white text-black hover:bg-gray-200 text-lg font-bold whitespace-normal py-2"
+              onClick={() => user ? navigate('/products') : setShowAuth(true)}
+            >
+              Join Now
+            </Button>
+            <Link to="/products" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto min-h-[3.5rem] h-auto px-10 rounded-full border-gray-700 text-white hover:bg-gray-900 text-lg whitespace-normal py-2">
+                Explore All
               </Button>
             </Link>
           </div>
-
-          {newArrivals.length > 0 ? (
-            <Carousel>
-              <CarouselContent>
-                {newArrivals.slice(0, 8).map((product) => (
-                  <CarouselItem key={product.id} className="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <Card className="group overflow-hidden card-hover border-0 shadow-lg">
-                      <Link to={`/products/${product.id}`}>
-                        <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                          <img
-                            src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                            alt={product.title}
-                            className="w-full h-full object-cover image-zoom"
-                          />
-                        </div>
-                      </Link>
-                      <CardContent className="p-4">
-                        <Link to={`/products/${product.id}`}>
-                          <h3 className="font-semibold text-base mb-2 group-hover:text-blue-600 transition-colors line-clamp-1">
-                            {product.title}
-                          </h3>
-                        </Link>
-                        <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-yellow-400" />
-                            <span className="text-sm">{(product.rating || 4.5).toFixed(1)}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
-          ) : (
-            <div className="text-sm text-gray-500">No new arrivals yet.</div>
-          )}
         </div>
       </section>
 
       <Footer />
+      <AuthDialog open={showAuth} onClose={() => setShowAuth(false)} setUser={setUser} defaultTab="register" />
     </div>
-  );
-}
-
-// In fetchData, remove setLoading(false) calls
-
-function FeaturedCarousel({ products }) {
-  const [api, setApi] = useState(null);
-  const [hover, setHover] = useState(false);
-  const intervalRef = useRef(null);
-
-  useEffect(() => {
-    if (!api) return;
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (!hover) {
-      intervalRef.current = setInterval(() => {
-        api.scrollNext();
-      }, 2500);
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [api, hover]);
-
-  return (
-    <Carousel
-      opts={{ loop: true, align: 'start' }}
-      setApi={setApi}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
-      <CarouselContent>
-        {products.map((product) => (
-          <CarouselItem key={product.id} className="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
-            <Card className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
-              <Link to={`/products/${product.id}`}>
-                <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                  <img
-                    src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                    alt={product.title}
-                    className="w-full h-full object-cover image-zoom"
-                  />
-                </div>
-              </Link>
-              <CardContent className="p-4">
-                <Link to={`/products/${product.id}`}>
-                  <h3 className="font-semibold text-base mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                    {product.title}
-                  </h3>
-                </Link>
-                <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
-                  {product.mrp > product.price && (
-                    <>
-                      <span className="text-sm text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
-                      <span className="text-sm text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                    </>
-                  )}
-                </div>
-                {product.rating > 0 && (
-                  <div className="flex items-center gap-1 text-sm">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium">{product.rating}</span>
-                    <span className="text-gray-500">({product.reviews_count})</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </CarouselItem>
-        ))}
-      </CarouselContent>
-      <CarouselPrevious />
-      <CarouselNext />
-    </Carousel>
   );
 }

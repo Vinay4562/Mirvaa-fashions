@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ScrollToTop from "./components/ScrollToTop";
 import Home from "./pages/Home";
 import ProductListing from "./pages/ProductListing";
 import ProductDetail from "./pages/ProductDetail";
@@ -25,6 +26,7 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminCMS from "./pages/admin/AdminCMS";
+import AdminReturns from "./pages/admin/AdminReturns";
 import AnalyticsDashboard from "./pages/admin/analytics/AnalyticsDashboard";
 import { Toaster } from "@/components/ui/sonner";
 import { apiClient } from "@/utils/api";
@@ -64,6 +66,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Home user={user} setUser={setUser} />} />
           <Route path="/products" element={<ProductListing user={user} setUser={setUser} />} />
@@ -103,6 +106,10 @@ function App() {
           <Route 
             path="/admin/settings" 
             element={admin ? <AdminSettings admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+          />
+          <Route 
+            path="/admin/returns" 
+            element={admin ? <AdminReturns admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
           />
           <Route 
             path="/admin/cms" 

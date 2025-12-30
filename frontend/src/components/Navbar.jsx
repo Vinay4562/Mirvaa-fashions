@@ -56,8 +56,13 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-6">
             {/* Logo */}
-            <Link to="/" className="text-3xl font-bold gradient-text" data-testid="logo">
-              Mirvaa
+            <Link to="/" className="flex items-center gap-3 group" data-testid="logo">
+              <div className="flex items-center justify-center w-10 h-10 bg-black rounded-lg group-hover:bg-gray-800 transition-colors">
+                <span className="text-white text-xl font-bold font-sans">M</span>
+              </div>
+              <span className="text-2xl font-bold text-gray-900 tracking-tight group-hover:text-gray-700 transition-colors">
+                Mirvaa Fashions
+              </span>
             </Link>
 
             {/* Search bar - Desktop */}

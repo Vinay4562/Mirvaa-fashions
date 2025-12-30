@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Twitter, Mail } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Mail } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -16,13 +16,13 @@ export default function Footer() {
               <a href="#" className="text-gray-400 hover:text-blue-600 transition-colors">
                 <Facebook className="h-5 w-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-pink-600 transition-colors">
+              <a href="https://www.instagram.com/mirvaa_fashions/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-pink-600 transition-colors">
                 <Instagram className="h-5 w-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors">
-                <Twitter className="h-5 w-5" />
+              <a href="https://www.youtube.com/@Mirvaa_Fashions" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-red-600 transition-colors">
+                <Youtube className="h-5 w-5" />
               </a>
-              <a href="mailto:hello@mirvaa.com" className="text-gray-400 hover:text-red-600 transition-colors">
+              <a href="mailto:mirvaafashions@gmail.com" className="text-gray-400 hover:text-red-600 transition-colors">
                 <Mail className="h-5 w-5" />
               </a>
             </div>

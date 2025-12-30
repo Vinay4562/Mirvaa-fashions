@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Package, ShoppingBag, Users, TrendingUp } from 'lucide-react';
+import { Package, ShoppingBag, Users, TrendingUp, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
@@ -134,7 +134,7 @@ export default function AdminDashboard({ admin, setAdmin }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="card-hover">
             <CardHeader>
               <CardTitle>Product Management</CardTitle>
@@ -142,7 +142,7 @@ export default function AdminDashboard({ admin, setAdmin }) {
             <CardContent>
               <p className="text-gray-600 mb-4">Add, edit, or remove products from your store</p>
               <Link to="/admin/products">
-                <Button className="btn-hover" data-testid="go-to-products">
+                <Button className="btn-hover w-full" data-testid="go-to-products">
                   <Package className="mr-2 h-4 w-4" />
                   Manage Products
                 </Button>
@@ -157,9 +157,24 @@ export default function AdminDashboard({ admin, setAdmin }) {
             <CardContent>
               <p className="text-gray-600 mb-4">View and manage customer orders</p>
               <Link to="/admin/orders">
-                <Button className="btn-hover" data-testid="go-to-orders">
+                <Button className="btn-hover w-full" data-testid="go-to-orders">
                   <ShoppingBag className="mr-2 h-4 w-4" />
                   Manage Orders
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="card-hover">
+            <CardHeader>
+              <CardTitle>Return Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">Review and update return requests</p>
+              <Link to="/admin/returns">
+                <Button className="btn-hover w-full" data-testid="go-to-returns">
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Manage Returns
                 </Button>
               </Link>
             </CardContent>
@@ -172,7 +187,7 @@ export default function AdminDashboard({ admin, setAdmin }) {
             <CardContent>
               <p className="text-gray-600 mb-4">Manage admin profile and store settings</p>
               <Link to="/admin/settings">
-                <Button className="btn-hover" data-testid="go-to-settings">
+                <Button className="btn-hover w-full" data-testid="go-to-settings">
                   <Users className="mr-2 h-4 w-4" />
                   Settings
                 </Button>

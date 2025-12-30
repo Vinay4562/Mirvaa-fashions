@@ -8,7 +8,7 @@ import axios from 'axios';
 import { API } from '@/utils/api';
 import { toast } from 'sonner';
 
-export default function AuthDialog({ open, onClose, setUser }) {
+export default function AuthDialog({ open, onClose, setUser, defaultTab = "login" }) {
   const [loading, setLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
@@ -67,7 +67,7 @@ export default function AuthDialog({ open, onClose, setUser }) {
           <DialogTitle className="text-2xl font-bold gradient-text">Welcome to Mirvaa</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="login" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login" data-testid="login-tab">Login</TabsTrigger>
             <TabsTrigger value="register" data-testid="register-tab">Register</TabsTrigger>

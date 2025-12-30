@@ -158,7 +158,7 @@ export default function Account({ user, setUser }) {
                         <div className="flex gap-2">
                           {/* Check if order is delivered and within 3 days */}
                           {order.status === 'delivered' && 
-                            (new Date() - new Date(order.created_at)) / (1000 * 60 * 60 * 24) <= 3 && (
+                            (new Date() - new Date(order.delivered_at || order.updated_at || order.created_at)) / (1000 * 60 * 60 * 24) <= 3 && (
                             <Button
                               onClick={() => navigate(`/return-request/${order.id}`)}
                               variant="outline"

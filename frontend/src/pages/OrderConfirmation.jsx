@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import TrackingTimeline from '@/components/TrackingTimeline';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -15,6 +16,7 @@ export default function OrderConfirmation({ user, setUser }) {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [productImageById, setProductImageById] = useState({});
+  const [trackingData, setTrackingData] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -28,6 +30,17 @@ export default function OrderConfirmation({ user, setUser }) {
       const response = await apiClient.get(`/orders/${orderId}`);
       const ord = response.data;
       setOrder(ord);
+
+      // Fetch tracking info
+      try {
+        const trackRes = await apiClient.get(`/shipping/track/${orderId}`);
+        if (trackRes.data.success) {
+          setTrackingData(trackRes.data.tracking_data);
+        }
+      } catch (e) {
+        console.log("Tracking info unavailable");
+      }
+
       // Prefetch product images if missing
       const missing = (ord.items || []).filter((it) => !it.product_image && !it.product?.images?.[0]);
       const uniqueIds = [...new Set(missing.map((it) => it.product_id))];
@@ -82,6 +95,15 @@ export default function OrderConfirmation({ user, setUser }) {
           <h1 className="text-3xl font-bold mb-2">Order Placed Successfully!</h1>
           <p className="text-gray-600">Thank you for shopping with Mirvaa</p>
         </div>
+
+        {/* Tracking Timeline */}
+        {trackingData && (
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <TrackingTimeline trackingData={trackingData} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Order Details */}
         <Card className="mb-6" data-testid="order-details">
