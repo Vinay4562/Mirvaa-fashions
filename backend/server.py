@@ -98,7 +98,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
-    expose_headers=["Content-Type", "Authorization"],
+    expose_headers=["Content-Type", "Authorization", "X-RTB-FINGERPRINT-ID", "x-rtb-fingerprint-id"],
 )
 
 # Create uploads directory if it doesn't exist
