@@ -13,5 +13,17 @@
   "routes": [
     { "src": "/(.*)", "dest": "/frontend/$1" }
   ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Content-Security-Policy", "value": "upgrade-insecure-requests; block-all-mixed-content" },
+        { "key": "Permissions-Policy", "value": "accelerometer=(), gyroscope=(), magnetometer=(), geolocation=(), microphone=(), camera=()" }
+      ]
+    }
+  ],
   "installCommand": "npm install --legacy-peer-deps"
 }
