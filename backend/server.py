@@ -13,10 +13,14 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
+import json
 import bcrypt
 import jwt
 import razorpay
 from shiprocket import ShiprocketClient
+import hmac
+import hashlib
+import requests
 
 ROOT_DIR = Path(__file__).parent
 # Handle .env file loading with error handling
@@ -45,6 +49,7 @@ except Exception as e:
 # Razorpay client
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET')
+RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET')
 
 if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
     razorpay_client = razorpay.Client(
@@ -57,6 +62,7 @@ else:
 # Initialize Shiprocket client
 SHIPROCKET_EMAIL = os.environ.get("SHIPROCKET_EMAIL")
 SHIPROCKET_PASSWORD = os.environ.get("SHIPROCKET_PASSWORD")
+DELHIVERY_API_KEY = os.environ.get("DELHIVERY_API_KEY")
 
 if SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD:
     try:
@@ -913,11 +919,18 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
     # Generate order number
     order_number = f"ORD{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:8].upper()}"
     
-    # For Razorpay integration (mocked for now)
     razorpay_order_id = None
     if order_data.payment_method == "razorpay":
-        # Mock Razorpay order creation
-        razorpay_order_id = f"order_mock_{str(uuid.uuid4())[:12]}"
+        if razorpay_client is None:
+            raise HTTPException(status_code=400, detail="Razorpay not configured")
+        amount_paise = int(order_data.total * 100)
+        rp_order = razorpay_client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": order_number,
+            "payment_capture": 1
+        })
+        razorpay_order_id = rp_order.get("id")
     
     order = Order(
         order_number=order_number,
@@ -951,21 +964,75 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
 async def payment_success(
     order_id: str,
     razorpay_payment_id: str,
+    razorpay_order_id: Optional[str] = None,
+    razorpay_signature: Optional[str] = None,
     current_user: Dict = Depends(get_current_user)
 ):
-    # Update order with payment info
+    if razorpay_signature and razorpay_order_id and RAZORPAY_KEY_SECRET:
+        payload = f"{razorpay_order_id}|{razorpay_payment_id}".encode()
+        expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+        if expected != razorpay_signature:
+            raise HTTPException(status_code=400, detail="Invalid payment signature")
     await db.orders.update_one(
         {"id": order_id, "user_id": current_user['id']},
         {
             "$set": {
                 "payment_status": "completed",
                 "razorpay_payment_id": razorpay_payment_id,
+                "razorpay_order_id": razorpay_order_id,
                 "status": "confirmed",
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
         }
     )
-    
+    if DELHIVERY_API_KEY:
+        try:
+            order = await db.orders.find_one({"id": order_id})
+            addr = order.get("shipping_address", {})
+            waybill_resp = requests.get(
+                "https://track.delhivery.com/api/waybill",
+                params={"token": DELHIVERY_API_KEY, "count": 1},
+                timeout=10
+            )
+            wb = None
+            if waybill_resp.ok:
+                d = waybill_resp.json()
+                wb = d.get("waybill")
+            shipment_data = [{
+                "waybill": wb,
+                "order": order.get("order_number"),
+                "pickup_location": "Primary",
+                "name": addr.get("name"),
+                "address": addr.get("address"),
+                "city": addr.get("city"),
+                "state": addr.get("state"),
+                "phone": addr.get("phone"),
+                "pin": addr.get("pincode"),
+                "cod_amount": 0,
+                "order_date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "total_weight": 0.5,
+                "package_count": 1,
+                "payment_mode": "Prepaid"
+            }]
+            cmu_resp = requests.post(
+                "https://track.delhivery.com/api/cmu/create.json",
+                data={"format": "json", "data": json.dumps(shipment_data)},
+                headers={"Authorization": f"Token {DELHIVERY_API_KEY}"},
+                timeout=15
+            )
+            ship_info = {}
+            if cmu_resp.ok:
+                ship_info = cmu_resp.json()
+            await db.orders.update_one(
+                {"id": order_id},
+                {"$set": {
+                    "delhivery_waybill": wb,
+                    "delhivery_response": ship_info,
+                    "shipping_status": "created"
+                }}
+            )
+        except Exception:
+            pass
     return {"message": "Payment successful", "order_id": order_id}
 
 @api_router.get("/orders")

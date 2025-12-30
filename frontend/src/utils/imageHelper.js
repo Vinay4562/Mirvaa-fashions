@@ -2,7 +2,7 @@
 const getBackendUrl = () => {
   // If explicitly set via environment variable, use that
   if (process.env.REACT_APP_BACKEND_URL) {
-    return process.env.REACT_APP_BACKEND_URL;
+    return process.env.REACT_APP_BACKEND_URL.replace(/\/+$/, '');
   }
   
   // Auto-detect based on current hostname

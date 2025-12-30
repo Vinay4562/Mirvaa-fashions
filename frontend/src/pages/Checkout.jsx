@@ -115,6 +115,16 @@ export default function Checkout({ user, setUser }) {
     return calculateSubtotal() + calculateTax();
   };
 
+  const loadRazorpay = () =>
+    new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve();
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Razorpay'));
+      document.body.appendChild(script);
+    });
+
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setProcessing(true);
@@ -174,10 +184,36 @@ export default function Checkout({ user, setUser }) {
       const order = response.data;
 
       if (paymentMethod === 'razorpay') {
-        // Mock Razorpay payment success
-        await apiClient.post(`/orders/${order.id}/payment-success?razorpay_payment_id=mock_payment_${Date.now()}`);
-        toast.success('Order placed successfully!');
-        navigate(`/order-confirmation/${order.id}`);
+        await loadRazorpay();
+        const options = {
+          key: order.razorpay_key_id,
+          amount: Math.round(order.total * 100),
+          currency: 'INR',
+          name: 'Mirvaa Fashions',
+          description: order.order_number,
+          order_id: order.razorpay_order_id,
+          prefill: {
+            name: shippingAddress.name,
+            email: user?.email || '',
+            contact: shippingAddress.phone,
+          },
+          handler: async function (response) {
+            try {
+              const params = new URLSearchParams({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              }).toString();
+              await apiClient.post(`/orders/${order.id}/payment-success?${params}`);
+              toast.success('Order placed successfully!');
+              navigate(`/order-confirmation/${order.id}`);
+            } catch {
+              toast.error('Payment verification failed');
+            }
+          }
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
       } else if (paymentMethod === 'cod') {
         toast.success('Order placed successfully!');
         navigate(`/order-confirmation/${order.id}`);

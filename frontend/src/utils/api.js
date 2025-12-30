@@ -19,7 +19,8 @@ const getBackendUrl = () => {
   return 'http://localhost:8000';
 };
 
-const BACKEND_URL = getBackendUrl();
+const normalizeUrl = (url) => url?.replace(/\/+$/, '') || url;
+const BACKEND_URL = normalizeUrl(getBackendUrl());
 const API = `${BACKEND_URL}/api`;
 
 console.log('Using backend URL:', BACKEND_URL);
