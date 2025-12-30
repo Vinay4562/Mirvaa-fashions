@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "outputDirectory": "frontend/build",
+  "outputDirectory": "build",
   "rewrites": [
     { "source": "/((?!static|.*\\..*).*)", "destination": "/index.html" }
   ]
