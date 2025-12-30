@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,9 +23,21 @@ export default function Home({ user, setUser }) {
   const [newArrivals, setNewArrivals] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Removed blocking loading state to allow instant render
+
 
   useEffect(() => {
+    // Load cached home data for instant paint
+    const cached = localStorage.getItem('homeData');
+    if (cached) {
+      try {
+        const data = JSON.parse(cached);
+        setCategories(Array.isArray(data.categories) ? data.categories : []);
+        setFeaturedProducts(Array.isArray(data.featuredProducts) ? data.featuredProducts : []);
+        setNewArrivals(Array.isArray(data.newArrivals) ? data.newArrivals : []);
+      } catch {}
+    }
+
     fetchData();
     if (user) {
       fetchCounts();
@@ -34,24 +46,37 @@ export default function Home({ user, setUser }) {
 
   const fetchData = async () => {
     try {
+      // Use apiClient with timeout to avoid long hangs
       const [categoriesRes, featuredRes, newRes] = await Promise.all([
-        axios.get(`${API}/categories`).catch(() => ({ data: [] })),
-        axios.get(`${API}/products/featured`).catch(() => ({ data: [] })),
-        axios.get(`${API}/products?sort=newest&limit=16`).catch(() => ({ data: [] })),
+        apiClient.get('/categories').catch(() => ({ data: [] })),
+        apiClient.get('/products/featured').catch(() => ({ data: [] })),
+        apiClient.get('/products?sort=newest&limit=16').catch(() => ({ data: [] })),
       ]);
 
-      setCategories(categoriesRes.data || []);
-      setFeaturedProducts(featuredRes.data || []);
-      setNewArrivals(newRes.data || []);
+      const categoriesData = categoriesRes.data || [];
+      const featuredData = featuredRes.data || [];
+      const newData = newRes.data || [];
+
+      setCategories(categoriesData);
+      setFeaturedProducts(featuredData);
+      setNewArrivals(newData);
+
+      // Cache for fast subsequent loads
+      try {
+        localStorage.setItem('homeData', JSON.stringify({
+          categories: categoriesData,
+          featuredProducts: featuredData,
+          newArrivals: newData,
+        }));
+      } catch {}
     } catch (error) {
       console.error('Error fetching data:', error);
-      // Set default empty arrays to prevent rendering issues
-      setCategories([]);
-      setFeaturedProducts([]);
-      setNewArrivals([]);
-      toast.error('Unable to connect to server. Please try again later.');
+      // Graceful fallback: keep current state, avoid noisy toast on startup
+      setCategories((prev) => Array.isArray(prev) ? prev : []);
+      setFeaturedProducts((prev) => Array.isArray(prev) ? prev : []);
+      setNewArrivals((prev) => Array.isArray(prev) ? prev : []);
     } finally {
-      setLoading(false);
+      // no loading gate; render remains instant and data hydrates
     }
   };
 
@@ -87,13 +112,7 @@ export default function Home({ user, setUser }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Loading...</div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-green-50">
@@ -157,10 +176,10 @@ export default function Home({ user, setUser }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {categories.map((category, idx) => (
               <Link
-                key={category.slug}
+                key={category.slug || idx}
                 to={`/products?category=${category.slug}`}
                 className="group"
-                data-testid={`category-card-${category.slug}`}
+                data-testid={`category-card-${category.slug || idx}`}
               >
                 <Card className="overflow-hidden card-hover border-0 shadow-lg">
                   <div className="aspect-square overflow-hidden image-zoom-container">
@@ -195,215 +214,147 @@ export default function Home({ user, setUser }) {
           </div>
 
           {featuredProducts.length > 0 ? (
-            <>
-              {/* Mobile 2x2 grid */}
-              <div className="md:hidden grid grid-cols-2 gap-3">
-                {featuredProducts.slice(0, 4).map((product) => (
-                  <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
-                    <Link to={`/products/${product.id}`}>
-                      <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                        <img
-                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                          alt={product.title}
-                          className="w-full h-full object-cover image-zoom"
-                        />
-                      </div>
-                    </Link>
-                    <CardContent className="p-2">
-                      <Link to={`/products/${product.id}`}>
-                        <h3 className="font-semibold text-xs mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                          {product.title}
-                        </h3>
-                      </Link>
-                      <p className="text-[10px] text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
-                      <div className="flex items-center gap-1 mb-2">
-                        <span className="text-sm font-bold">₹{product.price.toLocaleString()}</span>
-                        {product.mrp > product.price && (
-                          <>
-                            <span className="text-[10px] text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
-                            <span className="text-[10px] text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                          </>
-                        )}
-                      </div>
-                      {product.rating > 0 && (
-                        <div className="flex items-center gap-1 text-[10px]">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span className="font-medium">{product.rating}</span>
-                          <span className="text-gray-500">({product.reviews_count})</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Desktop/Tablet grid */}
-              <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {featuredProducts.map((product) => (
-                  <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
-                    <Link to={`/products/${product.id}`}>
-                      <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                        <img
-                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                          alt={product.title}
-                          className="w-full h-full object-cover image-zoom"
-                        />
-                      </div>
-                    </Link>
-                    <CardContent className="p-4">
-                      <Link to={`/products/${product.id}`}>
-                        <h3 className="font-semibold text-lg mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                          {product.title}
-                        </h3>
-                      </Link>
-                      <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xl font-bold">₹{product.price.toLocaleString()}</span>
-                        {product.mrp > product.price && (
-                          <>
-                            <span className="text-sm text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
-                            <span className="text-sm text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                          </>
-                        )}
-                      </div>
-                      {product.rating > 0 && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-medium">{product.rating}</span>
-                          <span className="text-gray-500">({product.reviews_count})</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </>
+            <FeaturedCarousel products={featuredProducts} />
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              <p>No featured products available</p>
-            </div>
+            // If empty, render nothing (instant paint), data will hydrate when available
+            <div className="text-sm text-gray-500">No featured products yet.</div>
           )}
         </div>
       </section>
 
-      {/* New Arrivals Carousel */}
+      {/* New Arrivals */}
       <section className="py-16 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl md:text-4xl font-bold">New Arrivals</h2>
-            <Link to="/products?sort=newest">
+            <Link to="/products">
               <Button variant="ghost" className="btn-hover" data-testid="view-all-new">
                 View All <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
 
-          {newArrivals.length > 0 && (
-            <>
-              {/* Mobile 2x2 grid */}
-              <div className="md:hidden grid grid-cols-2 gap-3">
-                {newArrivals.slice(0, 4).map((product) => (
-                  <Card key={product.id} className="group overflow-hidden card-hover border-0 shadow-lg">
-                    <Link to={`/products/${product.id}`}>
-                      <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                        <img
-                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                          alt={product.title}
-                          className="w-full h-full object-cover image-zoom"
-                        />
-                      </div>
-                    </Link>
-                    <CardContent className="p-2">
+          {newArrivals.length > 0 ? (
+            <Carousel>
+              <CarouselContent>
+                {newArrivals.slice(0, 8).map((product) => (
+                  <CarouselItem key={product.id} className="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+                    <Card className="group overflow-hidden card-hover border-0 shadow-lg">
                       <Link to={`/products/${product.id}`}>
-                        <h3 className="font-semibold text-xs mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
-                          {product.title}
-                        </h3>
+                        <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
+                          <img
+                            src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                            alt={product.title}
+                            className="w-full h-full object-cover image-zoom"
+                          />
+                        </div>
                       </Link>
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm font-bold">₹{product.price.toLocaleString()}</span>
-                        {product.mrp > product.price && (
-                          <span className="text-[10px] text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <CardContent className="p-4">
+                        <Link to={`/products/${product.id}`}>
+                          <h3 className="font-semibold text-base mb-2 group-hover:text-blue-600 transition-colors line-clamp-1">
+                            {product.title}
+                          </h3>
+                        </Link>
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 text-yellow-400" />
+                            <span className="text-sm">{(product.rating || 4.5).toFixed(1)}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </CarouselItem>
                 ))}
-              </div>
-
-              {/* Desktop/Tablet: carousel */}
-              <div className="hidden md:block">
-                <Carousel className="w-full">
-                  <CarouselContent className="-ml-4">
-                    {newArrivals.map((product) => (
-                      <CarouselItem key={product.id} className="pl-4 md:basis-1/2 lg:basis-1/4">
-                        <Card className="group overflow-hidden card-hover border-0 shadow-lg">
-                          <Link to={`/products/${product.id}`}>
-                            <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
-                              <img
-                                src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
-                                alt={product.title}
-                                className="w-full h-full object-cover image-zoom"
-                              />
-                            </div>
-                          </Link>
-                          <CardContent className="p-4">
-                            <Link to={`/products/${product.id}`}>
-                              <h3 className="font-semibold mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
-                                {product.title}
-                              </h3>
-                            </Link>
-                            <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.category}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
-                              {product.mrp > product.price && (
-                                <span className="text-xs text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious />
-                  <CarouselNext />
-                </Carousel>
-              </div>
-            </>
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+          ) : (
+            <div className="text-sm text-gray-500">No new arrivals yet.</div>
           )}
-        </div>
-      </section>
-
-      {/* Why Shop With Us */}
-      <section className="py-16 px-4 bg-gradient-to-r from-blue-50 to-green-50">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Why Shop With Us</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center p-6 bg-white rounded-2xl shadow-lg card-hover">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🚚</span>
-              </div>
-              <h3 className="font-semibold text-xl mb-2">Free Shipping</h3>
-              <p className="text-gray-600">Free delivery on orders above ₹999</p>
-            </div>
-            <div className="text-center p-6 bg-white rounded-2xl shadow-lg card-hover">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🔒</span>
-              </div>
-              <h3 className="font-semibold text-xl mb-2">Secure Payment</h3>
-              <p className="text-gray-600">100% secure payment with Razorpay</p>
-            </div>
-            <div className="text-center p-6 bg-white rounded-2xl shadow-lg card-hover">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">↩️</span>
-              </div>
-              <h3 className="font-semibold text-xl mb-2">Easy Returns</h3>
-              <p className="text-gray-600">7-day return policy on all products</p>
-            </div>
-          </div>
         </div>
       </section>
 
       <Footer />
     </div>
+  );
+}
+
+// In fetchData, remove setLoading(false) calls
+
+function FeaturedCarousel({ products }) {
+  const [api, setApi] = useState(null);
+  const [hover, setHover] = useState(false);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!api) return;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    if (!hover) {
+      intervalRef.current = setInterval(() => {
+        api.scrollNext();
+      }, 2500);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [api, hover]);
+
+  return (
+    <Carousel
+      opts={{ loop: true, align: 'start' }}
+      setApi={setApi}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <CarouselContent>
+        {products.map((product) => (
+          <CarouselItem key={product.id} className="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+            <Card className="group overflow-hidden card-hover border-0 shadow-lg" data-testid={`featured-product-${product.id}`}>
+              <Link to={`/products/${product.id}`}>
+                <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
+                  <img
+                    src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                    alt={product.title}
+                    className="w-full h-full object-cover image-zoom"
+                  />
+                </div>
+              </Link>
+              <CardContent className="p-4">
+                <Link to={`/products/${product.id}`}>
+                  <h3 className="font-semibold text-base mb-1 group-hover:text-blue-600 transition-colors line-clamp-1">
+                    {product.title}
+                  </h3>
+                </Link>
+                <p className="text-sm text-gray-600 mb-2 line-clamp-1">{product.brand || product.category}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
+                  {product.mrp > product.price && (
+                    <>
+                      <span className="text-sm text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
+                      <span className="text-sm text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
+                    </>
+                  )}
+                </div>
+                {product.rating > 0 && (
+                  <div className="flex items-center gap-1 text-sm">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-medium">{product.rating}</span>
+                    <span className="text-gray-500">({product.reviews_count})</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+      <CarouselPrevious />
+      <CarouselNext />
+    </Carousel>
   );
 }
