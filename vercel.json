@@ -6,12 +6,14 @@
       "use": "@vercel/static-build", 
       "config": { 
         "distDir": "build",
-        "installCommand": "npm install --legacy-peer-deps"
+        "installCommand": "yarn install"
       } 
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "/frontend/$1" }
+    { "src": "^/static/(.*)", "dest": "/frontend/static/$1" },
+    { "src": "^/(.*)\\.(.*)", "dest": "/frontend/$1.$2" },
+    { "src": "/(.*)", "dest": "/frontend/index.html" }
   ],
   "headers": [
     {
