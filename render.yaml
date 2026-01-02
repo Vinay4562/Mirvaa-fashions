@@ -4,7 +4,7 @@ services:
     env: python
     region: oregon
     rootDir: backend
-    buildCommand: apt-get update && apt-get install -y libcairo2 libcairo2-dev libpango1.0-dev libpangocairo-1.0-0 pkg-config libffi-dev build-essential python3-dev && export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig && pip install --upgrade pip && pip install -r requirements.txt
+    buildCommand: apt-get update && apt-get install -y libcairo2 libcairo2-dev libpixman-1-dev libglib2.0-dev libfreetype6-dev libfontconfig1-dev libxrender-dev libpango1.0-dev libpangocairo-1.0-0 pkg-config libffi-dev build-essential python3-dev && export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig && pip install --upgrade pip setuptools wheel && pip install --no-cache-dir -r requirements.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     plan: free
     autoDeploy: true
