@@ -90,28 +90,18 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
 
             {/* Actions */}
             <div className="flex items-center gap-2 md:gap-4">
-              {/* Mobile menu toggle */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                data-testid="mobile-menu-toggle"
-              >
-                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </Button>
               
-              {/* Home button - only show when not on home page */}
+              {/* Home button - only show when not on home page - Desktop only */}
               {location.pathname !== '/' && (
-                <Link to="/" data-testid="home-link">
+                <Link to="/" data-testid="home-link" className="hidden md:flex">
                   <Button variant="ghost" size="icon" className="btn-hover">
                     <Home className="h-6 w-6" />
                   </Button>
                 </Link>
               )}
 
-              {/* Wishlist */}
-              <Link to="/wishlist" data-testid="wishlist-link">
+              {/* Wishlist - Desktop only */}
+              <Link to="/wishlist" data-testid="wishlist-link" className="hidden md:flex">
                 <Button variant="ghost" size="icon" className="relative btn-hover">
                   <Heart className="h-6 w-6" />
                   {wishlistCount > 0 && (
@@ -122,7 +112,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
                 </Button>
               </Link>
 
-              {/* Cart */}
+              {/* Cart - Always visible */}
               <Link to="/cart" data-testid="cart-link">
                 <Button variant="ghost" size="icon" className="relative btn-hover">
                   <ShoppingCart className="h-6 w-6" />
@@ -134,7 +124,8 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
                 </Button>
               </Link>
 
-              {/* User */}
+              {/* User - Desktop only */}
+              <div className="hidden md:block">
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -160,6 +151,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
                   Login
                 </Button>
               )}
+              </div>
             </div>
           </div>
 
@@ -178,47 +170,23 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
           </div>
         </div>
 
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-200 px-4 py-4 animate-fade-in">
-            {/* Search - Mobile */}
-            <form onSubmit={handleSearch} className="mb-4">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-4 pr-12 py-2 rounded-full"
-                  data-testid="mobile-search-input"
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  variant="ghost"
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
-                  data-testid="mobile-search-button"
-                >
-                  <Search className="h-5 w-5" />
-                </Button>
-              </div>
-            </form>
-
-            {/* Categories - Mobile */}
-            <div className="space-y-2">
-              {categories.map((cat) => (
-                <Link
-                  key={cat}
-                  to={`/products?category=${cat.toLowerCase().replace(/[''\s]/g, '-')}`}
-                  className="block py-2 text-gray-700 hover:text-blue-600 transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {cat}
-                </Link>
-              ))}
+        {/* Mobile Search Bar - Always visible on mobile */}
+        <div className="md:hidden px-4 pb-4">
+          <form onSubmit={handleSearch}>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search by Keyword or Product ID"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 bg-gray-50 text-sm"
+                data-testid="mobile-search-input-main"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             </div>
-          </div>
-        )}
+          </form>
+        </div>
+
       </nav>
 
       {/* Auth Dialog */}

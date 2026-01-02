@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import AuthDialog from '@/components/AuthDialog';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -162,20 +163,41 @@ export default function Home({ user, setUser }) {
         </div>
       </div>
 
-      {/* Categories - Bento Grid Style */}
-      <section className="pt-20 pb-4 px-6 bg-gray-50">
+      {/* Categories */}
+      <section className="pt-6 pb-4 px-4 md:pt-20 md:px-6 bg-white md:bg-gray-50">
         <div className="container mx-auto">
-          <div className="flex justify-between items-end mb-12">
+          <div className="flex justify-between items-end mb-6 md:mb-12">
             <div>
-              <h2 className="text-4xl font-black tracking-tight mb-2">SHOP BY CATEGORY</h2>
-              <p className="text-gray-500">Explore our wide range of collections</p>
+              <h2 className="text-xl md:text-4xl font-black tracking-tight mb-2">SHOP BY CATEGORY</h2>
+              <p className="text-sm md:text-base text-gray-500">Explore our wide range of collections</p>
             </div>
             <Link to="/products" className="hidden md:flex items-center gap-2 text-sm font-semibold hover:text-purple-600 transition-colors">
               VIEW ALL <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 auto-rows-[200px] md:auto-rows-[280px]">
+          {/* Mobile Categories - Circles */}
+          <div className="md:hidden flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
+            {categories.map((category, idx) => (
+              <Link 
+                key={idx} 
+                to={`/products?category=${category.slug}`}
+                className="flex flex-col items-center min-w-[80px]"
+              >
+                <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200 mb-2 shadow-sm">
+                  <img 
+                    src={category.image} 
+                    alt={category.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="text-xs text-center font-medium leading-tight text-gray-800">{category.name}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop Categories - Bento Grid */}
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 auto-rows-[200px] md:auto-rows-[280px]">
             {categories.slice(0, 5).map((category, idx) => (
               <Link 
                 key={idx} 
@@ -200,43 +222,43 @@ export default function Home({ user, setUser }) {
         </div>
       </section>
 
-      {/* New Arrivals - Horizontal Scroll */}
-      <section className="pt-4 pb-4 px-6 bg-white overflow-hidden">
+      {/* New Arrivals */}
+      <section className="pt-4 pb-4 px-4 md:px-6 bg-white overflow-hidden">
         <div className="container mx-auto">
-          <div className="flex items-center gap-4 mb-12">
+          <div className="flex items-center gap-4 mb-6 md:mb-12">
             <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
               <TrendingUp className="w-6 h-6" />
             </div>
-            <h2 className="text-4xl font-black tracking-tight">NEW ARRIVALS</h2>
+            <h2 className="text-xl md:text-4xl font-black tracking-tight">NEW ARRIVALS</h2>
           </div>
 
-          <div className="flex gap-6 overflow-x-auto pb-8 snap-x scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0">
+          <div className="grid grid-cols-2 gap-4 md:flex md:gap-6 md:overflow-x-auto md:pb-8 md:snap-x md:scrollbar-hide md:-mx-6 md:px-6 md:mx-0 md:px-0">
             {newArrivals.map((product) => (
-              <div key={product.id} className="min-w-[280px] md:min-w-[320px] snap-start">
+              <div key={product.id} className="w-full md:min-w-[280px] md:w-[320px] md:snap-start">
                 <Link to={`/products/${product.id}`} className="group block">
-                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 mb-4">
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 mb-2 md:mb-4">
                     <img 
                       src={getImageUrl(product.images?.[0])} 
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                    {/* Quick Action Overlay */}
-                    <div className="absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                    {/* Quick Action Overlay - Desktop only */}
+                    <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                       <Button className="w-full bg-white text-black hover:bg-gray-100 shadow-lg rounded-xl">
                         View Details
                       </Button>
                     </div>
                     {/* Tags */}
                     {product.is_new && (
-                      <span className="absolute top-4 left-4 bg-black text-white text-xs font-bold px-3 py-1 rounded-full">
+                      <span className="absolute top-2 left-2 md:top-4 md:left-4 bg-black text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full">
                         NEW
                       </span>
                     )}
                   </div>
-                  <h3 className="font-bold text-lg truncate pr-4">{product.title}</h3>
+                  <h3 className="font-bold text-sm md:text-lg truncate pr-1">{product.title}</h3>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-gray-500 text-sm">{product.category}</p>
-                    <span className="font-bold text-lg">₹{product.price}</span>
+                    <p className="text-gray-500 text-xs md:text-sm truncate max-w-[80px]">{product.category}</p>
+                    <span className="font-bold text-sm md:text-lg">₹{product.price}</span>
                   </div>
                 </Link>
               </div>
@@ -245,37 +267,37 @@ export default function Home({ user, setUser }) {
         </div>
       </section>
 
-      {/* Featured Products - Carousel */}
-      <section className="pt-4 pb-12 px-6 bg-gray-50 overflow-hidden">
+      {/* Featured Products */}
+      <section className="pt-4 pb-12 px-4 md:px-6 bg-gray-50 overflow-hidden">
         <div className="container mx-auto">
-          <div className="flex items-center gap-4 mb-12">
+          <div className="flex items-center gap-4 mb-6 md:mb-12">
             <div className="p-2 bg-black text-white rounded-lg">
               <Star className="w-6 h-6" />
             </div>
-            <h2 className="text-4xl font-black tracking-tight">FEATURED COLLECTION</h2>
+            <h2 className="text-xl md:text-4xl font-black tracking-tight">FEATURED COLLECTION</h2>
           </div>
 
-          <div className="flex gap-6 overflow-x-auto pb-8 snap-x scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0">
+          <div className="grid grid-cols-2 gap-4 md:flex md:gap-6 md:overflow-x-auto md:pb-8 md:snap-x md:scrollbar-hide md:-mx-6 md:px-6 md:mx-0 md:px-0">
             {featuredProducts.map((product) => (
-              <div key={product.id} className="min-w-[280px] md:min-w-[320px] snap-start">
+              <div key={product.id} className="w-full md:min-w-[280px] md:w-[320px] md:snap-start">
                 <Link to={`/products/${product.id}`} className="group block">
-                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-white mb-4 shadow-sm">
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-white mb-2 md:mb-4 shadow-sm">
                     <img 
                       src={getImageUrl(product.images?.[0])} 
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                    {/* Quick Action Overlay */}
-                    <div className="absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                    {/* Quick Action Overlay - Desktop only */}
+                    <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                       <Button className="w-full bg-black text-white hover:bg-gray-800 shadow-lg rounded-xl">
                         View Details
                       </Button>
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg truncate pr-4">{product.title}</h3>
+                  <h3 className="font-bold text-sm md:text-lg truncate pr-1">{product.title}</h3>
                   <div className="flex items-center justify-between mt-1">
-                    <p className="text-gray-500 text-sm">{product.category}</p>
-                    <span className="font-bold text-lg">₹{product.price}</span>
+                    <p className="text-gray-500 text-xs md:text-sm truncate max-w-[80px]">{product.category}</p>
+                    <span className="font-bold text-sm md:text-lg">₹{product.price}</span>
                   </div>
                 </Link>
               </div>
@@ -316,6 +338,7 @@ export default function Home({ user, setUser }) {
       </section>
 
       <Footer />
+      <BottomNav cartCount={cartCount} />
       <AuthDialog open={showAuth} onClose={() => setShowAuth(false)} setUser={setUser} defaultTab="register" />
     </div>
   );

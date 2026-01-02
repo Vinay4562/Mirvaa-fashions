@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -157,6 +158,7 @@ export default function Wishlist({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav cartCount={cartCount} />
     </div>
   );
 }

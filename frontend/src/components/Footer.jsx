@@ -3,7 +3,7 @@ import { Facebook, Instagram, Youtube, Mail } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-white border-t border-gray-200 mt-20">
+    <footer className="bg-white border-t border-gray-200 mt-20 pb-20 md:pb-0">
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="flex flex-wrap justify-between gap-8">
           {/* Brand */}

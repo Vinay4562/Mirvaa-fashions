@@ -424,10 +424,6 @@ export default function Checkout({ user, setUser }) {
                       <span>Shipping</span>
                       <span className="text-green-600">FREE</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>Tax (18% GST)</span>
-                      <span>₹{calculateTax().toLocaleString()}</span>
-                    </div>
                   </div>
 
                   <Separator />
@@ -458,6 +454,7 @@ export default function Checkout({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav />
     </div>
   );
 }

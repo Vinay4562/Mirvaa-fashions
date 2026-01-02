@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, RefreshCw, Eye } from 'lucide-react';
+import { CalendarIcon, Download, RefreshCw, Eye, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import NotificationBell from '@/components/admin/NotificationBell';
 import ProductsAnalytics from './ProductsAnalytics';
 import OrdersAnalytics from './OrdersAnalytics';
 import UsersAnalytics from './UsersAnalytics';
@@ -89,13 +91,40 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
     }).format(amount);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminData');
+    setAdmin(null);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Admin Header */}
+      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Link to="/admin/dashboard">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-500">Analytics</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
+            <Button onClick={handleLogout} variant="outline" className="hover:bg-blue-50 transition-colors border-blue-200">
+              Logout
+            </Button>
+          </div>
+        </div>
+      </header>
+
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+            <h2 className="text-3xl font-bold text-gray-900">Overview</h2>
             <p className="text-gray-600 mt-2">Comprehensive insights into your business performance</p>
           </div>
           

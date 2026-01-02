@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
 import { adminClient } from '@/utils/api';
+import NotificationBell from '@/components/admin/NotificationBell';
 
 export default function AdminDashboard({ admin, setAdmin }) {
   const [stats, setStats] = useState({
@@ -44,6 +45,7 @@ export default function AdminDashboard({ admin, setAdmin }) {
             Mirvaa Admin
           </h1>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="text-sm font-medium text-gray-700">Welcome, {admin.username}</span>
             <Button onClick={handleLogout} variant="outline" className="hover:bg-blue-50 transition-colors border-blue-200" data-testid="admin-logout">
               Logout

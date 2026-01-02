@@ -1,5 +1,6 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 
 export default function About({ user, setUser }) {
   return (
@@ -15,6 +16,7 @@ export default function About({ user, setUser }) {
         </div>
       </div>
       <Footer />
+      <BottomNav />
     </div>
   );
 }

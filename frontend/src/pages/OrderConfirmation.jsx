@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import TrackingTimeline from '@/components/TrackingTimeline';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -207,6 +208,7 @@ export default function OrderConfirmation({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav />
     </div>
   );
 }

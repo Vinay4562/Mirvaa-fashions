@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { toast } from 'sonner';
 
@@ -41,7 +42,7 @@ export default function ReturnRequest() {
       
       // For development/testing purposes - create mock data if API fails
       try {
-        const response = await apiClient.get(`/order/${orderId}`);
+        const response = await apiClient.get(`/orders/${orderId}`);
         console.log('Order data received:', response.data);
         setOrder(response.data);
         
@@ -170,9 +171,10 @@ export default function ReturnRequest() {
           </div>
         </div>
         <Footer />
-      </>
-    );
-  }
+      <BottomNav />
+    </>
+  );
+}
 
   if (!order) {
     return (

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { toast } from 'sonner';
 
@@ -254,6 +255,7 @@ export default function AddAddress({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav cartCount={cartCount} />
     </div>
   );
 }

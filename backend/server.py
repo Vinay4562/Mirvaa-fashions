@@ -21,6 +21,11 @@ from shiprocket import ShiprocketClient
 import hmac
 import hashlib
 import requests
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 ROOT_DIR = Path(__file__).parent
 # Handle .env file loading with error handling
@@ -38,9 +43,10 @@ if not mongo_url:
 print("Using MongoDB URL from environment")
 
 try:
-    client = AsyncIOMotorClient(mongo_url)
-    db = client[os.environ.get('DB_NAME', 'mirvaa_fashions')]
-    print("MongoDB client initialized; will verify connectivity on startup")
+    # Initialize as None, will be connected in startup event
+    client = None
+    db = None
+    print("MongoDB client placeholders initialized")
 except Exception as e:
     print(f"Error initializing MongoDB client: {e}")
     client = None
@@ -88,7 +94,7 @@ JWT_EXPIRATION_DAYS = int(os.environ.get('JWT_EXPIRATION_DAYS', '7'))
 app = FastAPI()
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,https://mirvaa-fashions.vercel.app').split(',')
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173,https://mirvaa-fashions.vercel.app').split(',')
 print(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
 # Add CORS middleware with expanded configuration
@@ -112,9 +118,12 @@ security = HTTPBearer()
 # Health endpoint and startup check
 @app.on_event("startup")
 async def verify_db_connection_on_startup():
+    global client, db
     try:
-        if db is None:
-            raise RuntimeError("DB is not initialized")
+        print("Initializing MongoDB client in startup event...")
+        client = AsyncIOMotorClient(mongo_url)
+        db = client[os.environ.get('DB_NAME', 'mirvaa_fashions')]
+        
         # motor connects lazily; force a ping to verify credentials/network
         await db.command("ping")
         print("MongoDB connectivity check: OK")
@@ -361,6 +370,16 @@ class AuditLog(BaseModel):
     ip_address: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Notification Model
+class Notification(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str  # order_placed, payment_completed, order_delivered
+    message: str
+    order_id: Optional[str] = None
+    is_read: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # ==================== Helper Functions ====================
 
 def hash_password(password: str) -> str:
@@ -368,6 +387,92 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+def generate_order_label(order: Dict) -> str:
+    try:
+        filename = f"label_{order['order_number']}.pdf"
+        filepath = os.path.join("uploads", "labels", filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        doc = SimpleDocTemplate(filepath, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Title
+        elements.append(Paragraph(f"Order Label: {order['order_number']}", styles['Title']))
+        elements.append(Spacer(1, 12))
+        
+        # Date
+        date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        elements.append(Paragraph(f"Date: {date_str}", styles['Normal']))
+        elements.append(Spacer(1, 12))
+        
+        # Customer Details
+        shipping = order.get('shipping_address', {})
+        address_text = f"""
+        <b>Ship To:</b><br/>
+        {shipping.get('name')}<br/>
+        {shipping.get('address')}<br/>
+        {shipping.get('city')}, {shipping.get('state')} - {shipping.get('pincode')}<br/>
+        Phone: {shipping.get('phone')}
+        """
+        elements.append(Paragraph(address_text, styles['Normal']))
+        elements.append(Spacer(1, 20))
+        
+        # Items Table
+        data = [['Product', 'Qty', 'MRP (incl 5% GST)', 'Total']]
+        for item in order['items']:
+            price = item.get('price', 0)
+            qty = item.get('quantity', 1)
+            total = price * qty
+            data.append([
+                item.get('product_title', 'Unknown Product')[:30], # Truncate title
+                str(qty),
+                f"INR {price:.2f}",
+                f"INR {total:.2f}"
+            ])
+        
+        # Add totals
+        data.append(['', '', 'Subtotal:', f"INR {order['subtotal']:.2f}"])
+        data.append(['', '', 'Total:', f"INR {order['total']:.2f}"])
+
+        table = Table(data, colWidths=[3*inch, 1*inch, 1.5*inch, 1.5*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+        
+        # GST Note
+        gst_text = "Note: Prices are inclusive of 5% GST."
+        elements.append(Paragraph(gst_text, styles['Italic']))
+        
+        doc.build(elements)
+        return f"/uploads/labels/{filename}"
+    except Exception as e:
+        print(f"Error generating PDF label: {e}")
+        return None
+
+async def create_notification(type: str, message: str, order_id: Optional[str] = None):
+    try:
+        notification = Notification(
+            type=type,
+            message=message,
+            order_id=order_id
+        )
+        notif_dict = notification.model_dump()
+        notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+        if db is not None:
+            await db.notifications.insert_one(notif_dict)
+    except Exception as e:
+        print(f"Error creating notification: {e}")
+
 
 def create_token(user_id: str, email: str) -> str:
     expiration = datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRATION_DAYS)
@@ -1005,6 +1110,13 @@ async def create_return_request(return_data: ReturnRequestCreate, current_user: 
     
     await db.returns.insert_one(return_dict)
     
+    # Create notification for admin
+    await create_notification(
+        type="return_requested",
+        message=f"New return request for order: {order.get('order_number')}",
+        order_id=return_data.order_id
+    )
+    
     return {"message": "Return request submitted successfully", "id": return_request.id}
 
 @api_router.get("/returns")
@@ -1086,6 +1198,21 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
     
     result = await db.orders.insert_one(order_dict)
     
+    # Generate PDF Label
+    label_path = generate_order_label(order_dict)
+    if label_path:
+        await db.orders.update_one(
+            {"_id": result.inserted_id},
+            {"$set": {"label_url": label_path}}
+        )
+        
+    # Create Notification
+    await create_notification(
+        type="order_placed",
+        message=f"New order placed: {order_number}",
+        order_id=order.id
+    )
+
     # Clear cart after order
     await db.cart.delete_many({"user_id": current_user['id']})
     
@@ -1120,6 +1247,13 @@ async def payment_success(
             }
         }
     )
+    
+    await create_notification(
+        type="payment_completed",
+        message=f"Payment received for order: {order_id}",
+        order_id=order_id
+    )
+
     if DELHIVERY_API_KEY:
         try:
             order = await db.orders.find_one({"id": order_id})
@@ -1461,6 +1595,14 @@ async def update_order_status(
                 )
                 print(f"Stock updated for product {product_id}: new stock = {product['stock'] - quantity}, sold count = {new_sold_count}")
     
+    # Create Notification if status is delivered
+    if status == "delivered" and order["status"] != "delivered":
+        await create_notification(
+            type="order_delivered",
+            message=f"Order delivered: {order_id}",
+            order_id=order_id
+        )
+
     return {"message": "Order status updated", "status": status}
 
 # ==================== Review Routes ====================
@@ -2429,112 +2571,71 @@ async def export_analytics_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
 
-# ==================== Return Request Routes ====================
+# ==================== Notification Routes ====================
 
-@api_router.post("/returns")
-async def create_return_request(
-    return_data: ReturnRequestCreate,
-    user: Dict = Depends(get_current_user)
-):
-    # Check if order exists and belongs to user
-    order = await db.orders.find_one({"id": return_data.order_id, "user_id": user["id"]})
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    # Check if product exists in order
-    product_in_order = False
-    product_returnable = False
-    for item in order["items"]:
-        if item["product_id"] == return_data.product_id:
-            product_in_order = True
-            if "product" in item and "returnable" in item["product"]:
-                product_returnable = item["product"]["returnable"]
-            break
-    
-    if not product_in_order:
-        raise HTTPException(status_code=400, detail="Product not found in order")
-    
-    if not product_returnable:
-        raise HTTPException(status_code=400, detail="This product is not eligible for return")
-    
-    # Check if return is within 3-day window
-    order_date = order["created_at"]
-    if isinstance(order_date, str):
-        order_date = datetime.fromisoformat(order_date)
-    
-    current_date = datetime.now(timezone.utc)
-    days_difference = (current_date - order_date).days
-    
-    if days_difference > 3:
-        raise HTTPException(status_code=400, detail="Return window of 3 days has expired")
-    
-    # Check if return request already exists
-    existing_return = await db.return_requests.find_one({
-        "user_id": user["id"],
-        "order_id": return_data.order_id,
-        "product_id": return_data.product_id
-    })
-    
-    if existing_return:
-        raise HTTPException(status_code=400, detail="Return request already exists for this product")
-    
-    # Create return request
-    return_request = ReturnRequest(
-        user_id=user["id"],
-        order_id=return_data.order_id,
-        product_id=return_data.product_id,
-        reason=return_data.reason
-    )
-    
-    return_dict = return_request.model_dump()
-    await db.return_requests.insert_one(return_dict)
-    
-    return {"message": "Return request created successfully", "return_id": return_request.id}
-
-@api_router.get("/returns")
-async def get_user_return_requests(user: Dict = Depends(get_current_user)):
-    return_requests = await db.return_requests.find({"user_id": user["id"]}).to_list(100)
-    
-    # Format dates
-    for request in return_requests:
-        if "_id" in request:
-            del request["_id"]
-        if isinstance(request.get("created_at"), str):
-            request["created_at"] = datetime.fromisoformat(request["created_at"])
-    
-    return return_requests
-
-@api_router.get("/admin/returns")
-async def get_all_return_requests(admin: Dict = Depends(get_current_admin)):
-    return_requests = await db.return_requests.find({}).to_list(100)
-    
-    # Format dates and remove _id
-    for request in return_requests:
-        if "_id" in request:
-            del request["_id"]
-        if isinstance(request.get("created_at"), str):
-            request["created_at"] = datetime.fromisoformat(request["created_at"])
-    
-    return return_requests
-
-@api_router.put("/admin/returns/{return_id}")
-async def update_return_status(
-    return_id: str,
-    status: str,
+@api_router.get("/admin/notifications")
+async def get_notifications(
+    skip: int = 0,
+    limit: int = 50,
     admin: Dict = Depends(get_current_admin)
 ):
-    if status not in ["pending", "approved", "rejected", "completed"]:
-        raise HTTPException(status_code=400, detail="Invalid status")
-    
-    result = await db.return_requests.update_one(
-        {"id": return_id},
-        {"$set": {"status": status}}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Return request not found")
-    
-    return {"message": f"Return request status updated to {status}"}
+    try:
+        cursor = db.notifications.find({}).sort("created_at", -1).skip(skip).limit(limit)
+        notifications = await cursor.to_list(length=limit)
+        
+        # Count unread
+        unread_count = await db.notifications.count_documents({"is_read": False})
+        
+        # Format dates
+        for notif in notifications:
+            if "_id" in notif:
+                del notif["_id"]
+            if isinstance(notif.get("created_at"), str):
+                notif["created_at"] = datetime.fromisoformat(notif["created_at"])
+                
+        return {
+            "notifications": notifications,
+            "unread_count": unread_count
+        }
+    except Exception as e:
+        print(f"Error fetching notifications: {e}")
+        return {"notifications": [], "unread_count": 0}
+
+@api_router.put("/admin/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    admin: Dict = Depends(get_current_admin)
+):
+    try:
+        result = await db.notifications.update_one(
+            {"id": notification_id},
+            {"$set": {"is_read": True}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Notification not found")
+            
+        return {"status": "success"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating notification: {e}")
+
+@api_router.put("/admin/notifications/read-all")
+async def mark_all_notifications_read(
+    admin: Dict = Depends(get_current_admin)
+):
+    try:
+        await db.notifications.update_many(
+            {"is_read": False},
+            {"$set": {"is_read": True}}
+        )
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating notifications: {e}")
+
+
+
 
 # Include router
 app.include_router(api_router)
@@ -2557,4 +2658,5 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client:
+        client.close()

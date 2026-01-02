@@ -1,5 +1,6 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 
 export default function TermsAndConditions({ user, setUser }) {
   return (
@@ -46,6 +47,7 @@ export default function TermsAndConditions({ user, setUser }) {
         </div>
       </div>
       <Footer />
+      <BottomNav />
     </div>
   );
 }

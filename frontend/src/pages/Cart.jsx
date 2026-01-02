@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -229,6 +230,18 @@ export default function Cart({ user, setUser }) {
       </div>
 
       <Footer />
+      {/* Mobile Checkout Bar */}
+      {cartItems.length > 0 && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+          <div>
+            <p className="text-xs text-gray-500">Total Amount</p>
+            <p className="text-lg font-bold">₹{calculateTotal().toLocaleString()}</p>
+          </div>
+          <Button onClick={handleCheckout} className="bg-pink-600 hover:bg-pink-700 px-8">
+            Checkout
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
@@ -301,8 +302,8 @@ export default function ProductDetail({ user, setUser }) {
               </Badge>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-4">
+            {/* Desktop Action Buttons */}
+            <div className="hidden md:flex gap-4">
               <Button
                 onClick={handleAddToCart}
                 className="flex-1 btn-hover"
@@ -446,6 +447,25 @@ export default function ProductDetail({ user, setUser }) {
       </div>
 
       <Footer />
+      {/* Mobile Action Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 z-50 flex gap-2">
+        <Button
+          onClick={handleAddToCart}
+          variant="outline"
+          className="flex-1 border-black text-black"
+          disabled={product.stock === 0}
+        >
+          <ShoppingCart className="mr-2 h-4 w-4" />
+          Add to Cart
+        </Button>
+        <Button
+          onClick={handleBuyNow}
+          className="flex-1 bg-pink-600 hover:bg-pink-700 text-white"
+          disabled={product.stock === 0}
+        >
+          Buy Now
+        </Button>
+      </div>
     </div>
   );
 }

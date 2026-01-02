@@ -91,6 +91,7 @@ function App() {
           <Route path="/legal/:page" element={<LegalPage user={user} setUser={setUser} />} />
           
           <Route path="/admin/login" element={<AdminLogin setAdmin={setAdmin} />} />
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
           <Route 
             path="/admin/dashboard" 
             element={admin ? <AdminDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 

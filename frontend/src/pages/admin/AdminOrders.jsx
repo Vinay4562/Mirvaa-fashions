@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Package, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import NotificationBell from '@/components/admin/NotificationBell';
 import { adminClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -80,6 +81,7 @@ export default function AdminOrders({ admin, setAdmin }) {
             <h1 className="text-2xl font-bold gradient-text">Order Management</h1>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
             <Button onClick={handleLogout} variant="outline" className="btn-hover">
               Logout
@@ -166,6 +168,17 @@ export default function AdminOrders({ admin, setAdmin }) {
                       <p className="text-xs text-gray-500">
                         Status: {order.payment_status}
                       </p>
+                      {order.label_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-2"
+                          onClick={() => window.open(`${import.meta.env.VITE_API_URL}${order.label_url}`, '_blank')}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Label
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

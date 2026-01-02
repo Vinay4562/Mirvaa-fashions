@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API } from '@/utils/api';
 import { Helmet } from 'react-helmet';
@@ -73,6 +74,7 @@ export default function LegalPage({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav />
     </div>
   );
 }

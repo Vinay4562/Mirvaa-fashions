@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/sheet';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
@@ -390,6 +391,7 @@ export default function ProductListing({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav cartCount={cartCount} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
@@ -293,6 +294,7 @@ export default function Account({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav cartCount={cartCount} />
     </div>
   );
 }

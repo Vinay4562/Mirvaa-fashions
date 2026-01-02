@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle, RefreshCcw } from 'lucide-react';
+import NotificationBell from '@/components/admin/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { apiClient } from '@/utils/api';
+import { adminClient } from '@/utils/api';
 import { toast } from 'sonner';
 
 export default function AdminReturns() {
@@ -20,7 +21,7 @@ export default function AdminReturns() {
 
   const fetchReturns = async () => {
     try {
-      const response = await apiClient.get('/admin/returns');
+      const response = await adminClient.get('/admin/returns');
       setReturns(response.data);
     } catch (error) {
       console.error('Error fetching returns:', error);
@@ -32,7 +33,7 @@ export default function AdminReturns() {
 
   const updateStatus = async (returnId, newStatus) => {
     try {
-      await apiClient.put(`/admin/returns/${returnId}`, { status: newStatus });
+      await adminClient.put(`/admin/returns/${returnId}`, { status: newStatus });
       setReturns(prev => 
         prev.map(r => r.id === returnId ? { ...r, status: newStatus } : r)
       );
@@ -71,16 +72,19 @@ export default function AdminReturns() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/admin')}>
+            <Button variant="ghost" onClick={() => navigate('/admin/dashboard')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
             <h1 className="text-3xl font-bold">Return Requests</h1>
           </div>
-          <Button onClick={fetchReturns} variant="outline">
-            <RefreshCcw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <Button onClick={fetchReturns} variant="outline">
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <Card>

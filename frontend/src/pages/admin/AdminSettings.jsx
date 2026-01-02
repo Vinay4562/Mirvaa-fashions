@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react';
+import NotificationBell from '@/components/admin/NotificationBell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -223,6 +224,7 @@ export default function AdminSettings({ admin, setAdmin }) {
             <h1 className="text-2xl font-bold gradient-text">Settings</h1>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
             <Button onClick={handleLogout} variant="outline" className="btn-hover">
               Logout
