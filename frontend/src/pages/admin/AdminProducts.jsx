@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,12 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import NotificationBell from '@/components/admin/NotificationBell';
+import AdminLayout from '@/components/admin/AdminLayout';
 import { adminClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { API } from '@/utils/api';
+import Loading from '@/components/Loading';
 
 export default function AdminProducts({ admin, setAdmin }) {
   const [products, setProducts] = useState([]);
@@ -35,6 +35,7 @@ export default function AdminProducts({ admin, setAdmin }) {
     colors: '',
     sku: '',
     tags: '',
+    product_details: [],
     is_featured: false,
     returnable: false,
   });
@@ -56,12 +57,6 @@ export default function AdminProducts({ admin, setAdmin }) {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminData');
-    setAdmin(null);
-  };
-
   const handleOpenDialog = (product = null) => {
     if (product) {
       setEditingProduct(product);
@@ -78,6 +73,9 @@ export default function AdminProducts({ admin, setAdmin }) {
         colors: product.colors.join(', '),
         sku: product.sku || '',
         tags: product.tags.join(', '),
+        product_details: product.product_details 
+          ? Object.entries(product.product_details).map(([key, value]) => ({ key, value }))
+          : [],
         is_featured: product.is_featured,
         returnable: product.returnable || false,
       });
@@ -97,6 +95,7 @@ export default function AdminProducts({ admin, setAdmin }) {
         colors: '',
         sku: '',
         tags: '',
+        product_details: [],
         is_featured: false,
         returnable: false,
       });
@@ -143,6 +142,25 @@ export default function AdminProducts({ admin, setAdmin }) {
     }
   };
 
+  const handleAddDetail = () => {
+    setFormData({
+      ...formData,
+      product_details: [...formData.product_details, { key: '', value: '' }]
+    });
+  };
+
+  const handleRemoveDetail = (index) => {
+    const newDetails = [...formData.product_details];
+    newDetails.splice(index, 1);
+    setFormData({ ...formData, product_details: newDetails });
+  };
+
+  const handleDetailChange = (index, field, value) => {
+    const newDetails = [...formData.product_details];
+    newDetails[index][field] = value;
+    setFormData({ ...formData, product_details: newDetails });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -159,6 +177,10 @@ export default function AdminProducts({ admin, setAdmin }) {
       colors: formData.colors.split(',').map((c) => c.trim()).filter(Boolean),
       sku: formData.sku || null,
       tags: formData.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      product_details: formData.product_details.reduce((acc, item) => {
+        if (item.key && item.value) acc[item.key] = item.value;
+        return acc;
+      }, {}),
       is_featured: formData.is_featured,
       returnable: formData.returnable,
     };
@@ -198,42 +220,13 @@ export default function AdminProducts({ admin, setAdmin }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      {/* Admin Header */}
-      <header className="bg-white shadow-lg sticky top-0 z-10 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link to="/admin/dashboard">
-              <Button variant="ghost" size="icon" data-testid="back-to-dashboard">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Product Management</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
-            <Button 
-              onClick={handleLogout} 
-              variant="outline" 
-              className="border-gray-300 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300">
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
+    <AdminLayout admin={admin} setAdmin={setAdmin} title="Product Management">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Products ({products.length})</h2>
           <Button onClick={() => handleOpenDialog()} className="btn-hover" data-testid="add-product-button">
             <Plus className="mr-2 h-4 w-4" />
@@ -242,7 +235,7 @@ export default function AdminProducts({ admin, setAdmin }) {
         </div>
 
         {/* Category Filter */}
-        <div className="mb-6 overflow-x-auto">
+        <div className="overflow-x-auto">
           <div className="flex space-x-2 pb-2">
             {categories.map((category) => (
               <Button
@@ -482,41 +475,71 @@ export default function AdminProducts({ admin, setAdmin }) {
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Product Details (Key-Value Pairs)</Label>
+                <Button type="button" variant="outline" size="sm" onClick={handleAddDetail}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Detail
+                </Button>
+              </div>
+              {formData.product_details.map((detail, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <Input
+                    placeholder="Key (e.g. Brand)"
+                    value={detail.key}
+                    onChange={(e) => handleDetailChange(index, 'key', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="Value (e.g. FORTUNE)"
+                    value={detail.value}
+                    onChange={(e) => handleDetailChange(index, 'value', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => handleRemoveDetail(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-4">
+               <div className="flex items-center space-x-2">
                 <input
-                  id="is_featured"
-                  data-testid="product-featured-checkbox"
                   type="checkbox"
+                  id="is_featured"
                   checked={formData.is_featured}
                   onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
-                  className="rounded"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <Label htmlFor="is_featured" className="cursor-pointer">Mark as Featured</Label>
-              </div>
-              <div className="flex items-center space-x-2">
+                <Label htmlFor="is_featured">Featured Product</Label>
+               </div>
+               <div className="flex items-center space-x-2">
                 <input
-                  id="returnable"
-                  data-testid="product-returnable-checkbox"
                   type="checkbox"
+                  id="returnable"
                   checked={formData.returnable}
                   onChange={(e) => setFormData({ ...formData, returnable: e.target.checked })}
-                  className="rounded"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <Label htmlFor="returnable" className="cursor-pointer">Returnable (3-day window)</Label>
-              </div>
+                <Label htmlFor="returnable">Returnable</Label>
+               </div>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="btn-hover" data-testid="save-product-button">
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                 {editingProduct ? 'Update Product' : 'Create Product'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminLayout>
   );
 }

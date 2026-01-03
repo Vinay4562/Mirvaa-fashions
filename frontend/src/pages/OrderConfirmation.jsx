@@ -11,6 +11,7 @@ import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
+import Loading from '@/components/Loading';
 
 export default function OrderConfirmation({ user, setUser }) {
   const { orderId } = useParams();
@@ -65,11 +66,7 @@ export default function OrderConfirmation({ user, setUser }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (!order) {

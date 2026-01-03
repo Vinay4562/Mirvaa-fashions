@@ -68,7 +68,7 @@ else:
 # Initialize Shiprocket client
 SHIPROCKET_EMAIL = os.environ.get("SHIPROCKET_EMAIL")
 SHIPROCKET_PASSWORD = os.environ.get("SHIPROCKET_PASSWORD")
-DELHIVERY_API_KEY = os.environ.get("DELHIVERY_API_KEY")
+DELHIVERY_API_KEY = "e4513a669ba8bca907821ed53d3fc22039dc8cce"
 
 if SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD:
     try:
@@ -194,6 +194,7 @@ class Product(BaseModel):
     tags: List[str] = Field(default_factory=list)
     rating: float = 0.0
     reviews_count: int = 0
+    product_details: Dict[str, str] = Field(default_factory=dict)
     is_featured: bool = False
     returnable: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -212,6 +213,7 @@ class ProductCreate(BaseModel):
     stock: int
     sku: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    product_details: Dict[str, str] = Field(default_factory=dict)
     is_featured: bool = False
 
 class CartItem(BaseModel):
@@ -1189,7 +1191,8 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
         total=order_data.total,
         payment_method=order_data.payment_method,
         shipping_address=order_data.shipping_address,
-        razorpay_order_id=razorpay_order_id
+        razorpay_order_id=razorpay_order_id,
+        status="pending_payment" if order_data.payment_method == "razorpay" else "placed"
     )
     
     order_dict = order.model_dump()
@@ -1198,23 +1201,24 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
     
     result = await db.orders.insert_one(order_dict)
     
-    # Generate PDF Label
-    label_path = generate_order_label(order_dict)
-    if label_path:
-        await db.orders.update_one(
-            {"_id": result.inserted_id},
-            {"$set": {"label_url": label_path}}
+    # Generate PDF Label only for COD orders initially
+    if order_data.payment_method == "cod":
+        label_path = generate_order_label(order_dict)
+        if label_path:
+            await db.orders.update_one(
+                {"_id": result.inserted_id},
+                {"$set": {"label_url": label_path}}
+            )
+            
+        # Create Notification
+        await create_notification(
+            type="order_placed",
+            message=f"New order placed: {order_number}",
+            order_id=order.id
         )
-        
-    # Create Notification
-    await create_notification(
-        type="order_placed",
-        message=f"New order placed: {order_number}",
-        order_id=order.id
-    )
 
-    # Clear cart after order
-    await db.cart.delete_many({"user_id": current_user['id']})
+        # Clear cart after order only for COD
+        await db.cart.delete_many({"user_id": current_user['id']})
     
     # Convert ObjectId to string to make it JSON serializable
     response_dict = {**order_dict, "razorpay_key_id": RAZORPAY_KEY_ID}
@@ -1242,72 +1246,30 @@ async def payment_success(
                 "payment_status": "completed",
                 "razorpay_payment_id": razorpay_payment_id,
                 "razorpay_order_id": razorpay_order_id,
-                "status": "confirmed",
+                "status": "placed",
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
         }
     )
     
     await create_notification(
-        type="payment_completed",
-        message=f"Payment received for order: {order_id}",
+        type="order_placed",
+        message=f"New order placed (Prepaid): {order_id}",
         order_id=order_id
     )
+    
+    # Clear cart after successful payment
+    await db.cart.delete_many({"user_id": current_user['id']})
 
-    if DELHIVERY_API_KEY:
-        try:
-            order = await db.orders.find_one({"id": order_id})
-            addr = order.get("shipping_address", {})
-            waybill_resp = requests.get(
-                "https://track.delhivery.com/api/waybill",
-                params={"token": DELHIVERY_API_KEY, "count": 1},
-                timeout=10
-            )
-            wb = None
-            if waybill_resp.ok:
-                d = waybill_resp.json()
-                wb = d.get("waybill")
-            shipment_data = [{
-                "waybill": wb,
-                "order": order.get("order_number"),
-                "pickup_location": "Primary",
-                "name": addr.get("name"),
-                "address": addr.get("address"),
-                "city": addr.get("city"),
-                "state": addr.get("state"),
-                "phone": addr.get("phone"),
-                "pin": addr.get("pincode"),
-                "cod_amount": 0,
-                "order_date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                "total_weight": 0.5,
-                "package_count": 1,
-                "payment_mode": "Prepaid"
-            }]
-            cmu_resp = requests.post(
-                "https://track.delhivery.com/api/cmu/create.json",
-                data={"format": "json", "data": json.dumps(shipment_data)},
-                headers={"Authorization": f"Token {DELHIVERY_API_KEY}"},
-                timeout=15
-            )
-            ship_info = {}
-            if cmu_resp.ok:
-                ship_info = cmu_resp.json()
-            await db.orders.update_one(
-                {"id": order_id},
-                {"$set": {
-                    "delhivery_waybill": wb,
-                    "delhivery_response": ship_info,
-                    "shipping_status": "created"
-                }}
-            )
-        except Exception:
-            pass
     return {"message": "Payment successful", "order_id": order_id}
 
 @api_router.get("/orders")
 async def get_orders(current_user: Dict = Depends(get_current_user)):
     orders = await db.orders.find(
-        {"user_id": current_user['id']},
+        {
+            "user_id": current_user['id'],
+            "status": {"$nin": ["pending_payment", "cancelled"]}
+        },
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     
@@ -1604,6 +1566,199 @@ async def update_order_status(
         )
 
     return {"message": "Order status updated", "status": status}
+
+@api_router.post("/admin/orders/{order_id}/confirm-shipping")
+async def confirm_order_shipping(
+    order_id: str,
+    admin: Dict = Depends(get_current_admin)
+):
+    """
+    Confirm order and create shipping with Delhivery
+    """
+    if not DELHIVERY_API_KEY:
+        raise HTTPException(status_code=400, detail="Delhivery API key not configured")
+
+    order = await db.orders.find_one({"id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.get("delhivery_waybill"):
+         return {"message": "Shipping already created", "waybill": order.get("delhivery_waybill")}
+
+    try:
+        # 1. Get Waybill
+        wb_url = "https://track.delhivery.com/waybill/api/fetch/json/"
+        wb_params = {"token": DELHIVERY_API_KEY, "count": 1}
+        
+        print(f"Fetching Waybill from {wb_url}")
+        
+        wb_resp = requests.get(wb_url, params=wb_params, timeout=15)
+        if not wb_resp.ok:
+             raise Exception(f"Failed to fetch waybill: {wb_resp.text}")
+        
+        wb_data = wb_resp.json()
+        print(f"Waybill Response: {wb_data}")
+        
+        waybill = None
+        if isinstance(wb_data, dict):
+            waybill = wb_data.get("waybill")
+        elif isinstance(wb_data, list) and len(wb_data) > 0:
+            waybill = wb_data[0]
+        elif isinstance(wb_data, str):
+            waybill = wb_data
+            
+        # Handle list or dict response
+        if not waybill and isinstance(wb_data, dict) and "waybill" in wb_data:
+             waybill = wb_data["waybill"]
+        
+        if not waybill and isinstance(wb_data, str):
+            waybill = wb_data
+
+        if not waybill:
+             raise Exception(f"Invalid waybill response: {wb_data}")
+
+        # 2. Create Shipment (CMU)
+        addr = order.get("shipping_address", {})
+        
+        # Format date
+        order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        shipment_payload = [{
+            "waybill": waybill,
+            "order": order.get("order_number"),
+            "pickup_location": "MirvaaWarehouse",
+            "name": addr.get("name"),
+            "address": addr.get("address"), 
+            "city": addr.get("city"),
+            "state": addr.get("state"),
+            "phone": addr.get("phone"),
+            "pin": addr.get("pincode"),
+            "cod_amount": order.get("total") if order.get("payment_method") == "cod" else 0,
+            "payment_mode": "COD" if order.get("payment_method") == "cod" else "Prepaid",
+            "order_date": order_date,
+            "total_weight": 0.5, 
+            "package_count": 1,
+            "products_desc": ", ".join([item.get("title", "Product") for item in order.get("items", [])])
+        }]
+        
+        create_url = "https://track.delhivery.com/api/cmu/create.json"
+        create_data = {
+            "format": "json",
+            "data": json.dumps(shipment_payload)
+        }
+        
+        print(f"Creating shipment with payload: {shipment_payload}")
+        
+        create_resp = requests.post(
+            create_url, 
+            data=create_data, 
+            headers={"Authorization": f"Token {DELHIVERY_API_KEY}"},
+            timeout=15
+        )
+        
+        if not create_resp.ok:
+             raise Exception(f"Failed to create shipment: {create_resp.text}")
+        
+        # Validate creation result content
+        try:
+            create_json = create_resp.json()
+            print(f"Delhivery create response: {create_json}")
+            if isinstance(create_json, dict):
+                # Common shapes: {"packages": [...]} or {"error": "..."} or {"success": true/false}
+                if "packages" in create_json and isinstance(create_json["packages"], list):
+                    if len(create_json["packages"]) == 0:
+                        raise Exception(f"Delhivery did not add packages for waybill {waybill}: {create_resp.text}")
+                elif "success" in create_json and not create_json["success"]:
+                    raise Exception(f"Delhivery create unsuccessful: {create_resp.text}")
+                elif "error" in create_json and create_json["error"]:
+                    raise Exception(f"Delhivery error: {create_json['error']}")
+            else:
+                print("Unexpected Delhivery create response format")
+        except Exception as e:
+            # If JSON parsing fails, at least log the raw text
+            print(f"Warning: could not parse Delhivery create response JSON: {e}")
+            print(f"Raw create response: {create_resp.text}")
+             
+        # 3. Schedule Pickup
+        pickup_url = "https://track.delhivery.com/fm/request/new/"
+        pickup_payload = {
+            "pickup_time": (datetime.now() + timedelta(days=1)).strftime("%H:%M:%S"),
+            "pickup_date": (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d"),
+            "pickup_location": "MirvaaWarehouse",
+            "expected_package_count": 1
+        }
+        
+        try:
+             pickup_resp = requests.post(
+                 pickup_url, 
+                 json=pickup_payload,
+                 headers={"Authorization": f"Token {DELHIVERY_API_KEY}", "Content-Type": "application/json"},
+                 timeout=10
+             )
+             print(f"Pickup schedule response: {pickup_resp.text}")
+        except Exception as e:
+             print(f"Pickup schedule error: {e}")
+
+        # Update Order
+        await db.orders.update_one(
+            {"id": order_id},
+            {
+                "$set": {
+                    "status": "confirmed",
+                    "shipping_status": "shipped", 
+                    "delhivery_waybill": waybill,
+                    "tracking_id": waybill,
+                    "courier_name": "Delhivery",
+                    "label_url": f"/api/admin/orders/{order_id}/label" 
+                }
+            }
+        )
+        
+        # Create Notification
+        await create_notification(
+            type="order_shipped",
+            message=f"Order {order.get('order_number')} confirmed and shipping label generated.",
+            order_id=order_id
+        )
+
+        return {"success": True, "waybill": waybill}
+
+    except Exception as e:
+        print(f"Delhivery Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/orders/{order_id}/label")
+async def get_delhivery_label(order_id: str, admin: Dict = Depends(get_current_admin)):
+    order = await db.orders.find_one({"id": order_id})
+    if not order or not order.get("delhivery_waybill"):
+        raise HTTPException(status_code=404, detail="Label not found")
+        
+    wb = order.get("delhivery_waybill")
+    # Fetch PDF from Delhivery
+    url = f"https://track.delhivery.com/api/p/packing_slip?wbns={wb}"
+    
+    try:
+        resp = requests.get(
+            url,
+            headers={"Authorization": f"Token {DELHIVERY_API_KEY}"},
+            timeout=15
+        )
+        if resp.ok:
+            # Some Delhivery responses return JSON error messages; ensure we only return PDFs
+            content_type = resp.headers.get("Content-Type", "")
+            if "application/pdf" in content_type or resp.content.startswith(b"%PDF"):
+                from fastapi.responses import Response
+                return Response(content=resp.content, media_type="application/pdf")
+            else:
+                # Forward error message from Delhivery for easier debugging
+                raise HTTPException(status_code=400, detail=resp.text or "Invalid label response from Delhivery")
+        else:
+            # Forward error message from Delhivery
+            raise HTTPException(status_code=resp.status_code, detail=resp.text or "Failed to fetch label from Delhivery")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== Review Routes ====================
 

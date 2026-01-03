@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Eye, EyeOff } from 'lucide-react';
-import NotificationBell from '@/components/admin/NotificationBell';
+import { Save, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { adminClient } from '@/utils/api';
 import { toast } from 'sonner';
+import Loading from '@/components/Loading';
+import AdminLayout from '@/components/admin/AdminLayout';
 
 export default function AdminSettings({ admin, setAdmin }) {
   const [loading, setLoading] = useState(true);
@@ -99,12 +99,6 @@ export default function AdminSettings({ admin, setAdmin }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminData');
-    setAdmin(null);
   };
 
   const handleProfileUpdate = async (e) => {
@@ -203,38 +197,12 @@ export default function AdminSettings({ admin, setAdmin }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link to="/admin/dashboard">
-              <Button variant="ghost" size="icon" data-testid="back-to-dashboard-settings">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold gradient-text">Settings</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
-            <Button onClick={handleLogout} variant="outline" className="btn-hover">
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
+    <AdminLayout admin={admin} setAdmin={setAdmin} title="Settings">
+      <div className="max-w-5xl mx-auto">
         <Tabs defaultValue="profile" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" data-testid="profile-settings-tab">Profile</TabsTrigger>
@@ -501,7 +469,29 @@ export default function AdminSettings({ admin, setAdmin }) {
                       />
                     </div>
                   </div>
-                  <Button type="submit" disabled={saving} className="btn-hover" data-testid="save-store-settings-button">
+                  <div>
+                    <Label>Branding</Label>
+                    <div className="grid md:grid-cols-2 gap-4 mt-2">
+                      <Input
+                        placeholder="Logo URL"
+                        value={storeSettings.logo_url}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, logo_url: e.target.value })}
+                      />
+                      <Input
+                        placeholder="Favicon URL"
+                        value={storeSettings.favicon_url}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, favicon_url: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-4">
+                    <Switch
+                      checked={storeSettings.maintenance_mode}
+                      onCheckedChange={(checked) => setStoreSettings({ ...storeSettings, maintenance_mode: checked })}
+                    />
+                    <Label>Maintenance Mode</Label>
+                  </div>
+                  <Button type="submit" disabled={saving} className="btn-hover" data-testid="save-store-button">
                     <Save className="mr-2 h-4 w-4" />
                     {saving ? 'Saving...' : 'Save Changes'}
                   </Button>
@@ -517,49 +507,18 @@ export default function AdminSettings({ admin, setAdmin }) {
                 <CardTitle>Advanced Settings</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleStoreSettingsUpdate} className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
-                      <p className="text-sm text-gray-500">Enable this to show a maintenance page to visitors</p>
-                    </div>
-                    <Switch
-                      id="maintenance-mode"
-                      data-testid="maintenance-mode-switch"
-                      checked={storeSettings.maintenance_mode}
-                      onCheckedChange={(checked) => setStoreSettings({ ...storeSettings, maintenance_mode: checked })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="store-logo">Store Logo URL</Label>
-                    <Input
-                      id="store-logo"
-                      data-testid="store-logo-input"
-                      placeholder="https://example.com/logo.png"
-                      value={storeSettings.logo_url}
-                      onChange={(e) => setStoreSettings({ ...storeSettings, logo_url: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="favicon">Favicon URL</Label>
-                    <Input
-                      id="favicon"
-                      data-testid="favicon-input"
-                      placeholder="https://example.com/favicon.ico"
-                      value={storeSettings.favicon_url}
-                      onChange={(e) => setStoreSettings({ ...storeSettings, favicon_url: e.target.value })}
-                    />
-                  </div>
-                  <Button type="submit" disabled={saving} className="btn-hover" data-testid="save-advanced-settings-button">
-                    <Save className="mr-2 h-4 w-4" />
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </form>
+                <p className="text-sm text-gray-500 mb-4">
+                  Configure advanced system parameters. Use with caution.
+                </p>
+                {/* Add advanced settings here */}
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-yellow-800">No advanced settings available yet.</p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -128,10 +128,7 @@ html {
   transform: scale(1.1);
 }
 
-/* Loading spinner */
-.spinner {
-  animation: pulse 1.5s ease-in-out infinite;
-}
+
 
 /* Glassmorphism */
 .glass {

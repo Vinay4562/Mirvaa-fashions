@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Package, Download } from 'lucide-react';
+import { Package, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import NotificationBell from '@/components/admin/NotificationBell';
-import { adminClient } from '@/utils/api';
+import AdminLayout from '@/components/admin/AdminLayout';
+import { adminClient, BACKEND_URL } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
+import Loading from '@/components/Loading';
 
 export default function AdminOrders({ admin, setAdmin }) {
   const [orders, setOrders] = useState([]);
@@ -30,12 +30,6 @@ export default function AdminOrders({ admin, setAdmin }) {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminData');
-    setAdmin(null);
-  };
-
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await adminClient.put(`/admin/orders/${orderId}/status?status=${newStatus}`);
@@ -44,6 +38,65 @@ export default function AdminOrders({ admin, setAdmin }) {
     } catch (error) {
       console.error('Error updating order status:', error);
       toast.error('Failed to update order status');
+    }
+  };
+
+  const handleConfirmOrder = async (orderId) => {
+    try {
+      setLoading(true);
+      await adminClient.post(`/admin/orders/${orderId}/confirm-shipping`);
+      toast.success("Order confirmed and pickup scheduled!");
+      fetchOrders();
+    } catch (error) {
+      console.error("Error confirming order:", error);
+      toast.error(error.response?.data?.detail || "Failed to confirm order");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadLabel = async (order) => {
+    try {
+      // Construct full URL to ensure we hit the correct endpoint
+      // If label_url is relative (starts with /), append it to BACKEND_URL
+      // Note: label_url from DB usually includes /api prefix (e.g. /api/admin/orders/...)
+      let url;
+      if (order.label_url) {
+        if (order.label_url.startsWith('http')) {
+           url = order.label_url;
+        } else {
+           url = `${BACKEND_URL}${order.label_url}`;
+        }
+      } else {
+        // Fallback if label_url is missing
+        url = `${BACKEND_URL}/api/admin/orders/${order.id}/label`;
+      }
+          
+      // If it's an external URL (not our backend), just open it
+      if (url.startsWith('http') && !url.includes(BACKEND_URL)) {
+          window.open(url, '_blank');
+          return;
+      }
+
+      console.log("Downloading label from:", url);
+
+      // Fetch blob with auth headers
+      // We use axios directly or adminClient with full URL (axios handles full URLs by ignoring baseURL)
+      const response = await adminClient.get(url, { responseType: 'blob' });
+      
+      // Create object URL
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const objectUrl = window.URL.createObjectURL(blob);
+      
+      // Open in new tab
+      window.open(objectUrl, '_blank');
+      
+      // Clean up after a minute
+      setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60000);
+      
+    } catch (error) {
+      console.error("Error downloading label:", error);
+      toast.error("Failed to download label");
     }
   };
 
@@ -60,38 +113,12 @@ export default function AdminOrders({ admin, setAdmin }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link to="/admin/dashboard">
-              <Button variant="ghost" size="icon" data-testid="back-to-dashboard-orders">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold gradient-text">Order Management</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
-            <Button onClick={handleLogout} variant="outline" className="btn-hover">
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <AdminLayout admin={admin} setAdmin={setAdmin} title="Order Management">
+      <div className="space-y-6">
         <h2 className="text-2xl font-bold mb-6">Orders ({orders.length})</h2>
 
         {orders.length > 0 ? (
@@ -168,12 +195,25 @@ export default function AdminOrders({ admin, setAdmin }) {
                       <p className="text-xs text-gray-500">
                         Status: {order.payment_status}
                       </p>
-                      {order.label_url && (
+                      
+                      {/* Confirm Order Button */}
+                      {(order.status === 'placed' || order.status === 'pending') && (
+                        <Button 
+                            onClick={() => handleConfirmOrder(order.id)}
+                            className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white"
+                            size="sm"
+                        >
+                            Confirm Order
+                        </Button>
+                      )}
+
+                      {/* Download Label Button */}
+                      {(order.label_url || order.delhivery_waybill) && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full mt-2"
-                          onClick={() => window.open(`${import.meta.env.VITE_API_URL}${order.label_url}`, '_blank')}
+                          onClick={() => handleDownloadLabel(order)}
                         >
                           <Download className="h-4 w-4 mr-2" />
                           Label
@@ -193,6 +233,6 @@ export default function AdminOrders({ admin, setAdmin }) {
           </div>
         )}
       </div>
-    </div>
+    </AdminLayout>
   );
 }

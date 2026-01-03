@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, RefreshCw, Eye, ArrowLeft } from 'lucide-react';
+import { CalendarIcon, Download, RefreshCw, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import NotificationBell from '@/components/admin/NotificationBell';
+import AdminLayout from '@/components/admin/AdminLayout';
 import ProductsAnalytics from './ProductsAnalytics';
 import OrdersAnalytics from './OrdersAnalytics';
 import UsersAnalytics from './UsersAnalytics';
@@ -91,266 +90,237 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
     }).format(amount);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminData');
-    setAdmin(null);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link to="/admin/dashboard">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-500">Analytics</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <span className="text-sm text-gray-600">Welcome, {admin.username}</span>
-            <Button onClick={handleLogout} variant="outline" className="hover:bg-blue-50 transition-colors border-blue-200">
-              Logout
-            </Button>
-          </div>
+    <AdminLayout admin={admin} setAdmin={setAdmin} title="Analytics">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900">Overview</h2>
+          <p className="text-gray-600 mt-2">Comprehensive insights into your business performance</p>
         </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">Overview</h2>
-            <p className="text-gray-600 mt-2">Comprehensive insights into your business performance</p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
-            {/* Date Range Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[280px] justify-start text-left font-normal",
-                    !dateRange && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                        {format(dateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(dateRange.from, "LLL dd, y")
-                    )
+        
+        <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
+          {/* Date Range Picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[280px] justify-start text-left font-normal",
+                  !dateRange && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "LLL dd, y")} -{" "}
+                      {format(dateRange.to, "LLL dd, y")}
+                    </>
                   ) : (
-                    <span>Pick a date range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
 
-            <Button
-              onClick={fetchOverviewData}
-              disabled={loading}
-              variant="outline"
-              size="sm"
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+          <Button
+            onClick={fetchOverviewData}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
-
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setCurrentView('products-table')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <Eye className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overviewData.totalProducts}</div>
-              <p className="text-xs text-muted-foreground">
-                Active products in catalog
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setCurrentView('orders-table')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <Eye className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overviewData.totalOrders}</div>
-              <p className="text-xs text-muted-foreground">
-                Orders in selected period
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setCurrentView('users-table')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Eye className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overviewData.totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                Registered customers
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setCurrentView('revenue-table')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <Eye className="h-4 w-4 text-gray-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(overviewData.totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground">
-                Revenue in selected period
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Recent Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overviewData.recentOrders}</div>
-              <p className="text-xs text-muted-foreground">
-                Last 7 days
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overviewData.conversionRate}%</div>
-              <p className="text-xs text-muted-foreground">
-                Visitors to customers
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Conditional Rendering based on current view */}
-        {currentView === 'overview' && (
-          <Tabs defaultValue="products" className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <TabsList className="grid w-full sm:w-auto grid-cols-2 lg:grid-cols-4">
-                <TabsTrigger value="products">Products</TabsTrigger>
-                <TabsTrigger value="orders">Orders</TabsTrigger>
-                <TabsTrigger value="users">Users</TabsTrigger>
-                <TabsTrigger value="revenue">Revenue</TabsTrigger>
-              </TabsList>
-
-              <div className="flex gap-2 mt-4 sm:mt-0">
-                <Button
-                  onClick={() => handleExport('products')}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Products
-                </Button>
-                <Button
-                  onClick={() => handleExport('orders')}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Orders
-                </Button>
-                <Button
-                  onClick={() => handleExport('users')}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Users
-                </Button>
-                <Button
-                  onClick={() => handleExport('revenue')}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Revenue
-                </Button>
-              </div>
-            </div>
-
-            <TabsContent value="products">
-              <ProductsAnalytics dateRange={dateRange} />
-            </TabsContent>
-
-            <TabsContent value="orders">
-              <OrdersAnalytics dateRange={dateRange} />
-            </TabsContent>
-
-            <TabsContent value="users">
-              <UsersAnalytics dateRange={dateRange} />
-            </TabsContent>
-
-            <TabsContent value="revenue">
-              <RevenueAnalytics dateRange={dateRange} />
-            </TabsContent>
-          </Tabs>
-        )}
-
-        {/* Table Views */}
-        {currentView === 'products-table' && (
-          <ProductsTable onBack={() => setCurrentView('overview')} />
-        )}
-
-        {currentView === 'orders-table' && (
-          <OrdersTable onBack={() => setCurrentView('overview')} />
-        )}
-
-        {currentView === 'users-table' && (
-          <UsersTable onBack={() => setCurrentView('overview')} />
-        )}
-
-        {currentView === 'revenue-table' && (
-          <RevenueTable onBack={() => setCurrentView('overview')} />
-        )}
       </div>
-    </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setCurrentView('products-table')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Eye className="h-4 w-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overviewData.totalProducts}</div>
+            <p className="text-xs text-muted-foreground">
+              Active products in catalog
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setCurrentView('orders-table')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <Eye className="h-4 w-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overviewData.totalOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              Orders in selected period
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setCurrentView('users-table')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Eye className="h-4 w-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overviewData.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Registered customers
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setCurrentView('revenue-table')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <Eye className="h-4 w-4 text-gray-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(overviewData.totalRevenue)}</div>
+            <p className="text-xs text-muted-foreground">
+              Revenue in selected period
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recent Orders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overviewData.recentOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              Last 7 days
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overviewData.conversionRate}%</div>
+            <p className="text-xs text-muted-foreground">
+              Visitors to customers
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Conditional Rendering based on current view */}
+      {currentView === 'overview' && (
+        <Tabs defaultValue="products" className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <TabsList className="grid w-full sm:w-auto grid-cols-2 lg:grid-cols-4">
+              <TabsTrigger value="products">Products</TabsTrigger>
+              <TabsTrigger value="orders">Orders</TabsTrigger>
+              <TabsTrigger value="users">Users</TabsTrigger>
+              <TabsTrigger value="revenue">Revenue</TabsTrigger>
+            </TabsList>
+
+            <div className="flex gap-2 mt-4 sm:mt-0">
+              <Button
+                onClick={() => handleExport('products')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Products
+              </Button>
+              <Button
+                onClick={() => handleExport('orders')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Orders
+              </Button>
+              <Button
+                onClick={() => handleExport('users')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Users
+              </Button>
+              <Button
+                onClick={() => handleExport('revenue')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export Revenue
+              </Button>
+            </div>
+          </div>
+
+          <TabsContent value="products">
+            <ProductsAnalytics dateRange={dateRange} />
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <OrdersAnalytics dateRange={dateRange} />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <UsersAnalytics dateRange={dateRange} />
+          </TabsContent>
+
+          <TabsContent value="revenue">
+            <RevenueAnalytics dateRange={dateRange} />
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Table Views */}
+      {currentView === 'products-table' && (
+        <ProductsTable onBack={() => setCurrentView('overview')} />
+      )}
+
+      {currentView === 'orders-table' && (
+        <OrdersTable onBack={() => setCurrentView('overview')} />
+      )}
+
+      {currentView === 'users-table' && (
+        <UsersTable onBack={() => setCurrentView('overview')} />
+      )}
+
+      {currentView === 'revenue-table' && (
+        <RevenueTable onBack={() => setCurrentView('overview')} />
+      )}
+    </AdminLayout>
   );
 }

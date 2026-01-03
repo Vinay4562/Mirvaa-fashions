@@ -1,35 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
-import Home from "./pages/Home";
-import ProductListing from "./pages/ProductListing";
-import ProductDetail from "./pages/ProductDetail";
-import Cart from "./pages/Cart";
-import Wishlist from "./pages/Wishlist";
-import Checkout from "./pages/Checkout";
-import OrderConfirmation from "./pages/OrderConfirmation";
-import Account from "./pages/Account";
-import EditProfile from "./pages/EditProfile";
-import AddAddress from "./pages/AddAddress";
-import EditAddress from "./pages/EditAddress";
-import ReturnRequest from "./pages/ReturnRequest";
-import LegalPage from "./pages/LegalPage";
-import Contact from "./pages/Contact";
-import About from "./pages/About";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import ReturnPolicy from "./pages/ReturnPolicy";
-import TermsAndConditions from "./pages/TermsAndConditions";
-import AdminLogin from "./pages/admin/AdminLogin";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminOrders from "./pages/admin/AdminOrders";
-import AdminSettings from "./pages/admin/AdminSettings";
-import AdminCMS from "./pages/admin/AdminCMS";
-import AdminReturns from "./pages/admin/AdminReturns";
-import AnalyticsDashboard from "./pages/admin/analytics/AnalyticsDashboard";
+import Loading from "./components/Loading";
 import { Toaster } from "@/components/ui/sonner";
 import { apiClient } from "@/utils/api";
+
+import Home from "./pages/Home";
+
+// Lazy load pages
+const ProductListing = lazy(() => import("./pages/ProductListing"));
+const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const Cart = lazy(() => import("./pages/Cart"));
+const Wishlist = lazy(() => import("./pages/Wishlist"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation"));
+const Account = lazy(() => import("./pages/Account"));
+const EditProfile = lazy(() => import("./pages/EditProfile"));
+const AddAddress = lazy(() => import("./pages/AddAddress"));
+const EditAddress = lazy(() => import("./pages/EditAddress"));
+const ReturnRequest = lazy(() => import("./pages/ReturnRequest"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const Contact = lazy(() => import("./pages/Contact"));
+const About = lazy(() => import("./pages/About"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const ReturnPolicy = lazy(() => import("./pages/ReturnPolicy"));
+const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+
+// Admin pages
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
+const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminCMS = lazy(() => import("./pages/admin/AdminCMS"));
+const AdminReturns = lazy(() => import("./pages/admin/AdminReturns"));
+const AnalyticsDashboard = lazy(() => import("./pages/admin/analytics/AnalyticsDashboard"));
 
 function App() {
   const [user, setUser] = useState(null);
@@ -67,76 +73,78 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<Home user={user} setUser={setUser} />} />
-          <Route path="/products" element={<ProductListing user={user} setUser={setUser} />} />
-          <Route path="/products/:id" element={<ProductDetail user={user} setUser={setUser} />} />
-          <Route path="/cart" element={<Cart user={user} setUser={setUser} />} />
-          <Route path="/wishlist" element={<Wishlist user={user} setUser={setUser} />} />
-          <Route path="/checkout" element={<Checkout user={user} setUser={setUser} />} />
-          <Route path="/order-confirmation/:orderId" element={<OrderConfirmation user={user} setUser={setUser} />} />
-          <Route path="/contact" element={<Contact user={user} setUser={setUser} />} />
-          <Route path="/about" element={<About user={user} setUser={setUser} />} />
-          <Route path="/privacy" element={<PrivacyPolicy user={user} setUser={setUser} />} />
-          <Route path="/returns" element={<ReturnPolicy user={user} setUser={setUser} />} />
-          <Route path="/terms" element={<TermsAndConditions user={user} setUser={setUser} />} />
-          <Route path="/account" element={<Account user={user} setUser={setUser} />} />
-          <Route path="/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/account/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/account/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/edit-address/:index" element={user ? <EditAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/account/edit-address/:index" element={user ? <EditAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/return-request/:orderId" element={user ? <ReturnRequest user={user} setUser={setUser} /> : <Navigate to="/" />} />
-          <Route path="/legal/:page" element={<LegalPage user={user} setUser={setUser} />} />
-          
-          <Route path="/admin/login" element={<AdminLogin setAdmin={setAdmin} />} />
-          <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
-          <Route 
-            path="/admin/dashboard" 
-            element={admin ? <AdminDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/products" 
-            element={admin ? <AdminProducts admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/orders" 
-            element={admin ? <AdminOrders admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/settings" 
-            element={admin ? <AdminSettings admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/returns" 
-            element={admin ? <AdminReturns admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/cms" 
-            element={admin ? <AdminCMS admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/analytics" 
-            element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/analytics/products" 
-            element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/analytics/orders" 
-            element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/analytics/users" 
-            element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-          <Route 
-            path="/admin/analytics/revenue" 
-            element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
-          />
-        </Routes>
+        <Suspense fallback={<Loading />}>
+          <Routes>
+            <Route path="/" element={<Home user={user} setUser={setUser} />} />
+            <Route path="/products" element={<ProductListing user={user} setUser={setUser} />} />
+            <Route path="/products/:id" element={<ProductDetail user={user} setUser={setUser} />} />
+            <Route path="/cart" element={<Cart user={user} setUser={setUser} />} />
+            <Route path="/wishlist" element={<Wishlist user={user} setUser={setUser} />} />
+            <Route path="/checkout" element={<Checkout user={user} setUser={setUser} />} />
+            <Route path="/order-confirmation/:orderId" element={<OrderConfirmation user={user} setUser={setUser} />} />
+            <Route path="/contact" element={<Contact user={user} setUser={setUser} />} />
+            <Route path="/about" element={<About user={user} setUser={setUser} />} />
+            <Route path="/privacy" element={<PrivacyPolicy user={user} setUser={setUser} />} />
+            <Route path="/returns" element={<ReturnPolicy user={user} setUser={setUser} />} />
+            <Route path="/terms" element={<TermsAndConditions user={user} setUser={setUser} />} />
+            <Route path="/account" element={<Account user={user} setUser={setUser} />} />
+            <Route path="/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/account/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/account/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/edit-address/:index" element={user ? <EditAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/account/edit-address/:index" element={user ? <EditAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/return-request/:orderId" element={user ? <ReturnRequest user={user} setUser={setUser} /> : <Navigate to="/" />} />
+            <Route path="/legal/:page" element={<LegalPage user={user} setUser={setUser} />} />
+            
+            <Route path="/admin/login" element={<AdminLogin setAdmin={setAdmin} />} />
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
+            <Route 
+              path="/admin/dashboard" 
+              element={admin ? <AdminDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/products" 
+              element={admin ? <AdminProducts admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/orders" 
+              element={admin ? <AdminOrders admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/settings" 
+              element={admin ? <AdminSettings admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/returns" 
+              element={admin ? <AdminReturns admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/cms" 
+              element={admin ? <AdminCMS admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/analytics" 
+              element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/analytics/products" 
+              element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/analytics/orders" 
+              element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/analytics/users" 
+              element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+            <Route 
+              path="/admin/analytics/revenue" 
+              element={admin ? <AnalyticsDashboard admin={admin} setAdmin={setAdmin} /> : <Navigate to="/admin/login" />} 
+            />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
       <Toaster position="top-right" />
     </div>

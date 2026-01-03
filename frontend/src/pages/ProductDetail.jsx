@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { Heart, ShoppingCart, Star, ChevronLeft, ChevronRight, Minus, Plus, X, ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
+import Loading from '@/components/Loading';
 
 export default function ProductDetail({ user, setUser }) {
   const { id } = useParams();
@@ -27,6 +28,8 @@ export default function ProductDetail({ user, setUser }) {
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => {
     fetchProduct();
@@ -125,11 +128,7 @@ export default function ProductDetail({ user, setUser }) {
   };
 
   if (loading || !product) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   const images = product.images.length > 0 ? product.images.map(img => getImageUrl(img)) : [getImageUrl()];
@@ -143,15 +142,21 @@ export default function ProductDetail({ user, setUser }) {
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Images */}
           <div className="space-y-4" data-testid="product-images">
-            <div className="relative aspect-[3/4] bg-white rounded-lg overflow-hidden shadow-lg">
+            <div 
+              className="relative aspect-[3/4] bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer group"
+              onClick={() => setIsImageModalOpen(true)}
+            >
               <img
                 src={images[selectedImage]}
                 alt={product.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 data-testid="main-product-image"
               />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10">
+                <ZoomIn className="w-10 h-10 text-white drop-shadow-lg" />
+              </div>
               {product.discount_percent > 0 && (
-                <div className="absolute top-4 left-4 bg-red-500 text-white text-sm font-bold px-3 py-1 rounded">
+                <div className="absolute top-4 left-4 bg-red-500 text-white text-xs md:text-sm font-bold px-2 py-1 md:px-3 md:py-1 rounded">
                   {product.discount_percent}% OFF
                 </div>
               )}
@@ -159,12 +164,12 @@ export default function ProductDetail({ user, setUser }) {
 
             {/* Thumbnails */}
             {images.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {images.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 transition-all ${
                       selectedImage === idx ? 'border-blue-500 shadow-md' : 'border-gray-200'
                     }`}
                     data-testid={`thumbnail-${idx}`}
@@ -177,18 +182,18 @@ export default function ProductDetail({ user, setUser }) {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6" data-testid="product-info">
+          <div className="space-y-4 md:space-y-6" data-testid="product-info">
             <div>
-              <h1 className="text-3xl font-bold mb-2" data-testid="product-title">{product.title}</h1>
+              <h1 className="text-lg md:text-3xl font-bold mb-2 leading-tight" data-testid="product-title">{product.title}</h1>
               <div className="flex items-center gap-4 mb-4">
                 {product.brand && (
-                  <span className="text-gray-600" data-testid="product-brand">Brand: {product.brand}</span>
+                  <span className="text-sm md:text-base text-gray-600" data-testid="product-brand">Brand: {product.brand}</span>
                 )}
                 {product.rating > 0 && (
                   <div className="flex items-center gap-1" data-testid="product-rating">
-                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold">{product.rating}</span>
-                    <span className="text-gray-600">({product.reviews_count} reviews)</span>
+                    <Star className="h-4 w-4 md:h-5 md:w-5 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold text-sm md:text-base">{product.rating}</span>
+                    <span className="text-xs md:text-sm text-gray-600">({product.reviews_count} reviews)</span>
                   </div>
                 )}
               </div>
@@ -196,16 +201,16 @@ export default function ProductDetail({ user, setUser }) {
 
             {/* Price */}
             <div className="space-y-2" data-testid="product-pricing">
-              <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-bold">₹{product.price.toLocaleString()}</span>
+              <div className="flex items-baseline gap-2 md:gap-3">
+                <span className="text-xl md:text-4xl font-bold">₹{product.price.toLocaleString()}</span>
                 {product.mrp > product.price && (
                   <>
-                    <span className="text-xl text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
-                    <span className="text-xl text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
+                    <span className="text-sm md:text-xl text-gray-500 line-through">₹{product.mrp.toLocaleString()}</span>
+                    <span className="text-sm md:text-xl text-green-600 font-semibold">({product.discount_percent}% OFF)</span>
                   </>
                 )}
               </div>
-              <p className="text-sm text-gray-600">Inclusive of all taxes</p>
+              <p className="text-xs md:text-sm text-gray-600">Inclusive of all taxes</p>
             </div>
 
             {/* Size Selection */}
@@ -342,6 +347,19 @@ export default function ProductDetail({ user, setUser }) {
             <TabsContent value="description" className="mt-6">
               <Card>
                 <CardContent className="p-6">
+                  {product.product_details && Object.keys(product.product_details).length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-lg font-bold mb-4">Product Details</h3>
+                      <div className="grid grid-cols-1 gap-y-3 text-sm">
+                        {Object.entries(product.product_details).map(([key, value]) => (
+                          <div key={key} className="grid grid-cols-2 gap-4">
+                            <span className="text-gray-500 font-medium">{key}</span>
+                            <span className="font-semibold text-gray-900">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <p className="text-gray-700 leading-relaxed whitespace-pre-line" data-testid="product-description">
                     {product.description}
                   </p>
@@ -454,6 +472,65 @@ export default function ProductDetail({ user, setUser }) {
           Buy Now
         </Button>
       </div>
+
+      {/* Image Zoom Modal */}
+      {isImageModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
+          <button
+            onClick={() => {
+              setIsImageModalOpen(false);
+              setIsZoomed(false);
+            }}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-50 p-2"
+          >
+            <X className="h-8 w-8" />
+          </button>
+          
+          {/* Navigation Arrows */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedImage((prev) => (prev - 1 + images.length) % images.length);
+                }}
+                className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors z-50 p-2 rounded-full hover:bg-white/10"
+              >
+                <ChevronLeft className="h-8 w-8 md:h-12 md:w-12" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedImage((prev) => (prev + 1) % images.length);
+                }}
+                className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors z-50 p-2 rounded-full hover:bg-white/10"
+              >
+                <ChevronRight className="h-8 w-8 md:h-12 md:w-12" />
+              </button>
+            </>
+          )}
+
+          <div 
+            className={`relative w-full h-full flex items-center justify-center overflow-hidden ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+            onClick={() => setIsZoomed(!isZoomed)}
+          >
+            <img
+              src={images[selectedImage]}
+              alt={product.title}
+              className={`transition-transform duration-300 ease-in-out ${
+                isZoomed ? 'scale-[2]' : 'max-w-full max-h-[85vh] object-contain'
+              }`}
+            />
+          </div>
+          
+          {/* Image Counter */}
+          {images.length > 1 && (
+             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                {selectedImage + 1} / {images.length}
+             </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

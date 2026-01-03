@@ -8,6 +8,7 @@ import axios from 'axios';
 import { API } from '@/utils/api';
 import { Helmet } from 'react-helmet';
 import ReactMarkdown from 'react-markdown';
+import Loading from '@/components/Loading';
 
 export default function LegalPage({ user, setUser }) {
   const { slug } = useParams();
@@ -31,11 +32,7 @@ export default function LegalPage({ user, setUser }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="spinner text-4xl">Loading...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (!page) {

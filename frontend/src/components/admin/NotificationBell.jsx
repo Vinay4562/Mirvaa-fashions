@@ -7,6 +7,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { adminClient } from '@/utils/api';
 import { format } from 'date-fns';
@@ -15,12 +23,37 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupNotification, setPopupNotification] = useState(null);
 
   const fetchNotifications = async () => {
     try {
       const response = await adminClient.get('/admin/notifications');
-      setNotifications(response.data.notifications);
+      const newNotifications = response.data.notifications;
+      setNotifications(newNotifications);
       setUnreadCount(response.data.unread_count);
+
+      // Check for unread order_placed notifications
+      // We prioritize the most recent unread order notification
+      const unreadOrder = newNotifications.find(n => !n.is_read && n.type === 'order_placed');
+      
+      // Only update popup if we don't have one open or if it's a different one
+      if (unreadOrder) {
+        // If we are already showing this specific notification, don't do anything
+        if (showPopup && popupNotification && popupNotification.id === unreadOrder.id) {
+          return;
+        }
+        
+        // If we are showing a popup for a DIFFERENT notification, maybe we should switch?
+        // Or if no popup is shown, show it.
+        // To prevent annoying re-opening if user manually closed it without acknowledging (if we allow that),
+        // we might want to track "dismissed" IDs in session state.
+        // But for now, let's just show it.
+        if (!showPopup) {
+           setPopupNotification(unreadOrder);
+           setShowPopup(true);
+        }
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -46,11 +79,22 @@ export default function NotificationBell() {
     }
   };
 
+  const handlePopupOk = async () => {
+    if (popupNotification) {
+      await handleMarkAsRead(popupNotification.id);
+      setShowPopup(false);
+      setPopupNotification(null);
+      // Immediately fetch to see if there are MORE unread notifications
+      fetchNotifications();
+    }
+  };
+
   const handleMarkAllAsRead = async () => {
     try {
       await adminClient.put('/admin/notifications/read-all');
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
+      setShowPopup(false); // Close popup if open
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
@@ -72,61 +116,77 @@ export default function NotificationBell() {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full"
-            >
-              {unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h4 className="font-semibold">Notifications</h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-auto py-1 px-2">
-              Mark all read
-            </Button>
-          )}
-        </div>
-        <ScrollArea className="h-[300px]">
-          {notifications.length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-500">
-              No notifications
-            </div>
-          ) : (
-            <div className="divide-y">
-              {notifications.map((notification) => (
-                <div 
-                  key={notification.id} 
-                  className={`p-4 hover:bg-gray-50 transition-colors ${!notification.is_read ? 'bg-blue-50/50' : ''}`}
-                  onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
-                >
-                  <div className="flex gap-3">
-                    <div className="mt-1.5">
-                      {getIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className={`text-sm ${!notification.is_read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(notification.created_at), 'MMM d, h:mm a')}
-                      </p>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" className="relative">
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full"
+              >
+                {unreadCount}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="end">
+          <div className="flex items-center justify-between p-4 border-b">
+            <h4 className="font-semibold">Notifications</h4>
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-auto py-1 px-2">
+                Mark all read
+              </Button>
+            )}
+          </div>
+          <ScrollArea className="h-[300px]">
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-sm text-gray-500">
+                No notifications
+              </div>
+            ) : (
+              <div className="divide-y">
+                {notifications.map((notification) => (
+                  <div 
+                    key={notification.id} 
+                    className={`p-4 hover:bg-gray-50 transition-colors ${!notification.is_read ? 'bg-blue-50/50' : ''}`}
+                    onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
+                  >
+                    <div className="flex gap-3">
+                      <div className="mt-1.5">
+                        {getIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className={`text-sm ${!notification.is_read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(notification.created_at), 'MMM d, h:mm a')}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </PopoverContent>
-    </Popover>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+
+      <Dialog open={showPopup} onOpenChange={setShowPopup}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Order Received!</DialogTitle>
+            <DialogDescription>
+              {popupNotification?.message}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={handlePopupOk}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

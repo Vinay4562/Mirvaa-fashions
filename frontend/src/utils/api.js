@@ -77,4 +77,4 @@ adminClient.interceptors.response.use(
   }
 );
 
-export { API, apiClient, adminClient };
+export { API, apiClient, adminClient, BACKEND_URL };
