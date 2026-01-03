@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, User as UserIcon, PencilIcon, PlusIcon, TrashIcon, HomeIcon, BriefcaseIcon } from 'lucide-react';
+import { Package, User as UserIcon, PencilIcon, PlusIcon, TrashIcon, HomeIcon, BriefcaseIcon, ArrowLeft, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +12,7 @@ import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
+import AuthDialog from '@/components/AuthDialog';
 
 export default function Account({ user, setUser }) {
   const navigate = useNavigate();
@@ -20,13 +21,15 @@ export default function Account({ user, setUser }) {
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      navigate('/');
-      return;
+      setShowAuth(true);
+      setLoading(false);
+    } else {
+      fetchData();
     }
-    fetchData();
   }, [user]);
 
   const fetchData = async () => {
@@ -63,7 +66,7 @@ export default function Account({ user, setUser }) {
       setWishlistCount(wishlistRes.data.length);
     } catch (error) {
       if (error?.response?.status === 401) {
-        navigate('/');
+        setShowAuth(true);
         return;
       }
       console.error('Error fetching data:', error);
@@ -85,10 +88,36 @@ export default function Account({ user, setUser }) {
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      toast.success('Logged out successfully');
+      navigate('/');
+    } catch (e) {
+      navigate('/');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="spinner text-4xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <h1 className="text-3xl font-bold mb-8" data-testid="account-heading">My Account</h1>
+        </div>
+        <Footer />
+        <BottomNav cartCount={cartCount} />
+        <AuthDialog open={showAuth} onClose={() => setShowAuth(false)} setUser={setUser} />
       </div>
     );
   }
@@ -98,6 +127,18 @@ export default function Account({ user, setUser }) {
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="md:hidden flex items-center justify-between mb-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          {user && (
+            <Button variant="outline" size="sm" onClick={handleLogout} className="btn-hover" aria-label="Logout">
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          )}
+        </div>
+
         <h1 className="text-3xl font-bold mb-8" data-testid="account-heading">My Account</h1>
 
         <Tabs defaultValue="orders" className="w-full">
@@ -295,6 +336,8 @@ export default function Account({ user, setUser }) {
 
       <Footer />
       <BottomNav cartCount={cartCount} />
+
+      <AuthDialog open={showAuth} onClose={() => setShowAuth(false)} setUser={setUser} />
     </div>
   );
 }

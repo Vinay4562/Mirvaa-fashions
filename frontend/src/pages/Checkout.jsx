@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { getImageUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
@@ -104,15 +105,17 @@ export default function Checkout({ user, setUser }) {
   };
 
   const calculateSubtotal = () => {
-    return cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0);
+    return cartItems.reduce((total, item) => {
+      return total + item.product.price * item.quantity;
+    }, 0);
   };
 
   const calculateTax = () => {
-    return Math.round(calculateSubtotal() * 0.18);
+    return 0;
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax();
+    return calculateSubtotal();
   };
 
   const loadRazorpay = () =>
@@ -407,10 +410,10 @@ export default function Checkout({ user, setUser }) {
                           <h4 className="text-sm font-medium line-clamp-1">{item.product.title}</h4>
                           <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
                           <p className="text-sm font-semibold">₹{(item.product.price * item.quantity).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    ))}
+                    </div>
                   </div>
+                ))}
+              </div>
 
                   <Separator />
 
@@ -454,7 +457,7 @@ export default function Checkout({ user, setUser }) {
       </div>
 
       <Footer />
-      <BottomNav />
+      <BottomNav cartCount={cartItems.length} />
     </div>
   );
 }

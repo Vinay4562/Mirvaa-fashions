@@ -80,7 +80,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy user={user} setUser={setUser} />} />
           <Route path="/returns" element={<ReturnPolicy user={user} setUser={setUser} />} />
           <Route path="/terms" element={<TermsAndConditions user={user} setUser={setUser} />} />
-          <Route path="/account" element={user ? <Account user={user} setUser={setUser} /> : <Navigate to="/" />} />
+          <Route path="/account" element={<Account user={user} setUser={setUser} />} />
           <Route path="/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
           <Route path="/account/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />

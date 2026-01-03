@@ -139,18 +139,6 @@ export default function ProductDetail({ user, setUser }) {
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <nav className="text-sm text-gray-600 mb-6">
-          <Link to="/" className="hover:text-blue-600">Home</Link>
-          {' / '}
-          <Link to="/products" className="hover:text-blue-600">Products</Link>
-          {' / '}
-          <Link to={`/products?category=${product.category.toLowerCase()}`} className="hover:text-blue-600">
-            {product.category}
-          </Link>
-          {' / '}
-          <span className="text-gray-900">{product.title}</span>
-        </nav>
 
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Images */}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Heart, User, Search, Menu, X, Home } from 'lucide-react';
+import { ShoppingCart, Heart, User, Search, Menu, X, Home, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -56,6 +56,18 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-6">
             {/* Logo */}
+            {location.pathname !== '/' && location.pathname !== '/account' && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => navigate(-1)}
+                aria-label="Back"
+                data-testid="mobile-back-button"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
+            )}
             <Link to="/" className="flex items-center gap-3 group" data-testid="logo">
               <div className="flex items-center justify-center w-10 h-10 bg-black rounded-lg group-hover:bg-gray-800 transition-colors">
                 <span className="text-white text-xl font-bold font-sans">M</span>

@@ -188,17 +188,13 @@ export default function Cart({ user, setUser }) {
                       <span>Shipping</span>
                       <span className="text-green-600">FREE</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>Tax (18% GST)</span>
-                      <span>₹{Math.round(calculateTotal() * 0.18).toLocaleString()}</span>
-                    </div>
                   </div>
 
                   <Separator />
 
                   <div className="flex justify-between text-xl font-bold">
                     <span>Total</span>
-                    <span data-testid="cart-total">₹{Math.round(calculateTotal() * 1.18).toLocaleString()}</span>
+                    <span data-testid="cart-total">₹{calculateTotal().toLocaleString()}</span>
                   </div>
 
                   <Button
@@ -230,18 +226,6 @@ export default function Cart({ user, setUser }) {
       </div>
 
       <Footer />
-      {/* Mobile Checkout Bar */}
-      {cartItems.length > 0 && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-          <div>
-            <p className="text-xs text-gray-500">Total Amount</p>
-            <p className="text-lg font-bold">₹{calculateTotal().toLocaleString()}</p>
-          </div>
-          <Button onClick={handleCheckout} className="bg-pink-600 hover:bg-pink-700 px-8">
-            Checkout
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
