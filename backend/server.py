@@ -658,7 +658,8 @@ async def forgot_password(req: ForgotPasswordRequest, background_tasks: Backgrou
     if not user_doc:
         return {"message": "If the account exists, a reset email has been sent"}
     raw_token = os.urandom(24).hex()
-    token_hash = hash_password(raw_token)
+    # Use SHA256 for the token so we can look it up deterministically
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
     await db.users.update_one(
         {"id": user_doc["id"]},
@@ -669,12 +670,17 @@ async def forgot_password(req: ForgotPasswordRequest, background_tasks: Backgrou
 
 @api_router.post("/auth/reset-password")
 async def reset_password(data: ResetPasswordConfirm):
-    user_doc = await db.users.find_one({"password_reset_token_hash": {"$ne": None}})
+    # Hash the incoming token to find the user
+    hashed_token = hashlib.sha256(data.token.encode()).hexdigest()
+    user_doc = await db.users.find_one({"password_reset_token_hash": hashed_token})
+    
     if not user_doc:
         raise HTTPException(status_code=400, detail="Invalid token")
+    
     expires = user_doc.get("password_reset_expires_at")
     if not expires:
         raise HTTPException(status_code=400, detail="Invalid token")
+        
     if isinstance(expires, str):
         try:
             expires_dt = datetime.fromisoformat(expires)
@@ -682,11 +688,10 @@ async def reset_password(data: ResetPasswordConfirm):
             expires_dt = datetime.now(timezone.utc) - timedelta(seconds=1)
     else:
         expires_dt = expires
+        
     if datetime.now(timezone.utc) > expires_dt:
         raise HTTPException(status_code=400, detail="Token expired")
-    token_hash = user_doc.get("password_reset_token_hash", "")
-    if not verify_password(data.token, token_hash):
-        raise HTTPException(status_code=400, detail="Invalid token")
+        
     new_hash = hash_password(data.new_password)
     await db.users.update_one(
         {"id": user_doc["id"]},
