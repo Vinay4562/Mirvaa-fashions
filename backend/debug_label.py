@@ -9,7 +9,7 @@ import traceback
 load_dotenv('d:/Projects/Mirvaa/backend/.env')
 
 MONGO_URL = os.environ.get('MONGO_URL')
-DELHIVERY_API_KEY = "e4513a669ba8bca907821ed53d3fc22039dc8cce"  # From server.py
+DELHIVERY_API_KEY = os.environ.get('DELHIVERY_API_KEY')
 ORDER_ID = "444658df-c9d2-4685-abf3-e02352df078d"
 
 async def debug_label():

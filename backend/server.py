@@ -68,7 +68,7 @@ else:
 # Initialize Shiprocket client
 SHIPROCKET_EMAIL = os.environ.get("SHIPROCKET_EMAIL")
 SHIPROCKET_PASSWORD = os.environ.get("SHIPROCKET_PASSWORD")
-DELHIVERY_API_KEY = "e4513a669ba8bca907821ed53d3fc22039dc8cce"
+DELHIVERY_API_KEY = os.environ.get("DELHIVERY_API_KEY")
 
 if SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD:
     try:
