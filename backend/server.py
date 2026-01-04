@@ -590,12 +590,22 @@ async def forgot_password(req: ForgotPasswordRequest):
     msg.attach(MIMEText(html, "html"))
     try:
         context = ssl.create_default_context()
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls(context=context)
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_USER, req.email, msg.as_string())
+        try:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                server.ehlo()
+                try:
+                    server.starttls(context=context)
+                    server.ehlo()
+                except smtplib.SMTPNotSupportedError:
+                    pass
+                server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_USER, [req.email], msg.as_string())
+        except Exception as e_tls:
+            with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
+                server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_USER, [req.email], msg.as_string())
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Email service error: {type(e).__name__}: {str(e)}")
     return {"message": "Reset email sent"}
 
 @api_router.post("/auth/reset-password")
