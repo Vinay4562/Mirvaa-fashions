@@ -8,6 +8,7 @@ import { apiClient } from "@/utils/api";
 
 import Home from "./pages/Home";
 import IntroSplash from "./components/IntroSplash";
+const Categories = lazy(() => import("./pages/Categories"));
 
 // Lazy load pages
 const ProductListing = lazy(() => import("./pages/ProductListing"));
@@ -27,6 +28,7 @@ const About = lazy(() => import("./pages/About"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const ReturnPolicy = lazy(() => import("./pages/ReturnPolicy"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 // Admin pages
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
@@ -85,6 +87,7 @@ function App() {
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/" element={<Home user={user} setUser={setUser} />} />
+            <Route path="/categories" element={<Categories user={user} setUser={setUser} />} />
             <Route path="/products" element={<ProductListing user={user} setUser={setUser} />} />
             <Route path="/products/:id" element={<ProductDetail user={user} setUser={setUser} />} />
             <Route path="/cart" element={<Cart user={user} setUser={setUser} />} />
@@ -97,6 +100,7 @@ function App() {
             <Route path="/returns" element={<ReturnPolicy user={user} setUser={setUser} />} />
             <Route path="/terms" element={<TermsAndConditions user={user} setUser={setUser} />} />
             <Route path="/account" element={<Account user={user} setUser={setUser} />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />
             <Route path="/add-address" element={user ? <AddAddress user={user} setUser={setUser} /> : <Navigate to="/" />} />
             <Route path="/account/edit-profile" element={user ? <EditProfile user={user} setUser={setUser} /> : <Navigate to="/" />} />

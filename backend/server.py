@@ -17,10 +17,14 @@ import json
 import bcrypt
 import jwt
 import razorpay
-from shiprocket import ShiprocketClient
+from delhivery import DelhiveryClient
 import hmac
 import hashlib
 import requests
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -65,23 +69,33 @@ else:
     print("Warning: Razorpay credentials not provided, using mock client")
     razorpay_client = None
 
-# Initialize Shiprocket client
-SHIPROCKET_EMAIL = os.environ.get("SHIPROCKET_EMAIL")
-SHIPROCKET_PASSWORD = os.environ.get("SHIPROCKET_PASSWORD")
+# Initialize Delhivery client
 DELHIVERY_API_KEY = os.environ.get("DELHIVERY_API_KEY")
+DELHIVERY_CLIENT = os.environ.get("DELHIVERY_CLIENT")
+DELHIVERY_WAREHOUSE = os.environ.get("DELHIVERY_WAREHOUSE")
+SMTP_USER = os.environ.get("SMTP_USER")
+SMTP_PASS = os.environ.get("SMTP_PASS")
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3001")
+TWILIO_SID = os.environ.get("TWILIO_SID")
+TWILIO_AUTH = os.environ.get("TWILIO_AUTH")
+TWILIO_PHONE = os.environ.get("TWILIO_PHONE")
+TWILIO_VERIFY_SERVICE_ID = os.environ.get("TWILIO_VERIFY_SERVICE_ID")
 
-if SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD:
-    try:
-        shiprocket_client = ShiprocketClient(
-            email=SHIPROCKET_EMAIL,
-            password=SHIPROCKET_PASSWORD
+try:
+    if DELHIVERY_API_KEY:
+        delhivery_client = DelhiveryClient(
+            api_key=DELHIVERY_API_KEY,
+            client_name=DELHIVERY_CLIENT,
+            warehouse_name=DELHIVERY_WAREHOUSE
         )
-    except Exception as e:
-        print(f"Warning: Failed to initialize Shiprocket client: {e}")
-        shiprocket_client = None
-else:
-    print("Warning: Shiprocket credentials not provided")
-    shiprocket_client = None
+    else:
+        print("Warning: Delhivery API key not provided")
+        delhivery_client = None
+except Exception as e:
+    print(f"Warning: Failed to initialize Delhivery client: {e}")
+    delhivery_client = None
 
 # JWT Configuration
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-super-secret-jwt-key-change-this-in-production')
@@ -154,8 +168,11 @@ class User(BaseModel):
     email: EmailStr
     name: str
     phone: Optional[str] = None
+    phone_verified: bool = False
     addresses: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    password_reset_token_hash: Optional[str] = None
+    password_reset_expires_at: Optional[datetime] = None
 
 class UserRegister(BaseModel):
     email: EmailStr
@@ -170,6 +187,16 @@ class UserLogin(BaseModel):
 class TokenResponse(BaseModel):
     token: str
     user: User
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+class ResetPasswordConfirm(BaseModel):
+    token: str
+    new_password: str
+class SendOtpRequest(BaseModel):
+    phone: str
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    code: str
 
 class AdminLogin(BaseModel):
     username: str
@@ -533,6 +560,98 @@ async def register(user_data: UserRegister):
     
     token = create_token(user.id, user.email)
     return TokenResponse(token=token, user=user)
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest):
+    user_doc = await db.users.find_one({"email": req.email})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="Email not found")
+    raw_token = os.urandom(24).hex()
+    token_hash = hash_password(raw_token)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    await db.users.update_one(
+        {"id": user_doc["id"]},
+        {"$set": {"password_reset_token_hash": token_hash, "password_reset_expires_at": expires_at.isoformat()}}
+    )
+    if not SMTP_USER or not SMTP_PASS:
+        raise HTTPException(status_code=500, detail="SMTP not configured")
+    reset_url = f"{FRONTEND_URL}/reset-password?token={raw_token}"
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Reset your Mirvaa password"
+    msg["From"] = SMTP_USER
+    msg["To"] = req.email
+    html = f"""<div style="font-family:Inter,Arial,sans-serif">
+      <h2>Mirvaa Fashions</h2>
+      <p>Click the button below to reset your password. This link expires in 30 minutes.</p>
+      <p><a href="{reset_url}" style="background:#1a73e8;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Reset Password</a></p>
+      <p>If the button doesn't work, paste this URL into your browser:</p>
+      <p>{reset_url}</p>
+    </div>"""
+    msg.attach(MIMEText(html, "html"))
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls(context=context)
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, req.email, msg.as_string())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+    return {"message": "Reset email sent"}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: ResetPasswordConfirm):
+    user_doc = await db.users.find_one({"password_reset_token_hash": {"$ne": None}})
+    if not user_doc:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    expires = user_doc.get("password_reset_expires_at")
+    if not expires:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    if isinstance(expires, str):
+        try:
+            expires_dt = datetime.fromisoformat(expires)
+        except:
+            expires_dt = datetime.now(timezone.utc) - timedelta(seconds=1)
+    else:
+        expires_dt = expires
+    if datetime.now(timezone.utc) > expires_dt:
+        raise HTTPException(status_code=400, detail="Token expired")
+    token_hash = user_doc.get("password_reset_token_hash", "")
+    if not verify_password(data.token, token_hash):
+        raise HTTPException(status_code=400, detail="Invalid token")
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one(
+        {"id": user_doc["id"]},
+        {"$set": {"password": new_hash}, "$unset": {"password_reset_token_hash": "", "password_reset_expires_at": ""}}
+    )
+    return {"message": "Password updated"}
+
+@api_router.post("/auth/send-otp")
+async def send_otp(req: SendOtpRequest):
+    if not TWILIO_SID or not TWILIO_AUTH or not TWILIO_VERIFY_SERVICE_ID:
+        raise HTTPException(status_code=500, detail="Twilio not configured")
+    url = f"https://verify.twilio.com/v2/Services/{TWILIO_VERIFY_SERVICE_ID}/Verifications"
+    try:
+        resp = requests.post(url, data={"To": req.phone, "Channel": "sms"}, auth=(TWILIO_SID, TWILIO_AUTH))
+        if not resp.ok:
+            raise HTTPException(status_code=400, detail=resp.text)
+        return {"status": "sent"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/auth/verify-otp")
+async def verify_otp(req: VerifyOtpRequest):
+    if not TWILIO_SID or not TWILIO_AUTH or not TWILIO_VERIFY_SERVICE_ID:
+        raise HTTPException(status_code=500, detail="Twilio not configured")
+    url = f"https://verify.twilio.com/v2/Services/{TWILIO_VERIFY_SERVICE_ID}/VerificationCheck"
+    try:
+        resp = requests.post(url, data={"To": req.phone, "Code": req.code}, auth=(TWILIO_SID, TWILIO_AUTH))
+        data = resp.json() if resp.ok else {}
+        if not resp.ok or data.get("status") != "approved":
+            raise HTTPException(status_code=400, detail="Invalid code")
+        await db.users.update_one({"phone": req.phone}, {"$set": {"phone_verified": True}})
+        return {"status": "approved"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # User profile update model
 class UserProfileUpdate(BaseModel):
@@ -964,46 +1083,6 @@ async def remove_from_wishlist(product_id: str, current_user: Dict = Depends(get
 
 # ==================== Shipping Routes ====================
 
-@api_router.post("/shipping/create")
-async def create_shipping(order_id: str, current_user: Dict = Depends(get_current_user)):
-    """Create a shipping order with Shiprocket"""
-    try:
-        # Get order details
-        order = await db.orders.find_one({"id": order_id})
-        if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
-        
-        # Get user details
-        user = await db.users.find_one({"id": order["user_id"]})
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Get address from order
-        address = order["shipping_address"]
-        
-        # Get order items
-        items = order["items"]
-        
-        # Format order for Shiprocket
-        shiprocket_order = shiprocket_client.format_mirvaa_order(order, user, address, items)
-        
-        # Create order in Shiprocket
-        response = shiprocket_client.create_order(shiprocket_order)
-        
-        # Update order with Shiprocket details
-        await db.orders.update_one(
-            {"id": order_id},
-            {"$set": {
-                "shiprocket_order_id": response.get("order_id"),
-                "shiprocket_shipment_id": response.get("shipment_id"),
-                "shipping_status": "created"
-            }}
-        )
-        
-        return {"success": True, "shiprocket_data": response}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create shipping: {str(e)}")
-
 @api_router.get("/shipping/track/{order_id}")
 async def track_shipping(order_id: str, current_user: Dict = Depends(get_current_user)):
     """Track a shipping order"""
@@ -1016,19 +1095,18 @@ async def track_shipping(order_id: str, current_user: Dict = Depends(get_current
         # Check if order has Delhivery waybill
         if "delhivery_waybill" in order and order["delhivery_waybill"]:
             # Track with Delhivery
-            tracking_url = f"https://track.delhivery.com/api/v1/packages/json/?waybill={order['delhivery_waybill']}&token={DELHIVERY_API_KEY}"
             try:
-                response = requests.get(tracking_url)
-                if response.ok:
-                    return {"success": True, "tracking_data": response.json(), "courier": "Delhivery"}
+                if delhivery_client:
+                    response = delhivery_client.track_shipment(order["delhivery_waybill"])
+                    return {"success": True, "tracking_data": response, "courier": "Delhivery"}
+                else:
+                    # Fallback if client not initialized
+                    tracking_url = f"https://track.delhivery.com/api/v1/packages/json/?waybill={order['delhivery_waybill']}&token={DELHIVERY_API_KEY}"
+                    response = requests.get(tracking_url)
+                    if response.ok:
+                        return {"success": True, "tracking_data": response.json(), "courier": "Delhivery"}
             except Exception as e:
                 print(f"Delhivery tracking error: {e}")
-        
-        # Check if order has Shiprocket shipment ID
-        if "shiprocket_shipment_id" in order:
-            # Track shipment
-            tracking_data = shiprocket_client.track_order(order["shiprocket_shipment_id"])
-            return {"success": True, "tracking_data": tracking_data, "courier": "Shiprocket"}
             
         # Fallback if no tracking info
         if "tracking_id" in order:
@@ -1575,8 +1653,8 @@ async def confirm_order_shipping(
     """
     Confirm order and create shipping with Delhivery
     """
-    if not DELHIVERY_API_KEY:
-        raise HTTPException(status_code=400, detail="Delhivery API key not configured")
+    if not delhivery_client:
+        raise HTTPException(status_code=400, detail="Delhivery client not initialized")
 
     order = await db.orders.find_one({"id": order_id})
     if not order:
@@ -1587,115 +1665,40 @@ async def confirm_order_shipping(
 
     try:
         # 1. Get Waybill
-        wb_url = "https://track.delhivery.com/waybill/api/fetch/json/"
-        wb_params = {"token": DELHIVERY_API_KEY, "count": 1}
-        
-        print(f"Fetching Waybill from {wb_url}")
-        
-        wb_resp = requests.get(wb_url, params=wb_params, timeout=15)
-        if not wb_resp.ok:
-             raise Exception(f"Failed to fetch waybill: {wb_resp.text}")
-        
-        wb_data = wb_resp.json()
-        print(f"Waybill Response: {wb_data}")
-        
-        waybill = None
-        if isinstance(wb_data, dict):
-            waybill = wb_data.get("waybill")
-        elif isinstance(wb_data, list) and len(wb_data) > 0:
-            waybill = wb_data[0]
-        elif isinstance(wb_data, str):
-            waybill = wb_data
-            
-        # Handle list or dict response
-        if not waybill and isinstance(wb_data, dict) and "waybill" in wb_data:
-             waybill = wb_data["waybill"]
-        
-        if not waybill and isinstance(wb_data, str):
-            waybill = wb_data
+        # We fetch it explicitly to ensure we have it for DB before/during creation
+        waybill = delhivery_client.fetch_waybill()
+        print(f"Fetched Waybill: {waybill}")
 
         if not waybill:
-             raise Exception(f"Invalid waybill response: {wb_data}")
+             raise Exception("Failed to fetch valid waybill from Delhivery")
 
         # 2. Create Shipment (CMU)
         addr = order.get("shipping_address", {})
+        items = order.get("items", [])
         
-        # Format date
-        order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        shipment_payload = [{
-            "waybill": waybill,
-            "order": order.get("order_number"),
-            "pickup_location": "MirvaaWarehouse",
-            "name": addr.get("name"),
-            "address": addr.get("address"), 
-            "city": addr.get("city"),
-            "state": addr.get("state"),
-            "phone": addr.get("phone"),
-            "pin": addr.get("pincode"),
-            "cod_amount": order.get("total") if order.get("payment_method") == "cod" else 0,
-            "payment_mode": "COD" if order.get("payment_method") == "cod" else "Prepaid",
-            "order_date": order_date,
-            "total_weight": 0.5, 
-            "package_count": 1,
-            "products_desc": ", ".join([item.get("title", "Product") for item in order.get("items", [])])
-        }]
-        
-        create_url = "https://track.delhivery.com/api/cmu/create.json"
-        create_data = {
-            "format": "json",
-            "data": json.dumps(shipment_payload)
-        }
-        
-        print(f"Creating shipment with payload: {shipment_payload}")
-        
-        create_resp = requests.post(
-            create_url, 
-            data=create_data, 
-            headers={"Authorization": f"Token {DELHIVERY_API_KEY}"},
-            timeout=15
+        # Call create_shipment
+        create_resp = delhivery_client.create_shipment(
+            order=order,
+            user={"name": addr.get("name"), "phone": addr.get("phone")}, # Placeholder
+            address=addr,
+            items=items,
+            waybill=waybill
         )
         
-        if not create_resp.ok:
-             raise Exception(f"Failed to create shipment: {create_resp.text}")
-        
-        # Validate creation result content
-        try:
-            create_json = create_resp.json()
-            print(f"Delhivery create response: {create_json}")
-            if isinstance(create_json, dict):
-                # Common shapes: {"packages": [...]} or {"error": "..."} or {"success": true/false}
-                if "packages" in create_json and isinstance(create_json["packages"], list):
-                    if len(create_json["packages"]) == 0:
-                        raise Exception(f"Delhivery did not add packages for waybill {waybill}: {create_resp.text}")
-                elif "success" in create_json and not create_json["success"]:
-                    raise Exception(f"Delhivery create unsuccessful: {create_resp.text}")
-                elif "error" in create_json and create_json["error"]:
-                    raise Exception(f"Delhivery error: {create_json['error']}")
-            else:
-                print("Unexpected Delhivery create response format")
-        except Exception as e:
-            # If JSON parsing fails, at least log the raw text
-            print(f"Warning: could not parse Delhivery create response JSON: {e}")
-            print(f"Raw create response: {create_resp.text}")
+        print(f"Create Shipment Response: {create_resp}")
              
         # 3. Schedule Pickup
-        pickup_url = "https://track.delhivery.com/fm/request/new/"
-        pickup_payload = {
-            "pickup_time": (datetime.now() + timedelta(days=1)).strftime("%H:%M:%S"),
-            "pickup_date": (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d"),
-            "pickup_location": "MirvaaWarehouse",
-            "expected_package_count": 1
-        }
+        pickup_time = (datetime.now() + timedelta(days=1)).strftime("%H:%M:%S")
+        pickup_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         
         try:
-             pickup_resp = requests.post(
-                 pickup_url, 
-                 json=pickup_payload,
-                 headers={"Authorization": f"Token {DELHIVERY_API_KEY}", "Content-Type": "application/json"},
-                 timeout=10
+             pickup_resp = delhivery_client.schedule_pickup(
+                 pickup_time=pickup_time,
+                 pickup_date=pickup_date,
+                 pickup_location=delhivery_client.warehouse_name,
+                 expected_package_count=1
              )
-             print(f"Pickup schedule response: {pickup_resp.text}")
+             print(f"Pickup schedule response: {pickup_resp}")
         except Exception as e:
              print(f"Pickup schedule error: {e}")
 
@@ -1729,34 +1732,32 @@ async def confirm_order_shipping(
 
 @api_router.get("/admin/orders/{order_id}/label")
 async def get_delhivery_label(order_id: str, admin: Dict = Depends(get_current_admin)):
+    if not delhivery_client:
+        raise HTTPException(status_code=400, detail="Delhivery client not initialized")
+
     order = await db.orders.find_one({"id": order_id})
     if not order or not order.get("delhivery_waybill"):
         raise HTTPException(status_code=404, detail="Label not found")
         
     wb = order.get("delhivery_waybill")
-    # Fetch PDF from Delhivery
-    url = f"https://track.delhivery.com/api/p/packing_slip?wbns={wb}"
     
     try:
-        resp = requests.get(
-            url,
-            headers={"Authorization": f"Token {DELHIVERY_API_KEY}"},
-            timeout=15
-        )
-        if resp.ok:
-            # Some Delhivery responses return JSON error messages; ensure we only return PDFs
-            content_type = resp.headers.get("Content-Type", "")
-            if "application/pdf" in content_type or resp.content.startswith(b"%PDF"):
-                from fastapi.responses import Response
-                return Response(content=resp.content, media_type="application/pdf")
-            else:
-                # Forward error message from Delhivery for easier debugging
-                raise HTTPException(status_code=400, detail=resp.text or "Invalid label response from Delhivery")
+        pdf_content = delhivery_client.get_label_pdf(wb)
+        
+        # Validate content looks like PDF
+        if pdf_content.startswith(b"%PDF"):
+            from fastapi.responses import Response
+            return Response(content=pdf_content, media_type="application/pdf")
         else:
-            # Forward error message from Delhivery
-            raise HTTPException(status_code=resp.status_code, detail=resp.text or "Failed to fetch label from Delhivery")
-    except HTTPException:
-        raise
+            # Try to parse as JSON to see if it's an error message
+            try:
+                error_json = json.loads(pdf_content)
+                detail = error_json.get("error") or str(error_json)
+                raise HTTPException(status_code=400, detail=f"Delhivery Error: {detail}")
+            except:
+                # If not JSON, return as text if small, else generic error
+                raise HTTPException(status_code=400, detail="Invalid label response from Delhivery")
+                
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

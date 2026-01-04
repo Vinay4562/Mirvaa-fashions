@@ -36,6 +36,8 @@ dist
 .env.development
 .env.production
 .env.test
+backend/.env
+frontend/.env
 
 *token.json*
 *credentials.json*

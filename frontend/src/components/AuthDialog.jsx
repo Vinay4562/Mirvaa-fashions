@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 
 export default function AuthDialog({ open, onClose, setUser, defaultTab = "login" }) {
   const [loading, setLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({
     email: '',
@@ -17,6 +18,11 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
     name: '',
     phone: '',
   });
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -60,6 +66,47 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
     }
   };
 
+  const sendOtp = async () => {
+    if (!registerData.phone) {
+      toast.error('Enter phone to send OTP');
+      return;
+    }
+    setOtpSending(true);
+    try {
+      await axios.post(`${API}/auth/send-otp`, { phone: registerData.phone });
+      setOtpSent(true);
+      toast.success('OTP sent');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to send OTP');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    try {
+      await axios.post(`${API}/auth/verify-otp`, { phone: registerData.phone, code: otpCode });
+      setOtpVerified(true);
+      toast.success('Phone verified');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Invalid OTP');
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API}/auth/forgot-password`, { email: forgotEmail });
+      toast.success('Reset link sent to your email');
+      setForgotMode(false);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to send reset link');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -67,6 +114,7 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
           <DialogTitle className="text-2xl font-bold gradient-text">Welcome to Mirvaa</DialogTitle>
         </DialogHeader>
 
+        {!forgotMode ? (
         <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login" data-testid="login-tab">Login</TabsTrigger>
@@ -107,6 +155,11 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
               >
                 {loading ? 'Logging in...' : 'Login'}
               </Button>
+              <div className="text-center">
+                <button type="button" className="text-sm text-blue-600 hover:underline mt-2" onClick={() => setForgotMode(true)}>
+                  Forgot password?
+                </button>
+              </div>
             </form>
           </TabsContent>
 
@@ -146,6 +199,26 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
                   value={registerData.phone}
                   onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
                 />
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={sendOtp} disabled={otpSending}>
+                    {otpSending ? 'Sending...' : 'Send OTP'}
+                  </Button>
+                  {otpSent && !otpVerified && (
+                    <>
+                      <Input
+                        type="text"
+                        placeholder="Enter OTP"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        className="h-9"
+                      />
+                      <Button type="button" size="sm" onClick={verifyOtp}>
+                        Verify
+                      </Button>
+                    </>
+                  )}
+                  {otpVerified && <span className="text-xs text-green-600">Verified</span>}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="register-password">Password</Label>
@@ -170,6 +243,29 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
             </form>
           </TabsContent>
         </Tabs>
+        ) : (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                placeholder="your@email.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full btn-hover" disabled={loading}>
+              {loading ? 'Sending...' : 'Send reset link'}
+            </Button>
+            <div className="text-center">
+              <button type="button" className="text-sm text-gray-600 hover:underline mt-2" onClick={() => setForgotMode(false)}>
+                Back to login
+              </button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
