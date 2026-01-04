@@ -22,6 +22,7 @@ import hmac
 import hashlib
 import requests
 import smtplib
+import socket
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -580,16 +581,21 @@ def _send_reset_email(to_email: str, raw_token: str):
       <p>{reset_url}</p>
     </div>"""
     msg.attach(MIMEText(html, "html"))
+
+    # 1. Try Resend API
     if RESEND_API_KEY:
         try:
             headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
             payload = {"from": MAIL_FROM or SMTP_USER, "to": to_email, "subject": "Reset your Mirvaa password", "html": html}
             r = requests.post("https://api.resend.com/emails", headers=headers, json=payload, timeout=15)
             if r.status_code in (200, 201, 202):
+                logging.info(f"Email sent via Resend to {to_email}")
                 return
             logging.error(f"Resend error: {r.status_code} {r.text}")
         except Exception as e:
             logging.error(f"Resend exception: {type(e).__name__}: {str(e)}")
+
+    # 2. Try SendGrid API
     if SENDGRID_API_KEY:
         try:
             headers = {"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"}
@@ -601,30 +607,45 @@ def _send_reset_email(to_email: str, raw_token: str):
             }
             r = requests.post("https://api.sendgrid.com/v3/mail/send", headers=headers, json=payload, timeout=15)
             if r.status_code in (200, 202):
+                logging.info(f"Email sent via SendGrid to {to_email}")
                 return
             logging.error(f"SendGrid error: {r.status_code} {r.text}")
         except Exception as e:
             logging.error(f"SendGrid exception: {type(e).__name__}: {str(e)}")
+
+    # 3. Try SMTP (Standard Port 587 with STARTTLS)
     context = ssl.create_default_context()
     try:
-        try:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        logging.info(f"Attempting SMTP connection to {SMTP_HOST}:{SMTP_PORT}...")
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            try:
+                server.starttls(context=context)
                 server.ehlo()
-                try:
-                    server.starttls(context=context)
-                    server.ehlo()
-                except smtplib.SMTPNotSupportedError:
-                    pass
-                if SMTP_USER and SMTP_PASS:
-                    server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(MAIL_FROM or SMTP_USER, [to_email], msg.as_string())
-        except Exception:
-            with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
-                if SMTP_USER and SMTP_PASS:
-                    server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(MAIL_FROM or SMTP_USER, [to_email], msg.as_string())
+            except smtplib.SMTPNotSupportedError:
+                pass
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(MAIL_FROM or SMTP_USER, [to_email], msg.as_string())
+            logging.info(f"Email sent via SMTP ({SMTP_PORT}) to {to_email}")
+            return
     except Exception as e:
-        logging.error(f"SMTP error: {type(e).__name__}: {str(e)}")
+        logging.error(f"SMTP {SMTP_PORT} error: {type(e).__name__}: {str(e)}")
+        # If network is unreachable, it might be IPv6 issue.
+
+    # 4. Try SMTP SSL (Port 465)
+    try:
+        logging.info(f"Attempting SMTP_SSL connection to {SMTP_HOST}:465...")
+        with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(MAIL_FROM or SMTP_USER, [to_email], msg.as_string())
+            logging.info(f"Email sent via SMTP_SSL (465) to {to_email}")
+            return
+    except Exception as e:
+        logging.error(f"SMTP_SSL 465 error: {type(e).__name__}: {str(e)}")
+
+    logging.error("All email sending methods failed. Please configure RESEND_API_KEY or SENDGRID_API_KEY for reliable delivery in production.")
 
 @api_router.post("/auth/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks):
