@@ -12,10 +12,23 @@ A full-featured e-commerce platform for fashion retail built with React, FastAPI
 ## ✨ Key Features
 
 server start:
-uvicorn server:app --reload 
+uvicorn backend.server:app --reload
 
 frontend start:
 npm start
+
+Production build configuration:
+- Set REACT_APP_BACKEND_URL to your deployed backend URL during build/deploy.
+- Example (Windows PowerShell):
+  $env:REACT_APP_BACKEND_URL="https://mirvaa-backend.onrender.com"; yarn --cwd frontend build
+- Example (Linux/macOS):
+  REACT_APP_BACKEND_URL="https://mirvaa-backend.onrender.com" yarn --cwd frontend build
+
+Local development can override:
+- Windows PowerShell:
+  $env:REACT_APP_BACKEND_URL="http://127.0.0.1:8000"; yarn --cwd frontend start
+- Linux/macOS:
+  REACT_APP_BACKEND_URL="http://127.0.0.1:8000" yarn --cwd frontend start
 
 ### Customer Features
 - Modern homepage with hero section, categories, featured & new arrival products
