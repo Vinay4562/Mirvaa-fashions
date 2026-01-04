@@ -592,6 +592,8 @@ def _send_reset_email(to_email: str, raw_token: str):
                 logging.info(f"Email sent via Resend to {to_email}")
                 return
             logging.error(f"Resend error: {r.status_code} {r.text}")
+            if r.status_code == 403 and "gmail.com" in payload.get("from", ""):
+                 logging.error("Tip: Resend does not allow sending from @gmail.com. Set MAIL_FROM='onboarding@resend.dev' in your environment variables for testing.")
         except Exception as e:
             logging.error(f"Resend exception: {type(e).__name__}: {str(e)}")
 
