@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile, Body
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile, Body, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -561,25 +561,15 @@ async def register(user_data: UserRegister):
     token = create_token(user.id, user.email)
     return TokenResponse(token=token, user=user)
 
-@api_router.post("/auth/forgot-password")
-async def forgot_password(req: ForgotPasswordRequest):
-    user_doc = await db.users.find_one({"email": req.email})
-    if not user_doc:
-        raise HTTPException(status_code=404, detail="Email not found")
-    raw_token = os.urandom(24).hex()
-    token_hash = hash_password(raw_token)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
-    await db.users.update_one(
-        {"id": user_doc["id"]},
-        {"$set": {"password_reset_token_hash": token_hash, "password_reset_expires_at": expires_at.isoformat()}}
-    )
+def _send_reset_email(to_email: str, raw_token: str):
     if not SMTP_USER or not SMTP_PASS:
-        raise HTTPException(status_code=500, detail="SMTP not configured")
+        logging.warning("SMTP credentials missing")
+        return
     reset_url = f"{FRONTEND_URL}/reset-password?token={raw_token}"
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Reset your Mirvaa password"
     msg["From"] = SMTP_USER
-    msg["To"] = req.email
+    msg["To"] = to_email
     html = f"""<div style="font-family:Inter,Arial,sans-serif">
       <h2>Mirvaa Fashions</h2>
       <p>Click the button below to reset your password. This link expires in 30 minutes.</p>
@@ -588,8 +578,8 @@ async def forgot_password(req: ForgotPasswordRequest):
       <p>{reset_url}</p>
     </div>"""
     msg.attach(MIMEText(html, "html"))
+    context = ssl.create_default_context()
     try:
-        context = ssl.create_default_context()
         try:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
                 server.ehlo()
@@ -599,14 +589,28 @@ async def forgot_password(req: ForgotPasswordRequest):
                 except smtplib.SMTPNotSupportedError:
                     pass
                 server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_USER, [req.email], msg.as_string())
-        except Exception as e_tls:
+                server.sendmail(SMTP_USER, [to_email], msg.as_string())
+        except Exception:
             with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
                 server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_USER, [req.email], msg.as_string())
+                server.sendmail(SMTP_USER, [to_email], msg.as_string())
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Email service error: {type(e).__name__}: {str(e)}")
-    return {"message": "Reset email sent"}
+        logging.error(f"SMTP error: {type(e).__name__}: {str(e)}")
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks):
+    user_doc = await db.users.find_one({"email": req.email})
+    if not user_doc:
+        return {"message": "If the account exists, a reset email has been sent"}
+    raw_token = os.urandom(24).hex()
+    token_hash = hash_password(raw_token)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    await db.users.update_one(
+        {"id": user_doc["id"]},
+        {"$set": {"password_reset_token_hash": token_hash, "password_reset_expires_at": expires_at.isoformat()}}
+    )
+    background_tasks.add_task(_send_reset_email, req.email, raw_token)
+    return {"message": "If the account exists, a reset email has been sent"}
 
 @api_router.post("/auth/reset-password")
 async def reset_password(data: ResetPasswordConfirm):
