@@ -29,6 +29,11 @@ Local development can override:
   $env:REACT_APP_BACKEND_URL="http://127.0.0.1:8000"; yarn --cwd frontend start
 - Linux/macOS:
   REACT_APP_BACKEND_URL="http://127.0.0.1:8000" yarn --cwd frontend start
+ 
+ Email delivery configuration:
+ - Prefer HTTP providers on platforms that block SMTP.
+ - Supported: RESEND_API_KEY or SENDGRID_API_KEY, with MAIL_FROM set to a verified sender.
+ - If neither is set, SMTP_USER/SMTP_PASS/SMTP_HOST/SMTP_PORT are used.
 
 ### Customer Features
 - Modern homepage with hero section, categories, featured & new arrival products

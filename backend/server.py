@@ -82,6 +82,9 @@ TWILIO_SID = os.environ.get("TWILIO_SID")
 TWILIO_AUTH = os.environ.get("TWILIO_AUTH")
 TWILIO_PHONE = os.environ.get("TWILIO_PHONE")
 TWILIO_VERIFY_SERVICE_ID = os.environ.get("TWILIO_VERIFY_SERVICE_ID")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
+MAIL_FROM = os.environ.get("MAIL_FROM", SMTP_USER)
 
 try:
     if DELHIVERY_API_KEY:
@@ -564,11 +567,10 @@ async def register(user_data: UserRegister):
 def _send_reset_email(to_email: str, raw_token: str):
     if not SMTP_USER or not SMTP_PASS:
         logging.warning("SMTP credentials missing")
-        return
     reset_url = f"{FRONTEND_URL}/reset-password?token={raw_token}"
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "Reset your Mirvaa password"
-    msg["From"] = SMTP_USER
+    msg["From"] = MAIL_FROM or SMTP_USER
     msg["To"] = to_email
     html = f"""<div style="font-family:Inter,Arial,sans-serif">
       <h2>Mirvaa Fashions</h2>
@@ -578,6 +580,31 @@ def _send_reset_email(to_email: str, raw_token: str):
       <p>{reset_url}</p>
     </div>"""
     msg.attach(MIMEText(html, "html"))
+    if RESEND_API_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
+            payload = {"from": MAIL_FROM or SMTP_USER, "to": to_email, "subject": "Reset your Mirvaa password", "html": html}
+            r = requests.post("https://api.resend.com/emails", headers=headers, json=payload, timeout=15)
+            if r.status_code in (200, 201, 202):
+                return
+            logging.error(f"Resend error: {r.status_code} {r.text}")
+        except Exception as e:
+            logging.error(f"Resend exception: {type(e).__name__}: {str(e)}")
+    if SENDGRID_API_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"}
+            payload = {
+                "personalizations": [{"to": [{"email": to_email}]}],
+                "from": {"email": MAIL_FROM or SMTP_USER},
+                "subject": "Reset your Mirvaa password",
+                "content": [{"type": "text/html", "value": html}],
+            }
+            r = requests.post("https://api.sendgrid.com/v3/mail/send", headers=headers, json=payload, timeout=15)
+            if r.status_code in (200, 202):
+                return
+            logging.error(f"SendGrid error: {r.status_code} {r.text}")
+        except Exception as e:
+            logging.error(f"SendGrid exception: {type(e).__name__}: {str(e)}")
     context = ssl.create_default_context()
     try:
         try:
@@ -588,12 +615,14 @@ def _send_reset_email(to_email: str, raw_token: str):
                     server.ehlo()
                 except smtplib.SMTPNotSupportedError:
                     pass
-                server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_USER, [to_email], msg.as_string())
+                if SMTP_USER and SMTP_PASS:
+                    server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(MAIL_FROM or SMTP_USER, [to_email], msg.as_string())
         except Exception:
             with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
-                server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_USER, [to_email], msg.as_string())
+                if SMTP_USER and SMTP_PASS:
+                    server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(MAIL_FROM or SMTP_USER, [to_email], msg.as_string())
     except Exception as e:
         logging.error(f"SMTP error: {type(e).__name__}: {str(e)}")
 
