@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AuthDialog from './AuthDialog';
+import NotificationPopover from './NotificationPopover';
 
 export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0 }) {
   const [showAuth, setShowAuth] = useState(false);
@@ -124,8 +125,11 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
                 </Button>
               </Link>
 
-              {/* Cart - Always visible */}
-              <Link to="/cart" data-testid="cart-link">
+              {/* Notification - Mobile only */}
+              <NotificationPopover user={user} />
+
+              {/* Cart - Desktop only */}
+              <Link to="/cart" data-testid="cart-link" className="hidden md:flex">
                 <Button variant="ghost" size="icon" className="relative btn-hover">
                   <ShoppingCart className="h-6 w-6" />
                   {cartCount > 0 && (

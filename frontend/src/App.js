@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { apiClient } from "@/utils/api";
 
 import Home from "./pages/Home";
+import IntroSplash from "./components/IntroSplash";
 
 // Lazy load pages
 const ProductListing = lazy(() => import("./pages/ProductListing"));
@@ -40,6 +41,13 @@ const AnalyticsDashboard = lazy(() => import("./pages/admin/analytics/AnalyticsD
 function App() {
   const [user, setUser] = useState(null);
   const [admin, setAdmin] = useState(null);
+  const [showIntro, setShowIntro] = useState(() => {
+    try {
+      return !sessionStorage.getItem("mirvaa_skip_intro");
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     // Check for stored auth and refresh user from backend
@@ -71,6 +79,7 @@ function App() {
 
   return (
     <div className="App">
+      {showIntro && <IntroSplash onFinish={() => setShowIntro(false)} />}
       <BrowserRouter>
         <ScrollToTop />
         <Suspense fallback={<Loading />}>
