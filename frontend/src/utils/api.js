@@ -11,7 +11,7 @@ const getBackendUrl = () => {
   const hostname = window.location.hostname;
   
   // Production frontend should use production backend
-  if (hostname === 'mirvaa-fashions.vercel.app' || hostname.includes('vercel.app')) {
+  if (hostname === 'mirvaa-fashions.vercel.app' || hostname.includes('vercel.app') || hostname.endsWith('mirvaafashions.com')) {
     return 'https://mirvaa-backend.onrender.com';
   }
   
