@@ -21,3 +21,8 @@ services:
         value: "7"
       - key: ALLOWED_ORIGINS
         value: "*"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        value: mirvaafashions@gmail.com
+
