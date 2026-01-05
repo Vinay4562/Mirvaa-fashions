@@ -57,7 +57,7 @@ export default function LegalPage({ user, setUser }) {
 
       <Navbar user={user} setUser={setUser} />
 
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 pt-6 pb-24 md:pt-12 md:pb-12">
         <Card data-testid="legal-page-content">
           <CardContent className="p-8 md:p-12">
             <div className="prose prose-lg max-w-none">

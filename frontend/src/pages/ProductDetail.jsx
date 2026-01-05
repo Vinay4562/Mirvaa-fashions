@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, ChevronLeft, ChevronRight, Minus, Plus, X, ZoomIn } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, getOptimizedImageUrl, getThumbnailUrl, getMediumImageUrl, getLargeImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -29,7 +30,7 @@ export default function ProductDetail({ user, setUser }) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   useEffect(() => {
     fetchProduct();
@@ -37,6 +38,14 @@ export default function ProductDetail({ user, setUser }) {
       fetchCounts();
     }
   }, [id, user]);
+
+  useEffect(() => {
+    if (!product) return;
+    const map = product.color_images || {};
+    if (selectedColor && map[selectedColor] && map[selectedColor].length > 0) {
+      setSelectedImage(0);
+    }
+  }, [selectedColor, product]);
 
   const fetchProduct = async () => {
     setLoading(true);
@@ -127,34 +136,65 @@ export default function ProductDetail({ user, setUser }) {
     }
   };
 
+  const handleImageClick = () => {
+    setZoomLevel(100);
+    setIsImageModalOpen(true);
+  };
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 25, 300));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 25, 50));
+  };
+
+  const handleCloseModal = () => {
+    setIsImageModalOpen(false);
+    setZoomLevel(100);
+  };
+
   if (loading || !product) {
     return <Loading />;
   }
 
-  const images = product.images.length > 0 ? product.images.map(img => getImageUrl(img)) : [getImageUrl()];
+  const colorImagesMap = product.color_images || {};
+  const images = (selectedColor && colorImagesMap[selectedColor] && colorImagesMap[selectedColor].length > 0)
+    ? colorImagesMap[selectedColor]
+    : (product.images.length > 0 ? product.images : []);
+  const colorDetailsMap = product.color_details || {};
+  const mergedDetails = {
+    ...(product.product_details || {}),
+    ...(selectedColor && colorDetailsMap[selectedColor] ? colorDetailsMap[selectedColor] : {})
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
 
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Images */}
-          <div className="space-y-4" data-testid="product-images">
+          <div className="space-y-4 w-full min-w-0" data-testid="product-images">
             <div 
-              className="relative aspect-[3/4] bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer group"
-              onClick={() => setIsImageModalOpen(true)}
+              className="relative aspect-[3/4] bg-white rounded-lg overflow-hidden shadow-lg w-full cursor-pointer"
+              onClick={handleImageClick}
             >
               <img
-                src={images[selectedImage]}
+                src={getMediumImageUrl(images[selectedImage])}
+                srcSet={[
+                  `${getThumbnailUrl(images[selectedImage])} 160w`,
+                  `${getMediumImageUrl(images[selectedImage])} 768w`,
+                  `${getLargeImageUrl(images[selectedImage])} 1600w`,
+                ].join(', ')}
+                sizes="(max-width: 768px) calc(100vw - 2rem), 50vw"
                 alt={product.title}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-full object-contain md:object-cover transition-transform duration-300"
                 data-testid="main-product-image"
+                loading="eager"
+                onError={onImageError}
               />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10">
-                <ZoomIn className="w-10 h-10 text-white drop-shadow-lg" />
-              </div>
               {product.discount_percent > 0 && (
                 <div className="absolute top-4 left-4 bg-red-500 text-white text-xs md:text-sm font-bold px-2 py-1 md:px-3 md:py-1 rounded">
                   {product.discount_percent}% OFF
@@ -174,7 +214,13 @@ export default function ProductDetail({ user, setUser }) {
                     }`}
                     data-testid={`thumbnail-${idx}`}
                   >
-                    <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={getThumbnailUrl(img)}
+                      alt={`View ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={onImageError}
+                    />
                   </button>
                 ))}
               </div>
@@ -347,11 +393,11 @@ export default function ProductDetail({ user, setUser }) {
             <TabsContent value="description" className="mt-6">
               <Card>
                 <CardContent className="p-6">
-                  {product.product_details && Object.keys(product.product_details).length > 0 && (
+                  {mergedDetails && Object.keys(mergedDetails).length > 0 && (
                     <div className="mb-8">
                       <h3 className="text-lg font-bold mb-4">Product Details</h3>
                       <div className="grid grid-cols-1 gap-y-3 text-sm">
-                        {Object.entries(product.product_details).map(([key, value]) => (
+                        {Object.entries(mergedDetails).map(([key, value]) => (
                           <div key={key} className="grid grid-cols-2 gap-4">
                             <span className="text-gray-500 font-medium">{key}</span>
                             <span className="font-semibold text-gray-900">{value}</span>
@@ -426,9 +472,16 @@ export default function ProductDetail({ user, setUser }) {
                   <Card className="group overflow-hidden card-hover border-0 shadow-lg">
                     <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                       <img
-                        src={getImageUrl(relProduct.images[0])}
+                        src={getMediumImageUrl(relProduct.images[0])}
+                        srcSet={[
+                          `${getThumbnailUrl(relProduct.images[0])} 160w`,
+                          `${getMediumImageUrl(relProduct.images[0])} 768w`,
+                          `${getLargeImageUrl(relProduct.images[0])} 1600w`,
+                        ].join(', ')}
+                        sizes="(max-width: 768px) 50vw, 25vw"
                         alt={relProduct.title}
                         className="w-full h-full object-cover image-zoom"
+                        loading="lazy"
                       />
                     </div>
                     <CardContent className="p-4">
@@ -473,64 +526,70 @@ export default function ProductDetail({ user, setUser }) {
         </Button>
       </div>
 
-      {/* Image Zoom Modal */}
-      {isImageModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4">
-          <button
-            onClick={() => {
-              setIsImageModalOpen(false);
-              setIsZoomed(false);
-            }}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-50 p-2"
-          >
-            <X className="h-8 w-8" />
-          </button>
-          
-          {/* Navigation Arrows */}
-          {images.length > 1 && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedImage((prev) => (prev - 1 + images.length) % images.length);
-                }}
-                className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors z-50 p-2 rounded-full hover:bg-white/10"
-              >
-                <ChevronLeft className="h-8 w-8 md:h-12 md:w-12" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedImage((prev) => (prev + 1) % images.length);
-                }}
-                className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors z-50 p-2 rounded-full hover:bg-white/10"
-              >
-                <ChevronRight className="h-8 w-8 md:h-12 md:w-12" />
-              </button>
-            </>
-          )}
+      {/* Image Modal Viewer */}
+      <Dialog open={isImageModalOpen} onOpenChange={handleCloseModal}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-[95vh] p-0 bg-black/95 border-none overflow-hidden">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Close Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 z-50 text-white hover:bg-white/20 rounded-full"
+              onClick={handleCloseModal}
+              aria-label="Close image viewer"
+            >
+              <X className="h-6 w-6" />
+            </Button>
 
-          <div 
-            className={`relative w-full h-full flex items-center justify-center overflow-hidden ${isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
-            onClick={() => setIsZoomed(!isZoomed)}
-          >
-            <img
-              src={images[selectedImage]}
-              alt={product.title}
-              className={`transition-transform duration-300 ease-in-out ${
-                isZoomed ? 'scale-[2]' : 'max-w-full max-h-[85vh] object-contain'
-              }`}
-            />
+            {/* Zoom Controls */}
+            <div className="absolute top-4 left-4 z-50 flex gap-2 bg-black/50 rounded-lg p-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20 rounded"
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= 300}
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20 rounded"
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= 50}
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Zoom Level Display */}
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium">
+              {zoomLevel}%
+            </div>
+
+            {/* Image Container with Scroll */}
+            <div className="w-full h-full flex items-center justify-center overflow-auto">
+              <div className="flex items-center justify-center min-w-full min-h-full p-4">
+                <img
+                  src={getLargeImageUrl(images[selectedImage])}
+                  alt={product.title}
+                  className="object-contain transition-all duration-200 ease-in-out"
+                  style={{ 
+                    width: `${zoomLevel}%`,
+                    maxWidth: 'none',
+                    height: 'auto'
+                  }}
+                  onError={onImageError}
+                />
+              </div>
+            </div>
           </div>
-          
-          {/* Image Counter */}
-          {images.length > 1 && (
-             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
-                {selectedImage + 1} / {images.length}
-             </div>
-          )}
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

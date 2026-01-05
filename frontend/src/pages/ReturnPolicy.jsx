@@ -6,7 +6,7 @@ export default function ReturnPolicy({ user, setUser }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} />
-      <div className="max-w-3xl mx-auto px-4 py-12">
+      <div className="max-w-3xl mx-auto px-4 pt-6 pb-24 md:pt-12 md:pb-12">
         <h1 className="text-3xl font-bold mb-6">Return Policy</h1>
         <div className="space-y-4 text-gray-700 leading-7">
           <p>We want you to love what you buy from Mirvaa Fashions. If you’re not completely satisfied, here’s how returns work:</p>

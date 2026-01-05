@@ -238,7 +238,7 @@ export default function Checkout({ user, setUser }) {
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} cartCount={cartItems.length} wishlistCount={wishlistCount} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
         <h1 className="text-3xl font-bold mb-8" data-testid="checkout-heading">Checkout</h1>
 
         <form onSubmit={handlePlaceOrder}>

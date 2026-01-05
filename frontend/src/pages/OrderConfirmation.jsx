@@ -9,7 +9,7 @@ import Footer from '@/components/Footer';
 import TrackingTimeline from '@/components/TrackingTimeline';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -86,7 +86,7 @@ export default function OrderConfirmation({ user, setUser }) {
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} />
 
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 pt-6 pb-24 md:pt-12 md:pb-12">
         {/* Success Message */}
         <div className="text-center mb-8" data-testid="order-success">
           <CheckCircle className="h-20 w-20 text-green-600 mx-auto mb-4" />
@@ -132,6 +132,7 @@ export default function OrderConfirmation({ user, setUser }) {
                       src={getImageUrl(item.product_image || productImageById[item.product_id] || item.product?.images?.[0]) || 'https://via.placeholder.com/100'}
                       alt={item.product_title}
                       className="w-full h-full object-cover"
+                      onError={onImageError}
                     />
                   </div>
                   <div className="flex-1">

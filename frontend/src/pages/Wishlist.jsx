@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -85,7 +85,7 @@ export default function Wishlist({ user, setUser }) {
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistItems.length} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
         <h1 className="text-3xl font-bold mb-8" data-testid="wishlist-heading">
           My Wishlist ({wishlistItems.length})
         </h1>
@@ -100,6 +100,7 @@ export default function Wishlist({ user, setUser }) {
                       src={(item.product.images && item.product.images[0]) ? getImageUrl(item.product.images[0]) : 'https://via.placeholder.com/400x500'}
                       alt={item.product.title}
                       className="w-full h-full object-cover image-zoom"
+                      onError={onImageError}
                     />
                   </div>
                 </Link>

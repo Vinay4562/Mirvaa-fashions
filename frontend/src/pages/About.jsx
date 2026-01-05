@@ -6,7 +6,7 @@ export default function About({ user, setUser }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} />
-      <div className="max-w-3xl mx-auto px-4 py-12">
+      <div className="max-w-3xl mx-auto px-4 pt-6 pb-24 md:pt-12 md:pb-12">
         <h1 className="text-3xl font-bold mb-6">About Us</h1>
         <div className="space-y-4 text-gray-700 leading-7">
           <p>Mirvaa Fashions is an Indian online fashion store built to bring quality, style, and affordability together.</p>

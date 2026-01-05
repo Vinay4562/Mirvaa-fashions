@@ -165,7 +165,7 @@ export default function ReturnRequest() {
     return (
       <>
         <Navbar />
-        <div className="container mx-auto py-12 px-4">
+        <div className="container mx-auto pt-6 pb-24 md:pt-12 md:pb-12 px-4">
           <div className="flex justify-center items-center h-64">
             <p className="text-xl">Loading order details...</p>
           </div>
@@ -180,7 +180,7 @@ export default function ReturnRequest() {
     return (
       <>
         <Navbar />
-        <div className="container mx-auto py-12 px-4">
+        <div className="container mx-auto pt-6 pb-24 md:pt-12 md:pb-12 px-4">
           <div className="flex justify-center items-center h-64">
             <p className="text-xl">Order not found</p>
           </div>
@@ -207,7 +207,7 @@ export default function ReturnRequest() {
   return (
     <>
       <Navbar />
-      <div className="container mx-auto py-8 px-4">
+      <div className="container mx-auto pt-4 pb-24 md:pt-8 md:pb-8 px-4">
         <Button 
           variant="ghost" 
           className="mb-4" 

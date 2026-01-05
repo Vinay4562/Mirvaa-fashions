@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -93,7 +93,7 @@ export default function Cart({ user, setUser }) {
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} cartCount={cartItems.length} wishlistCount={wishlistCount} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
         <h1 className="text-3xl font-bold mb-8" data-testid="cart-heading">Shopping Cart</h1>
 
         {cartItems.length > 0 ? (
@@ -110,6 +110,7 @@ export default function Cart({ user, setUser }) {
                             src={getImageUrl(item.product.images[0])}
                             alt={item.product.title}
                             className="w-full h-full object-cover"
+                            onError={onImageError}
                           />
                         </div>
                       </Link>

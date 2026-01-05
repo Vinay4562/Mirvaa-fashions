@@ -10,7 +10,7 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import AuthDialog from '@/components/AuthDialog';
 import Loading from '@/components/Loading';
@@ -109,7 +109,7 @@ export default function Account({ user, setUser }) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
           <h1 className="text-3xl font-bold mb-8" data-testid="account-heading">My Account</h1>
         </div>
         <Footer />
@@ -123,7 +123,7 @@ export default function Account({ user, setUser }) {
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
         <div className="md:hidden flex items-center justify-between mb-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
@@ -179,6 +179,7 @@ export default function Account({ user, setUser }) {
                               src={getImageUrl(productImageById[item.product_id] || item.product_image || 'https://via.placeholder.com/100')}
                               alt={item.product_title}
                               className="w-full h-full object-cover"
+                              onError={onImageError}
                             />
                           </div>
                         ))}

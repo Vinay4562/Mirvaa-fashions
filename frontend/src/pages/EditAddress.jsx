@@ -98,7 +98,7 @@ export default function EditAddress({ user, setUser }) {
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
         <div className="flex items-center mb-6">
           <Button variant="ghost" onClick={() => navigate('/account')} className="mr-4">
             ← Back
