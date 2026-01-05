@@ -26,11 +26,18 @@ import socket
 import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    REPORTLAB_AVAILABLE = True
+except Exception:
+    REPORTLAB_AVAILABLE = False
+import io
+from PIL import Image, ImageOps
+from fastapi.responses import FileResponse, Response
 
 ROOT_DIR = Path(__file__).parent
 # Handle .env file loading with error handling
@@ -131,6 +138,16 @@ os.makedirs("uploads", exist_ok=True)
 # Mount the uploads directory to serve static files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+@app.middleware("http")
+async def add_corp_header(request, call_next):
+    response = await call_next(request)
+    try:
+        if request.url.path.startswith("/uploads"):
+            response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+    except Exception:
+        pass
+    return response
+
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 # Health endpoint and startup check
@@ -220,6 +237,8 @@ class Product(BaseModel):
     images: List[str] = Field(default_factory=list)
     sizes: List[str] = Field(default_factory=list)
     colors: List[str] = Field(default_factory=list)
+    color_images: Dict[str, List[str]] = Field(default_factory=dict)
+    color_details: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     stock: int = 0
     sku: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
@@ -241,6 +260,8 @@ class ProductCreate(BaseModel):
     images: List[str] = Field(default_factory=list)
     sizes: List[str] = Field(default_factory=list)
     colors: List[str] = Field(default_factory=list)
+    color_images: Dict[str, List[str]] = Field(default_factory=dict)
+    color_details: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     stock: int
     sku: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
@@ -1976,26 +1997,78 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
     """Upload multiple files"""
     try:
         uploaded_files = []
-        
+
         # Create uploads directory if it doesn't exist
         os.makedirs("uploads", exist_ok=True)
-        
+
         for file in files:
             contents = await file.read()
             filename = f"{uuid.uuid4()}_{file.filename}"
             file_path = os.path.join("uploads", filename)
-            
+
             with open(file_path, "wb") as f:
                 f.write(contents)
-            
+
             uploaded_files.append({
                 "filename": filename,
                 "path": f"/uploads/{filename}"
             })
-        
+
         return {"files": uploaded_files}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/image")
+async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[int] = None, q: int = 85, fit: str = "contain"):
+    try:
+        if not path.startswith("/uploads/"):
+            # Return a tiny transparent PNG to avoid ORB on non-image responses
+            buf = io.BytesIO()
+            Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
+            headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
+            return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+        filename = Path(path).name
+        source_path = Path("uploads") / filename
+        if not source_path.exists():
+            # Return a tiny transparent PNG to avoid ORB on non-image responses
+            buf = io.BytesIO()
+            Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
+            headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
+            return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+        os.makedirs(Path("uploads") / "cache", exist_ok=True)
+        cache_key = f"{filename}:{w}:{h}:{q}:{fit}"
+        cache_name = hashlib.sha256(cache_key.encode()).hexdigest()[:24] + ".jpg"
+        cache_path = Path("uploads") / "cache" / cache_name
+        if cache_path.exists():
+            resp = FileResponse(str(cache_path), media_type="image/jpeg")
+            resp.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+            return resp
+        img = Image.open(str(source_path))
+        if not w and not h:
+            w = 800
+        if fit == "cover" and w and h:
+            img = ImageOps.fit(img, (w, h))
+        else:
+            target_w = w or img.width
+            target_h = h or img.height
+            img = ImageOps.contain(img, (target_w, target_h))
+        with open(cache_path, "wb") as f:
+            img.convert("RGB").save(f, format="JPEG", quality=q, optimize=True)
+        resp = FileResponse(str(cache_path), media_type="image/jpeg")
+        resp.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        # On unexpected errors, return a tiny transparent PNG to avoid ORB
+        try:
+            buf = io.BytesIO()
+            Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
+            headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
+            return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+        except Exception:
+            # As a last resort, return empty bytes with image/png
+            return Response(content=b"", media_type="image/png", headers={"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"})
 
 # ==================== Admin Settings Routes ====================
 

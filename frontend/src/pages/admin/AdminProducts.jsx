@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError, isPdf, getFileUrl } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { API } from '@/utils/api';
@@ -38,8 +38,12 @@ export default function AdminProducts({ admin, setAdmin }) {
     product_details: [],
     is_featured: false,
     returnable: false,
+    color_images_map: {},
+    color_details_map: {},
   });
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [selectedColorForImages, setSelectedColorForImages] = useState('');
+  const [selectedColorForDetails, setSelectedColorForDetails] = useState('');
 
   useEffect(() => {
     fetchProducts();
@@ -78,6 +82,10 @@ export default function AdminProducts({ admin, setAdmin }) {
           : [],
         is_featured: product.is_featured,
         returnable: product.returnable || false,
+        color_images_map: product.color_images || {},
+        color_details_map: product.color_details 
+          ? Object.fromEntries(Object.entries(product.color_details).map(([c, obj]) => [c, Object.entries(obj).map(([key, value]) => ({ key, value }))]))
+          : {},
       });
       setUploadedFiles([]); // Reset uploaded files
     } else {
@@ -98,6 +106,8 @@ export default function AdminProducts({ admin, setAdmin }) {
         product_details: [],
         is_featured: false,
         returnable: false,
+        color_images_map: {},
+        color_details_map: {},
       });
       setUploadedFiles([]); // Reset uploaded files
     }
@@ -183,6 +193,16 @@ export default function AdminProducts({ admin, setAdmin }) {
       }, {}),
       is_featured: formData.is_featured,
       returnable: formData.returnable,
+      color_images: formData.color_images_map,
+      color_details: Object.fromEntries(
+        Object.entries(formData.color_details_map).map(([c, arr]) => [
+          c,
+          arr.reduce((acc, item) => {
+            if (item.key && item.value) acc[item.key] = item.value;
+            return acc;
+          }, {})
+        ])
+      ),
     };
 
     // Set the first image as the main image if available
@@ -261,6 +281,7 @@ export default function AdminProducts({ admin, setAdmin }) {
                   src={getImageUrl(product.images[0])}
                   alt={product.title}
                   className="w-full h-full object-cover transition-transform hover:scale-105"
+                  onError={onImageError}
                 />
               </div>
               <CardContent className="p-4">
@@ -424,12 +445,73 @@ export default function AdminProducts({ admin, setAdmin }) {
                     <div className="flex flex-wrap gap-2">
                       {uploadedFiles.map((file, index) => (
                         <div key={index} className="relative w-16 h-16 bg-gray-100 rounded overflow-hidden">
-                          <img src={getImageUrl(file.path)} alt={`Uploaded ${index + 1}`} className="w-full h-full object-cover" />
+                          {isPdf(file.path) ? (
+                            <object data={getFileUrl(file.path)} type="application/pdf" className="w-full h-full">
+                              <a href={getFileUrl(file.path)} target="_blank" rel="noreferrer">Open PDF</a>
+                            </object>
+                          ) : (
+                            <img src={getImageUrl(file.path)} alt={`Uploaded ${index + 1}`} className="w-full h-full object-cover" onError={onImageError} />
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
+                <div className="mt-4 space-y-2">
+                  <Label>Assign Images to Color</Label>
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedColorForImages} onValueChange={(value) => setSelectedColorForImages(value)}>
+                      <SelectTrigger className="w-52">
+                        <SelectValue placeholder="Select color" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(Boolean) : []).map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (!selectedColorForImages) {
+                          toast.error('Select a color first');
+                          return;
+                        }
+                        const newPaths = uploadedFiles.map(f => f.path);
+                        setFormData(prev => ({
+                          ...prev,
+                          color_images_map: {
+                            ...prev.color_images_map,
+                            [selectedColorForImages]: [
+                              ...(prev.color_images_map[selectedColorForImages] || []),
+                              ...newPaths
+                            ]
+                          }
+                        }));
+                        toast.success('Assigned uploaded images to color');
+                      }}
+                    >
+                      Assign uploaded images
+                    </Button>
+                  </div>
+                  {selectedColorForImages && (
+                    <div className="mt-3">
+                      <Label>Images for {selectedColorForImages}</Label>
+                      <Input
+                        value={(formData.color_images_map[selectedColorForImages] || []).join(', ')}
+                        onChange={(e) => {
+                          const paths = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                          setFormData(prev => ({
+                            ...prev,
+                            color_images_map: { ...prev.color_images_map, [selectedColorForImages]: paths }
+                          }));
+                        }}
+                        placeholder="/uploads/color-img1.jpg, /uploads/color-img2.jpg"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
@@ -453,6 +535,87 @@ export default function AdminProducts({ admin, setAdmin }) {
                   placeholder="Red, Blue, Black"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Color-Specific Details</Label>
+              <div className="flex items-center gap-2 mb-2">
+                <Select value={selectedColorForDetails} onValueChange={(value) => setSelectedColorForDetails(value)}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="Select color" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(Boolean) : []).map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedColorForDetails && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        color_details_map: {
+                          ...prev.color_details_map,
+                          [selectedColorForDetails]: [
+                            ...(prev.color_details_map[selectedColorForDetails] || []),
+                            { key: '', value: '' }
+                          ]
+                        }
+                      }));
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Detail
+                  </Button>
+                )}
+              </div>
+              {selectedColorForDetails && (formData.color_details_map[selectedColorForDetails] || []).map((detail, index) => (
+                <div key={`${selectedColorForDetails}-${index}`} className="flex gap-2 items-center">
+                  <Input
+                    placeholder="Key (e.g. Border Color)"
+                    value={detail.key}
+                    onChange={(e) => {
+                      const arr = [...(formData.color_details_map[selectedColorForDetails] || [])];
+                      arr[index] = { ...arr[index], key: e.target.value };
+                      setFormData(prev => ({
+                        ...prev,
+                        color_details_map: { ...prev.color_details_map, [selectedColorForDetails]: arr }
+                      }));
+                    }}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="Value (e.g. Gold)"
+                    value={detail.value}
+                    onChange={(e) => {
+                      const arr = [...(formData.color_details_map[selectedColorForDetails] || [])];
+                      arr[index] = { ...arr[index], value: e.target.value };
+                      setFormData(prev => ({
+                        ...prev,
+                        color_details_map: { ...prev.color_details_map, [selectedColorForDetails]: arr }
+                      }));
+                    }}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => {
+                      const arr = [...(formData.color_details_map[selectedColorForDetails] || [])];
+                      arr.splice(index, 1);
+                      setFormData(prev => ({
+                        ...prev,
+                        color_details_map: { ...prev.color_details_map, [selectedColorForDetails]: arr }
+                      }));
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div>

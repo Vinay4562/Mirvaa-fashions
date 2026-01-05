@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { adminClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 
 export default function ProductsAnalytics({ dateRange }) {
   const [loading, setLoading] = useState(true);
@@ -131,6 +131,7 @@ export default function ProductsAnalytics({ dateRange }) {
                       src={getImageUrl(product.images?.[0]) || 'https://via.placeholder.com/100'}
                       alt={product.title}
                       className="w-full h-full object-cover"
+                      onError={onImageError}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -160,6 +161,7 @@ export default function ProductsAnalytics({ dateRange }) {
                       src={getImageUrl(product.images?.[0]) || 'https://via.placeholder.com/100'}
                       alt={product.title}
                       className="w-full h-full object-cover"
+                      onError={onImageError}
                     />
                   </div>
                   <div className="flex-1 min-w-0">

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Search, Filter, Download, Edit, Trash2 } from 'lucide-react';
 import { adminClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 
 export default function ProductsTable({ onBack }) {
   const [products, setProducts] = useState([]);
@@ -251,6 +251,7 @@ export default function ProductsTable({ onBack }) {
                           src={getImageUrl(product.images[0])}
                           alt={product.title}
                           className="w-full h-full object-cover"
+                          onError={onImageError}
                         />
                       </div>
                     </TableCell>

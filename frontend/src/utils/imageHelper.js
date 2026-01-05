@@ -24,29 +24,11 @@ const getBackendUrl = () => {
  */
 export const getImageUrl = (imagePath) => {
   if (!imagePath) {
-    return 'https://via.placeholder.com/400x400?text=No+Image';
-  }
-
-  // If it's already a full URL, return as is
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
-
-  // If it starts with /uploads, it's a relative path from the backend
-  if (imagePath.startsWith('/uploads/')) {
     const backendUrl = getBackendUrl();
-    return `${backendUrl}${imagePath}`;
+    const fallbackPath = '/uploads/80819ebe-14af-4328-9fa6-8078050df4f1_Saree.jpg';
+    return `${backendUrl}/api/image?path=${encodeURIComponent(fallbackPath)}&w=400&q=80`;
   }
-
-  // If it's just a filename, assume it's in uploads
-  if (!imagePath.startsWith('/')) {
-    const backendUrl = getBackendUrl();
-    return `${backendUrl}/uploads/${imagePath}`;
-  }
-
-  // For any other relative paths, prepend backend URL
-  const backendUrl = getBackendUrl();
-  return `${backendUrl}${imagePath}`;
+  return getOptimizedImageUrl(imagePath, 400, undefined, 80);
 };
 
 /**
@@ -57,12 +39,38 @@ export const getImageUrl = (imagePath) => {
  * @param {string} quality - Image quality (1-100)
  * @returns {string} - The optimized image URL
  */
-export const getOptimizedImageUrl = (imagePath, width = 400, height = 400, quality = 80) => {
-  const baseUrl = getImageUrl(imagePath);
-  
-  // For now, return the base URL as we don't have image optimization service
-  // In the future, this could be enhanced to use a CDN or image optimization service
-  return baseUrl;
+export const getOptimizedImageUrl = (imagePath, width = 400, height = undefined, quality = 80) => {
+  const backendUrl = getBackendUrl();
+  if (!imagePath) {
+    return 'https://via.placeholder.com/400x400?text=No+Image';
+  }
+  if (isPdf(imagePath)) {
+    return getFileUrl(imagePath);
+  }
+  let relPath = null;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    try {
+      const imgUrl = new URL(imagePath);
+      const beUrl = new URL(backendUrl);
+      if (imgUrl.origin === beUrl.origin) {
+        relPath = imgUrl.pathname;
+      } else {
+        return imagePath;
+      }
+    } catch {
+      return imagePath;
+    }
+  } else if (imagePath.startsWith('/uploads/')) {
+    relPath = imagePath;
+  } else {
+    relPath = `/uploads/${imagePath}`;
+  }
+  const params = new URLSearchParams();
+  params.set('path', relPath);
+  if (width) params.set('w', width);
+  if (height) params.set('h', height);
+  if (quality) params.set('q', quality);
+  return `${backendUrl}/api/image?${params.toString()}`;
 };
 
 /**
@@ -71,7 +79,7 @@ export const getOptimizedImageUrl = (imagePath, width = 400, height = 400, quali
  * @returns {string} - The thumbnail URL
  */
 export const getThumbnailUrl = (imagePath) => {
-  return getOptimizedImageUrl(imagePath, 150, 150, 70);
+  return getOptimizedImageUrl(imagePath, 160, undefined, 70);
 };
 
 /**
@@ -80,7 +88,7 @@ export const getThumbnailUrl = (imagePath) => {
  * @returns {string} - The medium image URL
  */
 export const getMediumImageUrl = (imagePath) => {
-  return getOptimizedImageUrl(imagePath, 400, 400, 80);
+  return getOptimizedImageUrl(imagePath, 768, undefined, 80);
 };
 
 /**
@@ -89,5 +97,27 @@ export const getMediumImageUrl = (imagePath) => {
  * @returns {string} - The large image URL
  */
 export const getLargeImageUrl = (imagePath) => {
-  return getOptimizedImageUrl(imagePath, 800, 800, 90);
+  return getOptimizedImageUrl(imagePath, 1600, undefined, 90);
+};
+
+export const onImageError = (e) => {
+  const backendUrl = getBackendUrl();
+  const fallbackPath = '/uploads/80819ebe-14af-4328-9fa6-8078050df4f1_Saree.jpg';
+  e.currentTarget.src = `${backendUrl}/api/image?path=${encodeURIComponent(fallbackPath)}&w=400&q=80`;
+  e.currentTarget.onerror = null;
+};
+
+export const isPdf = (path) => {
+  if (!path) return false;
+  const p = path.toLowerCase();
+  return p.endsWith('.pdf');
+};
+
+export const getFileUrl = (path) => {
+  if (!path) return '';
+  const backendUrl = getBackendUrl();
+  if (path.startsWith('http://') || path.startsWith('https://')) return encodeURI(path);
+  if (path.startsWith('/uploads/')) return `${backendUrl}${encodeURI(path)}`;
+  if (!path.startsWith('/')) return `${backendUrl}/uploads/${encodeURI(path)}`;
+  return `${backendUrl}${encodeURI(path)}`;
 };

@@ -8,7 +8,7 @@ import AuthDialog from '@/components/AuthDialog';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Home({ user, setUser }) {
@@ -241,6 +241,7 @@ export default function Home({ user, setUser }) {
                       src={getImageUrl(product.images?.[0])} 
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={onImageError}
                     />
                     {/* Quick Action Overlay - Desktop only */}
                     <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
@@ -286,6 +287,7 @@ export default function Home({ user, setUser }) {
                       src={getImageUrl(product.images?.[0])} 
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={onImageError}
                     />
                     {/* Quick Action Overlay - Desktop only */}
                     <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">

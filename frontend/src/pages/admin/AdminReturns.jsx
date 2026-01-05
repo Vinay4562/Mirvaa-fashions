@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { adminClient } from '@/utils/api';
 import { toast } from 'sonner';
@@ -108,7 +109,7 @@ export default function AdminReturns({ admin, setAdmin }) {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {request.product_image && (
-                          <img src={request.product_image} alt="" className="w-8 h-8 rounded object-cover" />
+                          <img src={getImageUrl(request.product_image)} alt="" className="w-8 h-8 rounded object-cover" onError={onImageError} />
                         )}
                         <span className="truncate max-w-[150px]" title={request.product_name}>{request.product_name}</span>
                       </div>
