@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,13 @@ export default function ProductDetail({ user, setUser }) {
   const [loading, setLoading] = useState(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [lastTap, setLastTap] = useState(0);
+  const [pinchStart, setPinchStart] = useState(null);
+  const [pinchStartZoom, setPinchStartZoom] = useState(100);
+  const [hoverZone, setHoverZone] = useState(null);
 
   useEffect(() => {
     fetchProduct();
@@ -152,7 +159,151 @@ export default function ProductDetail({ user, setUser }) {
   const handleCloseModal = () => {
     setIsImageModalOpen(false);
     setZoomLevel(100);
+    setImagePosition({ x: 0, y: 0 });
   };
+
+  const handleNextImage = () => {
+    if (images.length > 0) {
+      setSelectedImage((prev) => (prev + 1) % images.length);
+      setImagePosition({ x: 0, y: 0 });
+      setZoomLevel(100);
+    }
+  };
+
+  const handlePreviousImage = () => {
+    if (images.length > 0) {
+      setSelectedImage((prev) => (prev - 1 + images.length) % images.length);
+      setImagePosition({ x: 0, y: 0 });
+      setZoomLevel(100);
+    }
+  };
+
+  const handleImageHover = (e) => {
+    if (images.length <= 1) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    const leftThreshold = width * 0.33;
+    const rightThreshold = width * 0.67;
+
+    let currentZone = null;
+    if (x < leftThreshold) {
+      currentZone = 'left';
+    } else if (x > rightThreshold) {
+      currentZone = 'right';
+    } else {
+      currentZone = 'center';
+    }
+
+    // Only switch image when entering a new zone
+    if (currentZone !== hoverZone) {
+      setHoverZone(currentZone);
+      if (currentZone === 'left' && selectedImage > 0) {
+        setSelectedImage(selectedImage - 1);
+      } else if (currentZone === 'right' && selectedImage < images.length - 1) {
+        setSelectedImage(selectedImage + 1);
+      }
+    }
+  };
+
+  const handleImageHoverLeave = () => {
+    setHoverZone(null);
+  };
+
+  const handleDoubleTap = (e) => {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+    if (tapLength < 300 && tapLength > 0) {
+      // Double tap detected
+      if (zoomLevel === 100) {
+        setZoomLevel(200);
+      } else {
+        setZoomLevel(100);
+        setImagePosition({ x: 0, y: 0 });
+      }
+    }
+    setLastTap(currentTime);
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      // Pinch gesture
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      setPinchStart(distance);
+      setPinchStartZoom(zoomLevel);
+    } else if (e.touches.length === 1 && zoomLevel > 100) {
+      // Single touch drag when zoomed
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - imagePosition.x,
+        y: e.touches[0].clientY - imagePosition.y,
+      });
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && pinchStart !== null) {
+      // Pinch zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      const scale = distance / pinchStart;
+      const newZoom = Math.max(100, Math.min(300, pinchStartZoom * scale));
+      setZoomLevel(newZoom);
+    } else if (isDragging && e.touches.length === 1) {
+      // Drag when zoomed
+      const newX = e.touches[0].clientX - dragStart.x;
+      const newY = e.touches[0].clientY - dragStart.y;
+      setImagePosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setPinchStart(null);
+    setIsDragging(false);
+  };
+
+  const handleMouseDown = (e) => {
+    if (zoomLevel > 100) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.clientX - imagePosition.x,
+        y: e.clientY - imagePosition.y,
+      });
+    }
+  };
+
+
+  useEffect(() => {
+    if (!isImageModalOpen || zoomLevel <= 100) return;
+
+    const mouseMoveHandler = (e) => {
+      if (isDragging) {
+        const newX = e.clientX - dragStart.x;
+        const newY = e.clientY - dragStart.y;
+        setImagePosition({ x: newX, y: newY });
+      }
+    };
+    const mouseUpHandler = () => {
+      setIsDragging(false);
+    };
+    
+    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mouseup', mouseUpHandler);
+    
+    return () => {
+      document.removeEventListener('mousemove', mouseMoveHandler);
+      document.removeEventListener('mouseup', mouseUpHandler);
+    };
+  }, [isImageModalOpen, isDragging, zoomLevel, dragStart]);
 
   if (loading || !product) {
     return <Loading />;
@@ -180,6 +331,8 @@ export default function ProductDetail({ user, setUser }) {
             <div 
               className="relative aspect-[3/4] bg-white rounded-lg overflow-hidden shadow-lg w-full cursor-pointer"
               onClick={handleImageClick}
+              onMouseMove={handleImageHover}
+              onMouseLeave={handleImageHoverLeave}
             >
               <img
                 src={getMediumImageUrl(images[selectedImage])}
@@ -190,13 +343,13 @@ export default function ProductDetail({ user, setUser }) {
                 ].join(', ')}
                 sizes="(max-width: 768px) calc(100vw - 2rem), 50vw"
                 alt={product.title}
-                className="w-full h-full object-contain md:object-cover transition-transform duration-300"
+                className="w-full h-full object-contain md:object-cover transition-all duration-200"
                 data-testid="main-product-image"
                 loading="eager"
                 onError={onImageError}
               />
               {product.discount_percent > 0 && (
-                <div className="absolute top-4 left-4 bg-red-500 text-white text-xs md:text-sm font-bold px-2 py-1 md:px-3 md:py-1 rounded">
+                <div className="absolute top-4 left-4 bg-red-500 text-white text-xs md:text-sm font-bold px-2 py-1 md:px-3 md:py-1 rounded z-10">
                   {product.discount_percent}% OFF
                 </div>
               )}
@@ -541,6 +694,30 @@ export default function ProductDetail({ user, setUser }) {
               <X className="h-6 w-6" />
             </Button>
 
+            {/* Navigation Buttons */}
+            {images.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 z-50 text-white hover:bg-white/20 rounded-full h-12 w-12"
+                  onClick={handlePreviousImage}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="h-8 w-8" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 z-50 text-white hover:bg-white/20 rounded-full h-12 w-12"
+                  onClick={handleNextImage}
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="h-8 w-8" />
+                </Button>
+              </>
+            )}
+
             {/* Zoom Controls */}
             <div className="absolute top-4 left-4 z-50 flex gap-2 bg-black/50 rounded-lg p-1">
               <Button
@@ -566,23 +743,47 @@ export default function ProductDetail({ user, setUser }) {
             </div>
 
             {/* Zoom Level Display */}
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium">
-              {zoomLevel}%
-            </div>
+            {zoomLevel !== 100 && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 text-white px-3 py-1.5 rounded-full text-sm font-medium">
+                {Math.round(zoomLevel)}%
+              </div>
+            )}
 
-            {/* Image Container with Scroll */}
-            <div className="w-full h-full flex items-center justify-center overflow-auto">
-              <div className="flex items-center justify-center min-w-full min-h-full p-4">
+            {/* Image Counter */}
+            {images.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium">
+                {selectedImage + 1} / {images.length}
+              </div>
+            )}
+
+            {/* Image Container with Zoom and Pan */}
+            <div 
+              className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={handleMouseDown}
+            >
+              <div 
+                className="flex items-center justify-center p-4"
+                style={{
+                  transform: `translate(${imagePosition.x}px, ${imagePosition.y}px)`,
+                  cursor: zoomLevel > 100 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                }}
+              >
                 <img
                   src={getLargeImageUrl(images[selectedImage])}
                   alt={product.title}
-                  className="object-contain transition-all duration-200 ease-in-out"
+                  className="object-contain select-none transition-transform duration-200 ease-out"
                   style={{ 
                     width: `${zoomLevel}%`,
                     maxWidth: 'none',
-                    height: 'auto'
+                    height: 'auto',
+                    transform: zoomLevel > 100 ? 'none' : 'scale(1)',
                   }}
                   onError={onImageError}
+                  onDoubleClick={handleDoubleTap}
+                  draggable={false}
                 />
               </div>
             </div>

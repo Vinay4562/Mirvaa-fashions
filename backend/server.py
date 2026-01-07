@@ -36,6 +36,7 @@ try:
 except Exception:
     REPORTLAB_AVAILABLE = False
 import io
+from urllib.parse import unquote
 from PIL import Image, ImageOps
 from fastapi.responses import FileResponse, Response
 
@@ -2021,28 +2022,74 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
 @api_router.get("/image")
 async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[int] = None, q: int = 85, fit: str = "contain"):
     try:
-        if not path.startswith("/uploads/"):
+        # URL decode the path
+        path = unquote(path)
+        
+        if not path:
             # Return a tiny transparent PNG to avoid ORB on non-image responses
             buf = io.BytesIO()
             Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
             headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
             return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
-        filename = Path(path).name
-        source_path = Path("uploads") / filename
+        
+        # Handle paths that start with /uploads/ or just uploads/
+        if path.startswith("/uploads/"):
+            # Remove /uploads/ prefix and use the rest (preserving subdirectories)
+            relative_path = path[9:]  # Remove "/uploads/" (9 characters)
+        elif path.startswith("uploads/"):
+            # Remove uploads/ prefix
+            relative_path = path[8:]  # Remove "uploads/" (8 characters)
+        elif not path.startswith("/"):
+            # If it doesn't start with /, assume it's relative to uploads
+            relative_path = path
+        else:
+            # Path doesn't match expected format
+            logging.warning(f"Image path doesn't match expected format: {path}")
+            buf = io.BytesIO()
+            Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
+            headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
+            return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+        
+        # Build the full source path, preserving subdirectories
+        source_path = Path("uploads") / relative_path
+        
+        # Normalize the path to prevent directory traversal attacks
+        source_path = source_path.resolve()
+        uploads_dir = Path("uploads").resolve()
+        
+        # Security check: ensure the path is within uploads directory
+        try:
+            source_path.relative_to(uploads_dir)
+        except ValueError:
+            # Path is outside uploads directory - security issue
+            logging.warning(f"Attempted directory traversal detected: {path}")
+            buf = io.BytesIO()
+            Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
+            headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
+            return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+        
         if not source_path.exists():
+            logging.warning(f"Image not found: {source_path}")
             # Return a tiny transparent PNG to avoid ORB on non-image responses
             buf = io.BytesIO()
             Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
             headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
             return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+        
+        # Create cache directory if it doesn't exist
         os.makedirs(Path("uploads") / "cache", exist_ok=True)
-        cache_key = f"{filename}:{w}:{h}:{q}:{fit}"
+        
+        # Use the full relative path (including subdirectories) for cache key
+        cache_key = f"{relative_path}:{w}:{h}:{q}:{fit}"
         cache_name = hashlib.sha256(cache_key.encode()).hexdigest()[:24] + ".jpg"
         cache_path = Path("uploads") / "cache" / cache_name
+        
         if cache_path.exists():
             resp = FileResponse(str(cache_path), media_type="image/jpeg")
             resp.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
             return resp
+        
+        # Open and process the image
         img = Image.open(str(source_path))
         if not w and not h:
             w = 800
@@ -2052,14 +2099,19 @@ async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[in
             target_w = w or img.width
             target_h = h or img.height
             img = ImageOps.contain(img, (target_w, target_h))
+        
+        # Save to cache
         with open(cache_path, "wb") as f:
             img.convert("RGB").save(f, format="JPEG", quality=q, optimize=True)
+        
         resp = FileResponse(str(cache_path), media_type="image/jpeg")
         resp.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         return resp
     except HTTPException:
         raise
     except Exception as e:
+        # Log the error for debugging
+        logging.error(f"Error processing image {path}: {str(e)}", exc_info=True)
         # On unexpected errors, return a tiny transparent PNG to avoid ORB
         try:
             buf = io.BytesIO()

@@ -41,9 +41,13 @@ export const getImageUrl = (imagePath) => {
  */
 export const getOptimizedImageUrl = (imagePath, width = 400, height = undefined, quality = 80) => {
   const backendUrl = getBackendUrl();
-  if (!imagePath) {
+  if (!imagePath || typeof imagePath !== 'string' || imagePath.trim() === '') {
     return 'https://via.placeholder.com/400x400?text=No+Image';
   }
+  
+  // Trim whitespace
+  imagePath = imagePath.trim();
+  
   if (isPdf(imagePath)) {
     return getFileUrl(imagePath);
   }
@@ -62,6 +66,9 @@ export const getOptimizedImageUrl = (imagePath, width = 400, height = undefined,
     }
   } else if (imagePath.startsWith('/uploads/')) {
     relPath = imagePath;
+  } else if (imagePath.startsWith('uploads/')) {
+    // Handle paths that start with uploads/ (without leading slash)
+    relPath = `/${imagePath}`;
   } else {
     relPath = `/uploads/${imagePath}`;
   }
@@ -101,10 +108,24 @@ export const getLargeImageUrl = (imagePath) => {
 };
 
 export const onImageError = (e) => {
+  // Prevent infinite loop if fallback also fails
+  if (e.currentTarget.dataset.fallbackAttempted === 'true') {
+    e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
+    e.currentTarget.onerror = null;
+    return;
+  }
+  
   const backendUrl = getBackendUrl();
   const fallbackPath = '/uploads/80819ebe-14af-4328-9fa6-8078050df4f1_Saree.jpg';
+  e.currentTarget.dataset.fallbackAttempted = 'true';
   e.currentTarget.src = `${backendUrl}/api/image?path=${encodeURIComponent(fallbackPath)}&w=400&q=80`;
-  e.currentTarget.onerror = null;
+  // Set a timeout to prevent infinite loops
+  setTimeout(() => {
+    if (e.currentTarget.complete === false || e.currentTarget.naturalWidth === 0) {
+      e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
+      e.currentTarget.onerror = null;
+    }
+  }, 2000);
 };
 
 export const isPdf = (path) => {
