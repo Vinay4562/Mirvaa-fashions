@@ -17,19 +17,29 @@ export default function Categories({ user, setUser }) {
       .get("/categories")
       .then((res) => {
         if (!mounted) return;
-        setCategories(res.data || []);
+        const categoriesData = res.data || [];
+        // Filter to show only: Shirts, Jeans, Ladies Dresses, Sarees
+        // Replace "Men's Wear" or "mens-wear" with "Jeans"
+        const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees'];
+        const filteredCategories = categoriesData
+          .map(cat => {
+            // Replace Men's Wear with Jeans
+            if (cat.slug === 'mens-wear' || cat.name === "Men's Wear") {
+              return { ...cat, name: 'Jeans', slug: 'jeans' };
+            }
+            return cat;
+          })
+          .filter(cat => allowedCategories.includes(cat.slug));
+        setCategories(filteredCategories);
       })
       .catch(() => {
         if (!mounted) return;
+        // Fallback categories - only show the 4 allowed ones
         setCategories([
-          { name: "Sarees", slug: "sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400" },
-          { name: "T-Shirts", slug: "t-shirts", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400" },
           { name: "Shirts", slug: "shirts", image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400" },
-          { name: "Hoodies", slug: "hoodies", image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400" },
-          { name: "Jewelry", slug: "jewelry", image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400" },
+          { name: "Jeans", slug: "jeans", image: "https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?w=400" },
           { name: "Ladies Dresses", slug: "ladies-dresses", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400" },
-          { name: "Kids Wear", slug: "kids-wear", image: "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400" },
-          { name: "Men's Wear", slug: "mens-wear", image: "https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?w=400" },
+          { name: "Sarees", slug: "sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400" },
         ]);
       })
       .finally(() => {

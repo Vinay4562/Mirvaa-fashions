@@ -20,8 +20,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
   const location = useLocation();
 
   const categories = [
-    'Sarees', 'T-Shirts', 'Shirts', 'Hoodies', 
-    'Jewelry', 'Ladies Dresses', 'Kids Wear', "Men's Wear"
+    'Shirts', 'Jeans', 'Ladies Dresses', 'Sarees'
   ];
 
   const handleSearch = (e) => {

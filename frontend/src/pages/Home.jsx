@@ -26,7 +26,18 @@ export default function Home({ user, setUser }) {
     if (cached) {
       try {
         const data = JSON.parse(cached);
-        setCategories(Array.isArray(data.categories) ? data.categories : []);
+        // Filter cached categories to only show allowed ones
+        const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees'];
+        const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
+        const filteredCached = cachedCategories
+          .map(cat => {
+            if (cat.slug === 'mens-wear' || cat.name === "Men's Wear") {
+              return { ...cat, name: 'Jeans', slug: 'jeans' };
+            }
+            return cat;
+          })
+          .filter(cat => allowedCategories.includes(cat.slug));
+        setCategories(filteredCached);
         setFeaturedProducts(Array.isArray(data.featuredProducts) ? data.featuredProducts : []);
         setNewArrivals(Array.isArray(data.newArrivals) ? data.newArrivals : []);
       } catch {}
@@ -50,13 +61,26 @@ export default function Home({ user, setUser }) {
       const featuredData = featuredRes.data || [];
       const newData = newRes.data || [];
 
-      setCategories(categoriesData);
+      // Filter to show only: Shirts, Jeans, Ladies Dresses, Sarees
+      // Replace "Men's Wear" or "mens-wear" with "Jeans"
+      const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees'];
+      const filteredCategories = categoriesData
+        .map(cat => {
+          // Replace Men's Wear with Jeans
+          if (cat.slug === 'mens-wear' || cat.name === "Men's Wear") {
+            return { ...cat, name: 'Jeans', slug: 'jeans' };
+          }
+          return cat;
+        })
+        .filter(cat => allowedCategories.includes(cat.slug));
+
+      setCategories(filteredCategories);
       setFeaturedProducts(featuredData);
       setNewArrivals(newData);
 
       try {
         localStorage.setItem('homeData', JSON.stringify({
-          categories: categoriesData,
+          categories: filteredCategories,
           featuredProducts: featuredData,
           newArrivals: newData,
         }));

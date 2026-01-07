@@ -32,10 +32,10 @@ export default function Footer() {
           <div className="flex-1 min-w-[120px]">
             <h4 className="font-semibold text-gray-900 mb-4">Shop</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link to="/products?category=shirts" className="text-gray-600 hover:text-blue-600 transition-colors">Shirts</Link></li>
+              <li><Link to="/products?category=jeans" className="text-gray-600 hover:text-blue-600 transition-colors">Jeans</Link></li>
+              <li><Link to="/products?category=ladies-dresses" className="text-gray-600 hover:text-blue-600 transition-colors">Ladies Dresses</Link></li>
               <li><Link to="/products?category=sarees" className="text-gray-600 hover:text-blue-600 transition-colors">Sarees</Link></li>
-              <li><Link to="/products?category=t-shirts" className="text-gray-600 hover:text-blue-600 transition-colors">T-Shirts</Link></li>
-              <li><Link to="/products?category=hoodies" className="text-gray-600 hover:text-blue-600 transition-colors">Hoodies</Link></li>
-              <li><Link to="/products?category=jewelry" className="text-gray-600 hover:text-blue-600 transition-colors">Jewelry</Link></li>
             </ul>
           </div>
           
