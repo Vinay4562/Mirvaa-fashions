@@ -80,7 +80,6 @@ else:
     print("Warning: Razorpay credentials not provided, using mock client")
     razorpay_client = None
 
-# Initialize Delhivery client
 DELHIVERY_API_KEY = os.environ.get("DELHIVERY_API_KEY")
 DELHIVERY_CLIENT = os.environ.get("DELHIVERY_CLIENT")
 DELHIVERY_WAREHOUSE = os.environ.get("DELHIVERY_WAREHOUSE")
@@ -125,7 +124,13 @@ app = FastAPI()
 ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173,https://mirvaa-fashions.vercel.app').split(',')
 print(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
-# Add CORS middleware with expanded configuration
+uploads_dir_env = os.environ.get("UPLOADS_DIR")
+if uploads_dir_env:
+    uploads_dir = Path(uploads_dir_env).resolve()
+else:
+    uploads_dir = (ROOT_DIR / "uploads").resolve()
+os.makedirs(uploads_dir, exist_ok=True)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for development
@@ -135,11 +140,6 @@ app.add_middleware(
     expose_headers=["Content-Type", "Authorization", "X-RTB-FINGERPRINT-ID", "x-rtb-fingerprint-id"],
 )
 
-# Create uploads directory if it doesn't exist
-uploads_dir = ROOT_DIR / "uploads"
-os.makedirs(uploads_dir, exist_ok=True)
-
-# Mount the uploads directory to serve static files
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 @app.middleware("http")
@@ -484,10 +484,10 @@ def ensure_product_images(product: Dict[str, Any]) -> Dict[str, Any]:
 def generate_order_label(order: Dict) -> str:
     try:
         filename = f"label_{order['order_number']}.pdf"
-        filepath = os.path.join("uploads", "labels", filename)
+        filepath = uploads_dir / "labels" / filename
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         
-        doc = SimpleDocTemplate(filepath, pagesize=A4)
+        doc = SimpleDocTemplate(str(filepath), pagesize=A4)
         elements = []
         styles = getSampleStyleSheet()
 
@@ -2218,6 +2218,62 @@ async def get_delhivery_label(order_id: str, admin: Dict = Depends(get_current_a
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.get("/admin/orders/{order_id}/invoice")
+async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_admin)):
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    label_path = order.get("invoice_url") or order.get("label_url")
+    if not label_path:
+        label_path = generate_order_label(order)
+        if not label_path:
+            raise HTTPException(status_code=500, detail="Failed to generate invoice")
+        await db.orders.update_one(
+            {"id": order_id},
+            {"$set": {"invoice_url": label_path}},
+        )
+
+    path = label_path
+    if path.startswith("/uploads/"):
+        relative_path = path[9:]
+    elif path.startswith("uploads/"):
+        relative_path = path[8:]
+    elif not path.startswith("/"):
+        relative_path = path
+    else:
+        raise HTTPException(status_code=400, detail="Invalid invoice path")
+
+    file_path = (uploads_dir / relative_path).resolve()
+
+    try:
+        file_path.relative_to(uploads_dir)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice path")
+
+    if not file_path.exists():
+        new_label_path = generate_order_label(order)
+        if not new_label_path:
+            raise HTTPException(status_code=500, detail="Failed to generate invoice")
+        await db.orders.update_one(
+            {"id": order_id},
+            {"$set": {"invoice_url": new_label_path}},
+        )
+        path = new_label_path
+        if path.startswith("/uploads/"):
+            relative_path = path[9:]
+        elif path.startswith("uploads/"):
+            relative_path = path[8:]
+        elif not path.startswith("/"):
+            relative_path = path
+        else:
+            raise HTTPException(status_code=400, detail="Invalid invoice path")
+        file_path = (uploads_dir / relative_path).resolve()
+        if not file_path.exists():
+            raise HTTPException(status_code=500, detail="Invoice file not found")
+
+    return FileResponse(file_path, media_type="application/pdf", filename=os.path.basename(file_path))
+
 # ==================== Review Routes ====================
 
 @api_router.get("/products/{product_id}/reviews")
@@ -2342,10 +2398,7 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         filename = f"{uuid.uuid4()}_{file.filename}"
-        file_path = os.path.join("uploads", filename)
-        
-        # Create uploads directory if it doesn't exist
-        os.makedirs("uploads", exist_ok=True)
+        file_path = uploads_dir / filename
         
         with open(file_path, "wb") as f:
             f.write(contents)
@@ -2359,10 +2412,6 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
     """Upload multiple files"""
     try:
         uploaded_files = []
-
-        # Create uploads directory if it doesn't exist
-        uploads_dir = ROOT_DIR / "uploads"
-        os.makedirs(uploads_dir, exist_ok=True)
 
         for file in files:
             contents = await file.read()
@@ -2394,26 +2443,19 @@ async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[in
             headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
             return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
         
-        # Handle paths that start with /uploads/ or just uploads/
         if path.startswith("/uploads/"):
-            # Remove /uploads/ prefix and use the rest (preserving subdirectories)
-            relative_path = path[9:]  # Remove "/uploads/" (9 characters)
+            relative_path = path[9:]
         elif path.startswith("uploads/"):
-            # Remove uploads/ prefix
-            relative_path = path[8:]  # Remove "uploads/" (8 characters)
+            relative_path = path[8:]
         elif not path.startswith("/"):
-            # If it doesn't start with /, assume it's relative to uploads
             relative_path = path
         else:
-            # Path doesn't match expected format
             logging.warning(f"Image path doesn't match expected format: {path}")
             buf = io.BytesIO()
             Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
             headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
             return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
         
-        # Build the full source path, preserving subdirectories
-        uploads_dir = (ROOT_DIR / "uploads").resolve()
         source_path = uploads_dir / relative_path
         
         # Normalize the path to prevent directory traversal attacks
