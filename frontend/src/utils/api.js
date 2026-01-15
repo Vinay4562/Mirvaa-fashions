@@ -8,7 +8,7 @@ console.log('Using backend URL:', BACKEND_URL);
 // Create axios instance with auth
 const apiClient = axios.create({
   baseURL: API,
-  timeout: 5000, // Add timeout to prevent long loading times
+  timeout: 30000, // Increased timeout to 30s for slower connections/large data
 });
 
 // Add auth token to requests
@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
 // Add admin token to admin requests
 const adminClient = axios.create({
   baseURL: API,
-  timeout: 5000, // Add timeout to prevent long loading times
+  timeout: 30000, // Increased timeout to 30s for slower connections/large data
 });
 
 adminClient.interceptors.request.use((config) => {

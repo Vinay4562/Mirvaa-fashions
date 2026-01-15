@@ -22,6 +22,7 @@ from delhivery import DelhiveryClient
 import hmac
 import hashlib
 import requests
+import asyncio
 import smtplib
 import socket
 import ssl
@@ -2340,10 +2341,16 @@ async def get_products_analytics(
         from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
         to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
         
-        # Performance metrics
-        total_products = await db.products.count_documents({})
-        featured_products = await db.products.count_documents({"is_featured": True})
-        low_stock_count = await db.products.count_documents({"stock": {"$lt": 10}})
+        # Performance metrics (run in parallel to reduce latency)
+        total_products_task = db.products.count_documents({})
+        featured_products_task = db.products.count_documents({"is_featured": True})
+        low_stock_count_task = db.products.count_documents({"stock": {"$lt": 10}})
+        
+        total_products, featured_products, low_stock_count = await asyncio.gather(
+            total_products_task,
+            featured_products_task,
+            low_stock_count_task
+        )
         
         # Average rating - simplified
         try:
@@ -2384,24 +2391,35 @@ async def get_products_analytics(
             
             sales_data = await db.orders.aggregate(basic_pipeline).to_list(10)
             
-            # Get product details separately
+            # Get product details in a single query to avoid per-product round trips
+            product_ids = [item["_id"] for item in sales_data if item.get("_id")]
+            products_cursor = db.products.find(
+                {"id": {"$in": product_ids}},
+                {"_id": 0, "id": 1, "title": 1, "images": 1}
+            )
+            products_list = await products_cursor.to_list(len(product_ids) or 10)
+            products_map = {p["id"]: p for p in products_list}
+            
             top_selling = []
             for item in sales_data:
-                if not item["_id"]:
+                product_id = item.get("_id")
+                if not product_id:
                     continue
-                    
-                try:
-                    product = await db.products.find_one({"id": item["_id"]})
-                    if product:
-                        top_selling.append({
-                            "id": item["_id"],
-                            "title": product.get("title", "Unknown Product"),
-                            "images": product.get("images", [""])[0] if product.get("images") and len(product.get("images")) > 0 else "",
-                            "quantitySold": item["quantitySold"],
-                            "totalRevenue": item["totalRevenue"]
-                        })
-                except Exception as e:
-                    print(f"Error getting product {item['_id']}: {str(e)}")
+                
+                product = products_map.get(product_id)
+                if not product:
+                    continue
+                
+                images = product.get("images") or []
+                image_value = images[0] if isinstance(images, list) and images else ""
+                
+                top_selling.append({
+                    "id": product_id,
+                    "title": product.get("title", "Unknown Product"),
+                    "images": image_value,
+                    "quantitySold": item["quantitySold"],
+                    "totalRevenue": item["totalRevenue"]
+                })
             
             # If no products found, return empty list
             if not top_selling:
@@ -2454,16 +2472,18 @@ async def get_products_analytics(
         ]
         
         price_distribution = []
-        total_products_for_dist = await db.products.count_documents({})
+        total_products_for_dist = total_products
         
-        for range_def in price_ranges:
+        async def count_price_range(range_def):
             if range_def["max"] == float('inf'):
-                count = await db.products.count_documents({"price": {"$gte": range_def["min"]}})
-            else:
-                count = await db.products.count_documents({
-                    "price": {"$gte": range_def["min"], "$lt": range_def["max"]}
-                })
-            
+                return await db.products.count_documents({"price": {"$gte": range_def["min"]}})
+            return await db.products.count_documents({
+                "price": {"$gte": range_def["min"], "$lt": range_def["max"]}
+            })
+        
+        counts = await asyncio.gather(*(count_price_range(r) for r in price_ranges))
+        
+        for range_def, count in zip(price_ranges, counts):
             percentage = (count / max(total_products_for_dist, 1)) * 100
             price_distribution.append({
                 "range": range_def["range"],
@@ -2697,7 +2717,7 @@ async def get_users_analytics(
         ).sort("created_at", -1).limit(20).to_list(20)
         
         # Add order statistics to recent users
-        for user in recent_users:
+        async def fetch_user_orders(user):
             user_orders = await db.orders.find(
                 {"user_id": user["id"], "status": {"$ne": "cancelled"}},
                 {"_id": 0, "total": 1, "created_at": 1}
@@ -2706,6 +2726,10 @@ async def get_users_analytics(
             user["orderCount"] = len(user_orders)
             user["totalSpent"] = sum(order["total"] for order in user_orders)
             user["lastOrderDate"] = max([order["created_at"] for order in user_orders]) if user_orders else None
+            return user
+
+        # Execute order fetching in parallel
+        await asyncio.gather(*[fetch_user_orders(user) for user in recent_users])
         
         # User segments based on spending
         user_segments = [
