@@ -13,7 +13,7 @@ import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
 import { toast } from 'sonner';
 
-export default function ReturnRequest() {
+export default function ReturnRequest({ user, setUser }) {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -86,9 +86,11 @@ export default function ReturnRequest() {
         };
         
         setOrder(mockOrder);
-        
+
         // Select first returnable product by default
-        const returnableProduct = mockOrder.items.find(item => item.product.returnable);
+        const returnableProduct = mockOrder.items.find(
+          (item) => item.product && item.product.returnable
+        );
         if (returnableProduct) {
           setFormData(prev => ({
             ...prev,
@@ -139,16 +141,9 @@ export default function ReturnRequest() {
       
       console.log('Submitting return request:', returnData);
       
-      try {
-        await apiClient.post('/returns', returnData);
-        toast.success('Return request submitted successfully');
-        navigate('/account');
-      } catch (apiError) {
-        console.error('API error when submitting return, using mock response:', apiError);
-        // Simulate successful submission for testing
-        toast.success('Return request submitted successfully (mock)');
-        setTimeout(() => navigate('/account'), 1500);
-      }
+      await apiClient.post('/returns', returnData);
+      toast.success('Return request submitted successfully');
+      navigate('/account');
     } catch (error) {
       console.error('Error submitting return request:', error);
       if (error.response?.data?.detail) {
@@ -164,22 +159,22 @@ export default function ReturnRequest() {
   if (loading) {
     return (
       <>
-        <Navbar />
+        <Navbar user={user} setUser={setUser} />
         <div className="container mx-auto pt-6 pb-24 md:pt-12 md:pb-12 px-4">
           <div className="flex justify-center items-center h-64">
             <p className="text-xl">Loading order details...</p>
           </div>
         </div>
         <Footer />
-      <BottomNav />
-    </>
-  );
-}
+        <BottomNav />
+      </>
+    );
+  }
 
   if (!order) {
     return (
       <>
-        <Navbar />
+        <Navbar user={user} setUser={setUser} />
         <div className="container mx-auto pt-6 pb-24 md:pt-12 md:pb-12 px-4">
           <div className="flex justify-center items-center h-64">
             <p className="text-xl">Order not found</p>
@@ -199,14 +194,26 @@ export default function ReturnRequest() {
   // But if we are here, we probably assume it is delivered or testing.
   // If deliveryDate is null, we can fallback to created_at for safety or handle it.
   const referenceDate = deliveryDate || new Date(order.created_at);
-  
+
   const currentDate = new Date();
   const daysDifference = Math.floor((currentDate - referenceDate) / (1000 * 60 * 60 * 24));
   const isReturnWindowValid = daysDifference <= 3;
 
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  const returnableItems = items.filter((item) => {
+    if (!item) return false;
+    if (item.product && typeof item.product.returnable === 'boolean') {
+      return item.product.returnable;
+    }
+    return true;
+  });
+
+  const hasReturnableItems = returnableItems.length > 0;
+
   return (
     <>
-      <Navbar />
+      <Navbar user={user} setUser={setUser} />
       <div className="container mx-auto pt-4 pb-24 md:pt-8 md:pb-8 px-4">
         <Button 
           variant="ghost" 
@@ -246,16 +253,21 @@ export default function ReturnRequest() {
                       <SelectValue placeholder="Select a product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {order.items.map((item) => (
-                        item.product.returnable ? (
-                          <SelectItem key={item.product_id} value={item.product_id}>
-                            {item.product.title} - ₹{item.price}
-                          </SelectItem>
-                        ) : null
+                      {returnableItems.map((item) => (
+                        <SelectItem
+                          key={item.product_id}
+                          value={item.product_id}
+                        >
+                          {(item.product_title ||
+                            (item.product && item.product.title) ||
+                            'Product')}{' '}
+                          - ₹
+                          {item.price}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {order.items.every(item => !item.product.returnable) && (
+                  {items.length > 0 && !hasReturnableItems && (
                     <p className="text-red-500 text-sm mt-1">
                       None of the products in this order are eligible for return.
                     </p>
@@ -285,7 +297,7 @@ export default function ReturnRequest() {
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={submitting || !isReturnWindowValid || order.items.every(item => !item.product.returnable)}
+                  disabled={submitting || !isReturnWindowValid || !hasReturnableItems}
                 >
                   {submitting ? 'Submitting...' : 'Submit Return Request'}
                 </Button>

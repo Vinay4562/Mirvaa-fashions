@@ -39,9 +39,13 @@ export default function ProductListing({ user, setUser }) {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [sortBy, setSortBy] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const categories = ['Sarees', 'T-Shirts', 'Shirts', 'Hoodies', 'Jewelry', 'Ladies Dresses', 'Kids Wear', "Men's Wear"];
+  const categories = ['Sarees', 'Shirts', 'Jeans', 'Ladies Dresses'];
   const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'];
+
+  const hasPriceFilter = priceRange[0] > 0 || priceRange[1] < 10000;
+  const appliedFiltersCount = (hasPriceFilter ? 1 : 0) + selectedCategories.length + selectedSizes.length;
 
   useEffect(() => {
     fetchProducts();
@@ -136,7 +140,19 @@ export default function ProductListing({ user, setUser }) {
     setSearchParams(newParams);
   };
 
-  const FilterContent = () => (
+  const clearAllFilters = () => {
+    setPriceRange([0, 10000]);
+    setSelectedCategories([]);
+    setSelectedSizes([]);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('category');
+    newParams.delete('min_price');
+    newParams.delete('max_price');
+    newParams.delete('size');
+    setSearchParams(newParams);
+  };
+
+  const FilterContent = ({ onApplied }) => (
     <div className="space-y-6" data-testid="filter-sidebar">
       {/* Price Range */}
       <div>
@@ -241,11 +257,21 @@ export default function ProductListing({ user, setUser }) {
           
           // Update URL and trigger fetch
           setSearchParams(newParams);
+          if (onApplied) {
+            onApplied();
+          }
         }} 
-        className="w-full btn-hover" 
+        className="w-full btn-hover mb-2" 
         data-testid="apply-filters-button"
       >
         Apply Filters
+      </Button>
+      <Button 
+        variant="outline" 
+        className="w-full" 
+        onClick={clearAllFilters}
+      >
+        Clear All
       </Button>
     </div>
   );
@@ -269,24 +295,27 @@ export default function ProductListing({ user, setUser }) {
                 ? `Search results for "${searchParams.get('search')}"`
                 : 'All Products'}
             </h1>
-            <p className="text-gray-600">{products.length} products found</p>
+            <p className="text-gray-600">
+              {products.length} products found
+              {appliedFiltersCount > 0 && ` • ${appliedFiltersCount} filters applied`}
+            </p>
           </div>
 
           <div className="flex gap-3 items-center w-full md:w-auto">
             {/* Mobile Filter */}
-            <Sheet>
+            <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" className="md:hidden flex-1" data-testid="mobile-filter-button">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filters
+                  {appliedFiltersCount > 0 ? `Filters (${appliedFiltersCount})` : 'Filters'}
                 </Button>
               </SheetTrigger>
               <SheetContent side="left">
                 <SheetHeader>
                   <SheetTitle>Filters</SheetTitle>
                 </SheetHeader>
-                <div className="mt-6">
-                  <FilterContent />
+                <div className="mt-6 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+                  <FilterContent onApplied={() => setIsFilterOpen(false)} />
                 </div>
               </SheetContent>
             </Sheet>

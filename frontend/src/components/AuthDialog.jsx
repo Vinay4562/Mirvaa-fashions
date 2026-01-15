@@ -47,6 +47,12 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    
+    if (!otpVerified) {
+      toast.error('Please verify your email first');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -67,15 +73,15 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
   };
 
   const sendOtp = async () => {
-    if (!registerData.phone) {
-      toast.error('Enter phone to send OTP');
+    if (!registerData.email) {
+      toast.error('Enter email to send OTP');
       return;
     }
     setOtpSending(true);
     try {
-      await axios.post(`${API}/auth/send-otp`, { phone: registerData.phone });
+      await axios.post(`${API}/auth/send-otp`, { email: registerData.email });
       setOtpSent(true);
-      toast.success('OTP sent');
+      toast.success('OTP sent to your email');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to send OTP');
     } finally {
@@ -85,9 +91,9 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
 
   const verifyOtp = async () => {
     try {
-      await axios.post(`${API}/auth/verify-otp`, { phone: registerData.phone, code: otpCode });
+      await axios.post(`${API}/auth/verify-otp`, { email: registerData.email, code: otpCode });
       setOtpVerified(true);
-      toast.success('Phone verified');
+      toast.success('Email verified');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Invalid OTP');
     }
@@ -188,6 +194,26 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
                   onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                   required
                 />
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={sendOtp} disabled={otpSending || otpVerified}>
+                    {otpSending ? 'Sending...' : otpVerified ? 'Verified' : 'Send OTP'}
+                  </Button>
+                  {otpSent && !otpVerified && (
+                    <>
+                      <Input
+                        type="text"
+                        placeholder="Enter OTP"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        className="h-9 w-24"
+                      />
+                      <Button type="button" size="sm" onClick={verifyOtp}>
+                        Verify
+                      </Button>
+                    </>
+                  )}
+                  {otpVerified && <span className="text-xs text-green-600">Email Verified</span>}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="register-phone">Phone (Optional)</Label>
@@ -199,26 +225,6 @@ export default function AuthDialog({ open, onClose, setUser, defaultTab = "login
                   value={registerData.phone}
                   onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
                 />
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={sendOtp} disabled={otpSending}>
-                    {otpSending ? 'Sending...' : 'Send OTP'}
-                  </Button>
-                  {otpSent && !otpVerified && (
-                    <>
-                      <Input
-                        type="text"
-                        placeholder="Enter OTP"
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
-                        className="h-9"
-                      />
-                      <Button type="button" size="sm" onClick={verifyOtp}>
-                        Verify
-                      </Button>
-                    </>
-                  )}
-                  {otpVerified && <span className="text-xs text-green-600">Verified</span>}
-                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="register-password">Password</Label>

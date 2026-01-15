@@ -12,7 +12,7 @@ A full-featured e-commerce platform for fashion retail built with React, FastAPI
 ## ✨ Key Features
 
 server start:
-uvicorn backend.server:app --reload
+uvicorn server:app --reload --host 0.0.0.0 --port 8000
 
 frontend start:
 npm start

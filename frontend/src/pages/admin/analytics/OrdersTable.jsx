@@ -60,9 +60,18 @@ export default function OrdersTable({ onBack }) {
       shipped: 'bg-indigo-100 text-indigo-800',
       delivered: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
-      returned: 'bg-orange-100 text-orange-800'
+      returned: 'bg-orange-100 text-orange-800',
+      return_requested: 'bg-orange-100 text-orange-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const formatStatusLabel = (status) => {
+    if (!status) return '';
+    return status
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   };
 
   const filteredOrders = orders.filter(order => {
@@ -154,6 +163,7 @@ export default function OrdersTable({ onBack }) {
                 <SelectItem value="delivered">Delivered</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
                 <SelectItem value="returned">Returned</SelectItem>
+                <SelectItem value="return_requested">Return Requested</SelectItem>
               </SelectContent>
             </Select>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
@@ -218,7 +228,7 @@ export default function OrdersTable({ onBack }) {
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(order.status)}>
-                        {order.status}
+                        {formatStatusLabel(order.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>

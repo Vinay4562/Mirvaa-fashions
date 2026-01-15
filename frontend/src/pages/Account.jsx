@@ -22,16 +22,24 @@ export default function Account({ user, setUser }) {
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [authPrompted, setAuthPrompted] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setShowAuth(true);
+      setAuthPrompted(true);
       setLoading(false);
     } else {
       fetchData();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user && authPrompted && !showAuth) {
+      navigate('/');
+    }
+  }, [user, authPrompted, showAuth, navigate]);
 
   const fetchData = async () => {
     try {
@@ -85,8 +93,18 @@ export default function Account({ user, setUser }) {
       shipped: 'bg-indigo-100 text-indigo-700',
       delivered: 'bg-green-100 text-green-700',
       cancelled: 'bg-red-100 text-red-700',
+      return_requested: 'bg-orange-100 text-orange-700',
+      returned: 'bg-orange-100 text-orange-700',
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
+  };
+
+  const formatStatusLabel = (status) => {
+    if (!status) return '';
+    return status
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   };
 
   const handleLogout = () => {
@@ -99,6 +117,10 @@ export default function Account({ user, setUser }) {
     } catch (e) {
       navigate('/');
     }
+  };
+
+  const handleAuthClose = () => {
+    setShowAuth(false);
   };
 
   if (loading) {
@@ -114,7 +136,7 @@ export default function Account({ user, setUser }) {
         </div>
         <Footer />
         <BottomNav cartCount={cartCount} />
-        <AuthDialog open={showAuth} onClose={() => setShowAuth(false)} setUser={setUser} />
+        <AuthDialog open={showAuth} onClose={handleAuthClose} setUser={setUser} />
       </div>
     );
   }
@@ -163,12 +185,17 @@ export default function Account({ user, setUser }) {
                           <p className="text-sm text-gray-600">
                             Placed on {new Date(order.created_at).toLocaleDateString()}
                           </p>
-                        </div>
-                        <div className="mt-2 md:mt-0">
-                          <Badge className={getStatusColor(order.status)}>
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </Badge>
-                        </div>
+                          {order.status === 'cancelled' && order.cancellation_reason && (
+                            <p className="text-sm text-red-600 mt-1">
+                              Reason for cancellation: {order.cancellation_reason}
+                            </p>
+                          )}
+                      </div>
+                      <div className="mt-2 md:mt-0">
+                        <Badge className={getStatusColor(order.status)}>
+                          {formatStatusLabel(order.status)}
+                        </Badge>
+                      </div>
                       </div>
 
                       {/* Order Items Preview */}
@@ -206,6 +233,15 @@ export default function Account({ user, setUser }) {
                               data-testid={`return-order-${order.id}`}
                             >
                               Return
+                            </Button>
+                          )}
+                          {order.status === 'return_requested' && (
+                            <Button
+                              variant="outline"
+                              disabled
+                              className="btn-hover"
+                            >
+                              Return request submitted
                             </Button>
                           )}
                           <Button
@@ -335,7 +371,7 @@ export default function Account({ user, setUser }) {
       <Footer />
       <BottomNav cartCount={cartCount} />
 
-      <AuthDialog open={showAuth} onClose={() => setShowAuth(false)} setUser={setUser} />
+      <AuthDialog open={showAuth} onClose={handleAuthClose} setUser={setUser} />
     </div>
   );
 }

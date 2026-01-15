@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
-import { API } from '@/utils/api';
+import { apiClient } from '@/utils/api';
 import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';

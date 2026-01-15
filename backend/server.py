@@ -31,7 +31,7 @@ from email.mime.multipart import MIMEMultipart
 try:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     REPORTLAB_AVAILABLE = True
@@ -136,10 +136,11 @@ app.add_middleware(
 )
 
 # Create uploads directory if it doesn't exist
-os.makedirs("uploads", exist_ok=True)
+uploads_dir = ROOT_DIR / "uploads"
+os.makedirs(uploads_dir, exist_ok=True)
 
 # Mount the uploads directory to serve static files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 @app.middleware("http")
 async def add_corp_header(request, call_next):
@@ -182,6 +183,8 @@ async def health():
 @api_router.get("/")
 async def root():
     return {"message": "Mirvaa Backend API is running", "version": "1.0.0"}
+
+
 
 
 # ==================== Models ====================
@@ -314,10 +317,21 @@ class Order(BaseModel):
     tracking_id: Optional[str] = None
     courier_name: Optional[str] = None
     tracking_url: Optional[str] = None
+    cancellation_reason: Optional[str] = None
     delivered_at: Optional[datetime] = None
     return_window_closes_at: Optional[datetime] = None
+    invoice_url: Optional[str] = None
+    label_url: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+    tracking_id: Optional[str] = None
+    courier_name: Optional[str] = None
+    tracking_url: Optional[str] = None
+    cancellation_reason: Optional[str] = None
 
 class OrderCreate(BaseModel):
     items: List[Dict[str, Any]]
@@ -446,6 +460,27 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
+def ensure_product_images(product: Dict[str, Any]) -> Dict[str, Any]:
+    if not product:
+        return product
+    images = product.get("images") or []
+    if images:
+        return product
+    color_images = product.get("color_images") or {}
+    if isinstance(color_images, dict):
+        keys = list(color_images.keys())
+        for key in sorted(keys):
+            value = color_images.get(key)
+            if isinstance(value, list) and value:
+                product["images"] = [value[0]]
+                break
+        if not product.get("images"):
+            for value in color_images.values():
+                if isinstance(value, list) and value:
+                    product["images"] = [value[0]]
+                    break
+    return product
+
 def generate_order_label(order: Dict) -> str:
     try:
         filename = f"label_{order['order_number']}.pdf"
@@ -455,26 +490,76 @@ def generate_order_label(order: Dict) -> str:
         doc = SimpleDocTemplate(filepath, pagesize=A4)
         elements = []
         styles = getSampleStyleSheet()
-        
-        # Title
-        elements.append(Paragraph(f"Order Label: {order['order_number']}", styles['Title']))
-        elements.append(Spacer(1, 12))
-        
-        # Date
+
+        # Header with logo (optional) and main store heading
+        logo_path = os.environ.get("MIRVAA_LOGO_PATH")
+        header_row = []
+        if logo_path and os.path.exists(logo_path):
+            try:
+                logo = Image(logo_path, width=1.2 * inch, height=1.2 * inch)
+                header_row = [
+                    logo,
+                    Paragraph("Mirvaa Fashions", styles["Title"]),
+                ]
+                header_table = Table([header_row], colWidths=[1.5 * inch, 5.5 * inch])
+                header_table.setStyle(
+                    TableStyle(
+                        [
+                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ]
+                    )
+                )
+                elements.append(header_table)
+            except Exception:
+                elements.append(Paragraph("Mirvaa Fashions", styles["Title"]))
+        else:
+            elements.append(Paragraph("Mirvaa Fashions", styles["Title"]))
+
+        elements.append(Spacer(1, 6))
+        elements.append(Paragraph(f"Order #: {order['order_number']}", styles["Heading3"]))
         date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        elements.append(Paragraph(f"Date: {date_str}", styles['Normal']))
-        elements.append(Spacer(1, 12))
-        
-        # Customer Details
-        shipping = order.get('shipping_address', {})
-        address_text = f"""
-        <b>Ship To:</b><br/>
-        {shipping.get('name')}<br/>
-        {shipping.get('address')}<br/>
-        {shipping.get('city')}, {shipping.get('state')} - {shipping.get('pincode')}<br/>
-        Phone: {shipping.get('phone')}
+        elements.append(Paragraph(f"Date: {date_str}", styles["Normal"]))
+        elements.append(Spacer(1, 16))
+
+        # From / To addresses
+        from_address_text = """
+        <b>From:</b><br/>
+        Mirvaa Fashions<br/>
+        Hyderabad - 500074
         """
-        elements.append(Paragraph(address_text, styles['Normal']))
+
+        shipping = order.get('shipping_address', {})
+        to_address_text = f"""
+        <b>To:</b><br/>
+        {shipping.get('name', '')}<br/>
+        {shipping.get('address', '')}<br/>
+        {shipping.get('city', '')}, {shipping.get('state', '')} - {shipping.get('pincode', '')}<br/>
+        Phone: {shipping.get('phone', '')}
+        """
+
+        address_table = Table(
+            [
+                [
+                    Paragraph(from_address_text, styles["Normal"]),
+                    Paragraph(to_address_text, styles["Normal"]),
+                ]
+            ],
+            colWidths=[3.5 * inch, 3.5 * inch],
+        )
+        address_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        elements.append(address_table)
         elements.append(Spacer(1, 20))
         
         # Items Table
@@ -1045,8 +1130,9 @@ async def get_products(
     products = await cursor.skip(skip).limit(limit).to_list(limit)
     
     for product in products:
-        if isinstance(product['created_at'], str):
+        if isinstance(product.get('created_at'), str):
             product['created_at'] = datetime.fromisoformat(product['created_at'])
+        ensure_product_images(product)
     
     return products
 
@@ -1055,8 +1141,9 @@ async def get_featured_products():
     products = await db.products.find({"is_featured": True}, {"_id": 0}).limit(8).to_list(8)
     
     for product in products:
-        if isinstance(product['created_at'], str):
+        if isinstance(product.get('created_at'), str):
             product['created_at'] = datetime.fromisoformat(product['created_at'])
+        ensure_product_images(product)
     
     return products
 
@@ -1066,8 +1153,9 @@ async def get_product(product_id: str):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    if isinstance(product['created_at'], str):
+    if isinstance(product.get('created_at'), str):
         product['created_at'] = datetime.fromisoformat(product['created_at'])
+    ensure_product_images(product)
     
     return Product(**product)
 
@@ -1137,8 +1225,9 @@ async def get_cart(current_user: Dict = Depends(get_current_user)):
         if product:
             if isinstance(item['created_at'], str):
                 item['created_at'] = datetime.fromisoformat(item['created_at'])
-            if isinstance(product['created_at'], str):
+            if isinstance(product.get('created_at'), str):
                 product['created_at'] = datetime.fromisoformat(product['created_at'])
+            ensure_product_images(product)
             enriched_items.append({
                 **item,
                 "product": product
@@ -1224,8 +1313,9 @@ async def get_wishlist(current_user: Dict = Depends(get_current_user)):
         if product:
             if isinstance(item['created_at'], str):
                 item['created_at'] = datetime.fromisoformat(item['created_at'])
-            if isinstance(product['created_at'], str):
+            if isinstance(product.get('created_at'), str):
                 product['created_at'] = datetime.fromisoformat(product['created_at'])
+            ensure_product_images(product)
             enriched_items.append({
                 **item,
                 "product": product
@@ -1327,11 +1417,12 @@ async def create_return_request(return_data: ReturnRequestCreate, current_user: 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    # Check if product is in order
     product_in_order = False
+    product_title = None
     for item in order['items']:
-        if item['product_id'] == return_data.product_id:
+        if item.get('product_id') == return_data.product_id:
             product_in_order = True
+            product_title = item.get('product_title') or (item.get('product') or {}).get('title')
             break
     
     if not product_in_order:
@@ -1361,7 +1452,20 @@ async def create_return_request(return_data: ReturnRequestCreate, current_user: 
         "product_id": return_data.product_id
     })
     if existing_return:
-        raise HTTPException(status_code=400, detail="Return request already exists for this product")
+        await db.orders.update_one(
+            {"id": return_data.order_id},
+            {
+                "$set": {
+                    "status": "return_requested",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        return {
+            "message": "Return request already exists for this product",
+            "id": existing_return["id"],
+            "already_exists": True
+        }
     
     # Create return request
     return_request = ReturnRequest(
@@ -1375,11 +1479,27 @@ async def create_return_request(return_data: ReturnRequestCreate, current_user: 
     return_dict['created_at'] = return_dict['created_at'].isoformat()
     
     await db.returns.insert_one(return_dict)
+
+    await db.orders.update_one(
+        {"id": return_data.order_id},
+        {
+            "$set": {
+                "status": "return_requested",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
     
-    # Create notification for admin
+    notification_message = f"New return request for order {order.get('order_number')}"
+    if product_title:
+        notification_message += f" - {product_title} ({return_data.product_id})"
+    else:
+        notification_message += f" - Product ID: {return_data.product_id}"
+    notification_message += f" • Reason: {return_data.reason}"
+    
     await create_notification(
         type="return_requested",
-        message=f"New return request for order: {order.get('order_number')}",
+        message=notification_message,
         order_id=return_data.order_id
     )
     
@@ -1421,8 +1541,22 @@ async def update_return_status(return_id: str, status: str = Body(..., embed=Tru
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Return request not found")
-        
-    return {"message": "Return status updated"}
+    
+    # When a return is completed, mark the corresponding order as returned
+    if status == "completed":
+        ret = await db.returns.find_one({"id": return_id}, {"_id": 0})
+        if ret and ret.get("order_id"):
+            await db.orders.update_one(
+                {"id": ret["order_id"]},
+                {
+                    "$set": {
+                        "status": "returned",
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
+    
+    return {"message": "Return status updated", "status": status}
 
 
 # ==================== Order Routes ====================
@@ -1465,14 +1599,17 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
     
     result = await db.orders.insert_one(order_dict)
     
-    # Generate PDF Label only for COD orders initially
-    if order_data.payment_method == "cod":
-        label_path = generate_order_label(order_dict)
-        if label_path:
-            await db.orders.update_one(
-                {"_id": result.inserted_id},
-                {"$set": {"label_url": label_path}}
-            )
+    # Generate invoice PDF for all orders
+    label_path = generate_order_label(order_dict)
+    if label_path:
+        update_fields: Dict[str, Any] = {"invoice_url": label_path}
+        # Preserve existing behavior for COD orders by also setting label_url
+        if order_data.payment_method == "cod":
+            update_fields["label_url"] = label_path
+        await db.orders.update_one(
+            {"_id": result.inserted_id},
+            {"$set": update_fields}
+        )
             
         # Create Notification
         await create_notification(
@@ -1532,7 +1669,7 @@ async def get_orders(current_user: Dict = Depends(get_current_user)):
     orders = await db.orders.find(
         {
             "user_id": current_user['id'],
-            "status": {"$nin": ["pending_payment", "cancelled"]}
+            "status": {"$nin": ["pending_payment"]}
         },
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
@@ -1776,7 +1913,7 @@ async def get_all_orders(admin: Dict = Depends(get_current_admin)):
 @api_router.put("/admin/orders/{order_id}/status")
 async def update_order_status(
     order_id: str,
-    status: str,
+    data: OrderStatusUpdate,
     admin: Dict = Depends(get_current_admin)
 ):
     # Get the order first to check if status is changing to "shipped"
@@ -1784,14 +1921,27 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    status = data.status
+
+    updates: Dict[str, Any] = {
+        "status": status,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if data.tracking_id is not None:
+        updates["tracking_id"] = data.tracking_id
+    if data.courier_name is not None:
+        updates["courier_name"] = data.courier_name
+    if data.tracking_url is not None:
+        updates["tracking_url"] = data.tracking_url
+    if data.cancellation_reason is not None:
+        updates["cancellation_reason"] = data.cancellation_reason
+
     # Update order status
     result = await db.orders.update_one(
         {"id": order_id},
         {
-            "$set": {
-                "status": status,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
+            "$set": updates
         }
     )
     
@@ -2090,12 +2240,13 @@ async def upload_multiple_files(files: List[UploadFile] = File(...)):
         uploaded_files = []
 
         # Create uploads directory if it doesn't exist
-        os.makedirs("uploads", exist_ok=True)
+        uploads_dir = ROOT_DIR / "uploads"
+        os.makedirs(uploads_dir, exist_ok=True)
 
         for file in files:
             contents = await file.read()
             filename = f"{uuid.uuid4()}_{file.filename}"
-            file_path = os.path.join("uploads", filename)
+            file_path = uploads_dir / filename
 
             with open(file_path, "wb") as f:
                 f.write(contents)
@@ -2141,11 +2292,11 @@ async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[in
             return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
         
         # Build the full source path, preserving subdirectories
-        source_path = Path("uploads") / relative_path
+        uploads_dir = (ROOT_DIR / "uploads").resolve()
+        source_path = uploads_dir / relative_path
         
         # Normalize the path to prevent directory traversal attacks
         source_path = source_path.resolve()
-        uploads_dir = Path("uploads").resolve()
         
         # Security check: ensure the path is within uploads directory
         try:
@@ -2163,12 +2314,13 @@ async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[in
             return Response(status_code=404, content=b"", media_type="image/png", headers={"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"})
         
         # Create cache directory if it doesn't exist
-        os.makedirs(Path("uploads") / "cache", exist_ok=True)
+        cache_dir = uploads_dir / "cache"
+        os.makedirs(cache_dir, exist_ok=True)
         
         # Use the full relative path (including subdirectories) for cache key
         cache_key = f"{relative_path}:{w}:{h}:{q}:{fit}"
         cache_name = hashlib.sha256(cache_key.encode()).hexdigest()[:24] + ".jpg"
-        cache_path = Path("uploads") / "cache" / cache_name
+        cache_path = cache_dir / cache_name
         
         if cache_path.exists():
             resp = FileResponse(str(cache_path), media_type="image/jpeg")
@@ -2395,9 +2547,11 @@ async def get_products_analytics(
             product_ids = [item["_id"] for item in sales_data if item.get("_id")]
             products_cursor = db.products.find(
                 {"id": {"$in": product_ids}},
-                {"_id": 0, "id": 1, "title": 1, "images": 1}
+                {"_id": 0, "id": 1, "title": 1, "images": 1, "color_images": 1}
             )
             products_list = await products_cursor.to_list(len(product_ids) or 10)
+            for p in products_list:
+                ensure_product_images(p)
             products_map = {p["id"]: p for p in products_list}
             
             top_selling = []
@@ -2432,11 +2586,12 @@ async def get_products_analytics(
         # Low stock products
         low_stock = await db.products.find(
             {"stock": {"$lt": 10}},
-            {"_id": 0, "id": 1, "title": 1, "images": 1, "stock": 1}
+            {"_id": 0, "id": 1, "title": 1, "images": 1, "color_images": 1, "stock": 1}
         ).to_list(20)
         
         # Add max stock for low stock items (assuming 50 as default max)
         for item in low_stock:
+            ensure_product_images(item)
             item["maxStock"] = 50
         
         # Category statistics - Simplified to avoid complex aggregation issues
@@ -3046,15 +3201,36 @@ async def get_notifications(
         cursor = db.notifications.find({}).sort("created_at", -1).skip(skip).limit(limit)
         notifications = await cursor.to_list(length=limit)
         
-        # Count unread
         unread_count = await db.notifications.count_documents({"is_read": False})
         
-        # Format dates
         for notif in notifications:
             if "_id" in notif:
                 del notif["_id"]
             if isinstance(notif.get("created_at"), str):
                 notif["created_at"] = datetime.fromisoformat(notif["created_at"])
+
+            if notif.get("type") == "return_requested" and notif.get("order_id"):
+                order = await db.orders.find_one({"id": notif["order_id"]}, {"_id": 0})
+                latest_return = await db.returns.find_one(
+                    {"order_id": notif["order_id"]},
+                    sort=[("created_at", -1)]
+                )
+                product = None
+                if latest_return:
+                    product = await db.products.find_one(
+                        {"id": latest_return.get("product_id")},
+                        {"_id": 0}
+                    )
+
+                notif["order_number"] = order.get("order_number") if order else None
+                notif["order_total"] = order.get("total") if order else None
+                notif["product_name"] = product.get("title") if product else None
+                notif["product_image"] = (
+                    (product.get("images") or [None])[0]
+                    if product and product.get("images")
+                    else None
+                )
+                notif["return_reason"] = latest_return.get("reason") if latest_return else None
                 
         return {
             "notifications": notifications,

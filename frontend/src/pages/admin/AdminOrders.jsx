@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminClient, BACKEND_URL } from '@/utils/api';
 import { getImageUrl, onImageError } from '@/utils/imageHelper';
@@ -13,6 +17,13 @@ import Loading from '@/components/Loading';
 export default function AdminOrders({ admin, setAdmin }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDialogOrder, setStatusDialogOrder] = useState(null);
+  const [statusDialogStatus, setStatusDialogStatus] = useState('');
+  const [trackingIdInput, setTrackingIdInput] = useState('');
+  const [cancellationReasonInput, setCancellationReasonInput] = useState('');
+  const [courierNameInput, setCourierNameInput] = useState('');
+  const [trackingUrlInput, setTrackingUrlInput] = useState('');
 
   useEffect(() => {
     fetchOrders();
@@ -30,15 +41,89 @@ export default function AdminOrders({ admin, setAdmin }) {
     }
   };
 
-  const handleStatusChange = async (orderId, newStatus) => {
+  const handleStatusChange = async (orderId, newStatus, extraData = {}) => {
     try {
-      await adminClient.put(`/admin/orders/${orderId}/status?status=${newStatus}`);
+      await adminClient.put(`/admin/orders/${orderId}/status`, {
+        status: newStatus,
+        ...extraData,
+      });
       toast.success('Order status updated');
       fetchOrders();
     } catch (error) {
       console.error('Error updating order status:', error);
       toast.error('Failed to update order status');
     }
+  };
+
+  const handleStatusSelect = (order, newStatus) => {
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    if (newStatus === 'shipped') {
+      setStatusDialogOrder(order);
+      setStatusDialogStatus(newStatus);
+      setTrackingIdInput(order.tracking_id || '');
+      setCourierNameInput(order.courier_name || '');
+      setTrackingUrlInput(order.tracking_url || '');
+      setCancellationReasonInput('');
+      setStatusDialogOpen(true);
+      return;
+    }
+
+    if (newStatus === 'cancelled') {
+      setStatusDialogOrder(order);
+      setStatusDialogStatus(newStatus);
+      setTrackingIdInput('');
+      setCancellationReasonInput(order.cancellation_reason || '');
+      setCourierNameInput('');
+      setTrackingUrlInput('');
+      setStatusDialogOpen(true);
+      return;
+    }
+
+    handleStatusChange(order.id, newStatus);
+  };
+
+  const handleStatusDialogSubmit = async (event) => {
+    event.preventDefault();
+    if (!statusDialogOrder || !statusDialogStatus) {
+      setStatusDialogOpen(false);
+      return;
+    }
+
+    const extraData = {};
+
+    if (statusDialogStatus === 'shipped') {
+      if (!trackingIdInput.trim()) {
+        toast.error('Please enter a tracking ID');
+        return;
+      }
+      extraData.tracking_id = trackingIdInput.trim();
+      if (courierNameInput.trim()) {
+        extraData.courier_name = courierNameInput.trim();
+      }
+      if (trackingUrlInput.trim()) {
+        extraData.tracking_url = trackingUrlInput.trim();
+      }
+    }
+
+    if (statusDialogStatus === 'cancelled') {
+      if (!cancellationReasonInput.trim()) {
+        toast.error('Please enter cancellation remarks');
+        return;
+      }
+      extraData.cancellation_reason = cancellationReasonInput.trim();
+    }
+
+    await handleStatusChange(statusDialogOrder.id, statusDialogStatus, extraData);
+    setStatusDialogOpen(false);
+    setStatusDialogOrder(null);
+    setStatusDialogStatus('');
+    setTrackingIdInput('');
+    setCancellationReasonInput('');
+    setCourierNameInput('');
+    setTrackingUrlInput('');
   };
 
   const handleConfirmOrder = async (orderId) => {
@@ -57,19 +142,22 @@ export default function AdminOrders({ admin, setAdmin }) {
 
   const handleDownloadLabel = async (order) => {
     try {
-      // Construct full URL to ensure we hit the correct endpoint
-      // If label_url is relative (starts with /), append it to BACKEND_URL
-      // Note: label_url from DB usually includes /api prefix (e.g. /api/admin/orders/...)
       let url;
-      if (order.label_url) {
-        if (order.label_url.startsWith('http')) {
-           url = order.label_url;
+
+      // Prefer invoice_url (Mirvaa invoice PDF). Fallback to label_url, then Delhivery label endpoint.
+      const pdfPath = order.invoice_url || order.label_url || null;
+
+      if (pdfPath) {
+        if (pdfPath.startsWith('http')) {
+          url = pdfPath;
         } else {
-           url = `${BACKEND_URL}${order.label_url}`;
+          url = `${BACKEND_URL}${pdfPath}`;
         }
-      } else {
-        // Fallback if label_url is missing
+      } else if (order.delhivery_waybill) {
         url = `${BACKEND_URL}/api/admin/orders/${order.id}/label`;
+      } else {
+        toast.error("No PDF available for this order");
+        return;
       }
           
       // If it's an external URL (not our backend), just open it
@@ -108,8 +196,18 @@ export default function AdminOrders({ admin, setAdmin }) {
       shipped: 'bg-indigo-100 text-indigo-700',
       delivered: 'bg-green-100 text-green-700',
       cancelled: 'bg-red-100 text-red-700',
+      return_requested: 'bg-orange-100 text-orange-700',
+      returned: 'bg-orange-100 text-orange-700',
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
+  };
+
+  const formatStatusLabel = (status) => {
+    if (!status) return '';
+    return status
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   };
 
   if (loading) {
@@ -142,6 +240,33 @@ export default function AdminOrders({ admin, setAdmin }) {
                       <p className="text-sm text-gray-600 mt-2">
                         Address: {order.shipping_address.address}, {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.pincode}
                       </p>
+                      {order.status === 'shipped' && order.tracking_id && (
+                        <p className="text-sm text-gray-700 mt-1">
+                          Tracking ID: {order.tracking_id}
+                        </p>
+                      )}
+                      {order.status === 'shipped' && order.courier_name && (
+                        <p className="text-sm text-gray-700">
+                          Courier: {order.courier_name}
+                        </p>
+                      )}
+                      {order.status === 'shipped' && order.tracking_url && (
+                        <p className="text-sm text-blue-600">
+                          <a
+                            href={order.tracking_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:underline"
+                          >
+                            Open tracking link
+                          </a>
+                        </p>
+                      )}
+                      {order.status === 'cancelled' && order.cancellation_reason && (
+                        <p className="text-sm text-red-600 mt-1">
+                          Cancellation remarks: {order.cancellation_reason}
+                        </p>
+                      )}
                     </div>
 
                     {/* Order Items Preview */}
@@ -172,12 +297,12 @@ export default function AdminOrders({ admin, setAdmin }) {
                       <p className="text-sm font-semibold mb-2">Update Status</p>
                       <Select
                         value={order.status}
-                        onValueChange={(value) => handleStatusChange(order.id, value)}
+                        onValueChange={(value) => handleStatusSelect(order, value)}
                       >
                         <SelectTrigger data-testid={`status-select-${order.id}`}>
                           <SelectValue>
                             <Badge className={getStatusColor(order.status)}>
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                              {formatStatusLabel(order.status)}
                             </Badge>
                           </SelectValue>
                         </SelectTrigger>
@@ -208,8 +333,8 @@ export default function AdminOrders({ admin, setAdmin }) {
                         </Button>
                       )}
 
-                      {/* Download Label Button */}
-                      {(order.label_url || order.delhivery_waybill) && (
+                      {/* Download PDF Button - visible only for confirmed orders */}
+                      {order.status === 'confirmed' && (order.label_url || order.delhivery_waybill) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -217,7 +342,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                           onClick={() => handleDownloadLabel(order)}
                         >
                           <Download className="h-4 w-4 mr-2" />
-                          Label
+                          Download PDF
                         </Button>
                       )}
                     </div>
@@ -234,6 +359,77 @@ export default function AdminOrders({ admin, setAdmin }) {
           </div>
         )}
       </div>
+
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {statusDialogStatus === 'shipped' && 'Enter Tracking ID'}
+              {statusDialogStatus === 'cancelled' && 'Enter Cancellation Remarks'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleStatusDialogSubmit} className="space-y-4">
+            {statusDialogStatus === 'shipped' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="tracking-id-input">Tracking ID</Label>
+                  <Input
+                    id="tracking-id-input"
+                    value={trackingIdInput}
+                    onChange={(e) => setTrackingIdInput(e.target.value)}
+                    placeholder="Enter shipment tracking ID"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="courier-name-input">Courier Name (optional)</Label>
+                  <Input
+                    id="courier-name-input"
+                    value={courierNameInput}
+                    onChange={(e) => setCourierNameInput(e.target.value)}
+                    placeholder="Enter courier name (e.g., Bluedart, Delhivery)"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tracking-url-input">Tracking URL (optional)</Label>
+                  <Input
+                    id="tracking-url-input"
+                    value={trackingUrlInput}
+                    onChange={(e) => setTrackingUrlInput(e.target.value)}
+                    placeholder="Paste full tracking URL"
+                  />
+                </div>
+              </>
+            )}
+
+            {statusDialogStatus === 'cancelled' && (
+              <div className="space-y-2">
+                <Label htmlFor="cancellation-reason-input">Cancellation Remarks</Label>
+                <Textarea
+                  id="cancellation-reason-input"
+                  value={cancellationReasonInput}
+                  onChange={(e) => setCancellationReasonInput(e.target.value)}
+                  placeholder="Provide a brief reason for cancelling this order"
+                  rows={4}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStatusDialogOpen(false)}
+              >
+                Close
+              </Button>
+              <Button type="submit">
+                Save
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
