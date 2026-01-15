@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminClient, BACKEND_URL } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -154,6 +154,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                               src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
                               alt={item.product_title}
                               className="w-full h-full object-cover"
+                              onError={onImageError}
                             />
                           </div>
                         ))}

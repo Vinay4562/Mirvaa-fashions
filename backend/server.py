@@ -15,7 +15,8 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import json
 import bcrypt
-import jwt
+from jose import jwt as jose_jwt
+from jose.exceptions import ExpiredSignatureError, JWTError
 import razorpay
 from delhivery import DelhiveryClient
 import hmac
@@ -191,6 +192,7 @@ class User(BaseModel):
     name: str
     phone: Optional[str] = None
     phone_verified: bool = False
+    email_verified: bool = False
     addresses: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     password_reset_token_hash: Optional[str] = None
@@ -215,9 +217,9 @@ class ResetPasswordConfirm(BaseModel):
     token: str
     new_password: str
 class SendOtpRequest(BaseModel):
-    phone: str
+    email: EmailStr
 class VerifyOtpRequest(BaseModel):
-    phone: str
+    email: EmailStr
     code: str
 
 class AdminLogin(BaseModel):
@@ -536,15 +538,15 @@ def create_token(user_id: str, email: str) -> str:
         'email': email,
         'exp': expiration
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jose_jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 def verify_token(token: str) -> Dict:
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict:
@@ -565,6 +567,19 @@ async def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(
 
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserRegister):
+    ver = await db.email_verifications.find_one({"email": user_data.email})
+    if not ver:
+        raise HTTPException(status_code=400, detail="Email not verified")
+    ver_exp = ver.get("expires_at")
+    if isinstance(ver_exp, str):
+        try:
+            ver_exp_dt = datetime.fromisoformat(ver_exp)
+        except Exception:
+            ver_exp_dt = datetime.now(timezone.utc) - timedelta(seconds=1)
+    else:
+        ver_exp_dt = ver_exp
+    if not ver_exp_dt or datetime.now(timezone.utc) > ver_exp_dt:
+        raise HTTPException(status_code=400, detail="Email verification expired")
     # Check if user exists
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
@@ -575,7 +590,8 @@ async def register(user_data: UserRegister):
     user = User(
         email=user_data.email,
         name=user_data.name,
-        phone=user_data.phone
+        phone=user_data.phone,
+        email_verified=True
     )
     
     user_dict = user.model_dump()
@@ -583,6 +599,7 @@ async def register(user_data: UserRegister):
     user_dict['created_at'] = user_dict['created_at'].isoformat()
     
     await db.users.insert_one(user_dict)
+    await db.email_verifications.delete_one({"email": user_data.email})
     
     token = create_token(user.id, user.email)
     return TokenResponse(token=token, user=user)
@@ -723,31 +740,103 @@ async def reset_password(data: ResetPasswordConfirm):
 
 @api_router.post("/auth/send-otp")
 async def send_otp(req: SendOtpRequest):
-    if not TWILIO_SID or not TWILIO_AUTH or not TWILIO_VERIFY_SERVICE_ID:
-        raise HTTPException(status_code=500, detail="Twilio not configured")
-    url = f"https://verify.twilio.com/v2/Services/{TWILIO_VERIFY_SERVICE_ID}/Verifications"
+    code = f"{uuid.uuid4().int % 1000000:06d}"
+    code_hash = hashlib.sha256(code.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.email_otps.update_one(
+        {"email": req.email},
+        {"$set": {"email": req.email, "code_hash": code_hash, "expires_at": expires_at.isoformat()}},
+        upsert=True,
+    )
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "Your Mirvaa verification code"
+    msg["From"] = MAIL_FROM or SMTP_USER
+    msg["To"] = req.email
+    html = f"""<div style="font-family:Inter,Arial,sans-serif">
+      <h2>Mirvaa Fashions</h2>
+      <p>Your verification code is:</p>
+      <p style="font-size:24px;font-weight:bold;letter-spacing:4px">{code}</p>
+      <p>This code will expire in 10 minutes.</p>
+    </div>"""
+    msg.attach(MIMEText(html, "html"))
+    if RESEND_API_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
+            payload = {"from": MAIL_FROM or SMTP_USER, "to": req.email, "subject": "Your Mirvaa verification code", "html": html}
+            r = requests.post("https://api.resend.com/emails", headers=headers, json=payload, timeout=15)
+            if r.status_code in (200, 201, 202):
+                return {"status": "sent"}
+        except Exception:
+            pass
+    if SENDGRID_API_KEY:
+        try:
+            headers = {"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"}
+            payload = {
+                "personalizations": [{"to": [{"email": req.email}]}],
+                "from": {"email": MAIL_FROM or SMTP_USER},
+                "subject": "Your Mirvaa verification code",
+                "content": [{"type": "text/html", "value": html}],
+            }
+            r = requests.post("https://api.sendgrid.com/v3/mail/send", headers=headers, json=payload, timeout=15)
+            if r.status_code in (200, 202):
+                return {"status": "sent"}
+        except Exception:
+            pass
+    context = ssl.create_default_context()
     try:
-        resp = requests.post(url, data={"To": req.phone, "Channel": "sms"}, auth=(TWILIO_SID, TWILIO_AUTH))
-        if not resp.ok:
-            raise HTTPException(status_code=400, detail=resp.text)
-        return {"status": "sent"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            try:
+                server.starttls(context=context)
+                server.ehlo()
+            except smtplib.SMTPNotSupportedError:
+                pass
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(MAIL_FROM or SMTP_USER, [req.email], msg.as_string())
+            return {"status": "sent"}
+    except Exception:
+        try:
+            with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
+                if SMTP_USER and SMTP_PASS:
+                    server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(MAIL_FROM or SMTP_USER, [req.email], msg.as_string())
+                return {"status": "sent"}
+        except Exception:
+            raise HTTPException(status_code=500, detail="Failed to send verification email")
 
 @api_router.post("/auth/verify-otp")
 async def verify_otp(req: VerifyOtpRequest):
-    if not TWILIO_SID or not TWILIO_AUTH or not TWILIO_VERIFY_SERVICE_ID:
-        raise HTTPException(status_code=500, detail="Twilio not configured")
-    url = f"https://verify.twilio.com/v2/Services/{TWILIO_VERIFY_SERVICE_ID}/VerificationCheck"
-    try:
-        resp = requests.post(url, data={"To": req.phone, "Code": req.code}, auth=(TWILIO_SID, TWILIO_AUTH))
-        data = resp.json() if resp.ok else {}
-        if not resp.ok or data.get("status") != "approved":
-            raise HTTPException(status_code=400, detail="Invalid code")
-        await db.users.update_one({"phone": req.phone}, {"$set": {"phone_verified": True}})
-        return {"status": "approved"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    record = await db.email_otps.find_one({"email": req.email})
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid code")
+    expires = record.get("expires_at")
+    if isinstance(expires, str):
+        try:
+            expires_dt = datetime.fromisoformat(expires)
+        except Exception:
+            expires_dt = datetime.now(timezone.utc) - timedelta(seconds=1)
+    else:
+        expires_dt = expires
+    if not expires_dt or datetime.now(timezone.utc) > expires_dt:
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
+    code_hash = hashlib.sha256(req.code.encode()).hexdigest()
+    if code_hash != record.get("code_hash"):
+        raise HTTPException(status_code=400, detail="Invalid code")
+    await db.email_verifications.update_one(
+        {"email": req.email},
+        {
+            "$set": {
+                "email": req.email,
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+                "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
+            }
+        },
+        upsert=True,
+    )
+    await db.users.update_one({"email": req.email}, {"$set": {"email_verified": True}})
+    await db.email_otps.delete_one({"email": req.email})
+    return {"status": "approved"}
 
 # User profile update model
 class UserProfileUpdate(BaseModel):
@@ -2070,11 +2159,7 @@ async def get_optimized_image(path: str, w: Optional[int] = None, h: Optional[in
         
         if not source_path.exists():
             logging.warning(f"Image not found: {source_path}")
-            # Return a tiny transparent PNG to avoid ORB on non-image responses
-            buf = io.BytesIO()
-            Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(buf, format="PNG")
-            headers = {"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"}
-            return Response(content=buf.getvalue(), media_type="image/png", headers=headers)
+            return Response(status_code=404, content=b"", media_type="image/png", headers={"Cross-Origin-Resource-Policy": "cross-origin", "Cache-Control": "no-store"})
         
         # Create cache directory if it doesn't exist
         os.makedirs(Path("uploads") / "cache", exist_ok=True)
@@ -2202,11 +2287,10 @@ async def get_analytics_overview(
     to_date: Optional[str] = None,
     admin: Dict = Depends(get_current_admin)
 ):
-    """Get overview analytics data"""
+    """Get analytics overview data"""
     try:
-        # Parse dates
-        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
-        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
         
         # Get basic counts
         total_products = await db.products.count_documents({})
@@ -2578,8 +2662,8 @@ async def get_users_analytics(
 ):
     """Get users analytics data"""
     try:
-        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
-        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
         
         # Performance metrics
         total_users = await db.users.count_documents({})
@@ -2687,8 +2771,8 @@ async def get_revenue_analytics(
 ):
     """Get revenue analytics data"""
     try:
-        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
-        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
         
         # Performance metrics
         total_revenue_pipeline = [
@@ -2776,7 +2860,7 @@ async def get_revenue_analytics(
                 "method": "$_id",
                 "revenue": 1,
                 "count": 1,
-                "percentage": {"$multiply": [{"$divide": ["$revenue", total_revenue]}, 100]}
+                "percentage": {"$multiply": [{"$divide": ["$revenue", total_revenue]}, 100]} if total_revenue > 0 else 0
             }},
             {"$sort": {"revenue": -1}}
         ]
@@ -2842,16 +2926,16 @@ async def get_revenue_analytics(
         raise HTTPException(status_code=500, detail=f"Error fetching revenue analytics: {str(e)}")
 
 @api_router.get("/admin/analytics/export/{data_type}")
-async def export_analytics_data(
+async def get_analytics_export(
     data_type: str,
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
     admin: Dict = Depends(get_current_admin)
 ):
-    """Export analytics data as CSV"""
+    """Export analytics data to CSV"""
     try:
-        from_dt = datetime.fromisoformat(from_date) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
-        to_dt = datetime.fromisoformat(to_date) if to_date else datetime.now(timezone.utc)
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
         
         if data_type == "products":
             # Export products data

@@ -25,7 +25,7 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -331,6 +331,7 @@ export default function ProductListing({ user, setUser }) {
                           src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
                           alt={product.title}
                           className="w-full h-full object-cover image-zoom"
+                          onError={onImageError}
                         />
                       </div>
                     </Link>

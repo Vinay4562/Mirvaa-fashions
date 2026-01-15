@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,10 @@ export default function ProductDetail({ user, setUser }) {
   const [pinchStart, setPinchStart] = useState(null);
   const [pinchStartZoom, setPinchStartZoom] = useState(100);
   const [hoverZone, setHoverZone] = useState(null);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const isSwipingMainImageRef = useRef(false);
+  const lastSwipeTimeRef = useRef(0);
 
   useEffect(() => {
     fetchProduct();
@@ -144,8 +148,44 @@ export default function ProductDetail({ user, setUser }) {
   };
 
   const handleImageClick = () => {
+    if (Date.now() - lastSwipeTimeRef.current < 300) {
+      return;
+    }
     setZoomLevel(100);
     setIsImageModalOpen(true);
+  };
+
+  const handleMainImageTouchStart = (e) => {
+    if (e.touches.length !== 1 || images.length <= 1) return;
+    const touch = e.touches[0];
+    touchStartXRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    isSwipingMainImageRef.current = false;
+  };
+
+  const handleMainImageTouchMove = (e) => {
+    if (e.touches.length !== 1 || images.length <= 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartXRef.current;
+    const dy = touch.clientY - touchStartYRef.current;
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      isSwipingMainImageRef.current = true;
+    }
+  };
+
+  const handleMainImageTouchEnd = (e) => {
+    if (!isSwipingMainImageRef.current || images.length <= 1) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartXRef.current;
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) {
+        handleNextImage();
+      } else {
+        handlePreviousImage();
+      }
+      lastSwipeTimeRef.current = Date.now();
+    }
+    isSwipingMainImageRef.current = false;
   };
 
   const handleZoomIn = () => {
@@ -331,6 +371,9 @@ export default function ProductDetail({ user, setUser }) {
             <div 
               className="relative aspect-[3/4] bg-white rounded-lg overflow-hidden shadow-lg w-full cursor-pointer"
               onClick={handleImageClick}
+              onTouchStart={handleMainImageTouchStart}
+              onTouchMove={handleMainImageTouchMove}
+              onTouchEnd={handleMainImageTouchEnd}
               onMouseMove={handleImageHover}
               onMouseLeave={handleImageHoverLeave}
             >

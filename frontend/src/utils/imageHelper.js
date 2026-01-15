@@ -108,22 +108,22 @@ export const getLargeImageUrl = (imagePath) => {
 };
 
 export const onImageError = (e) => {
-  // Prevent infinite loop if fallback also fails
-  if (e.currentTarget.dataset.fallbackAttempted === 'true') {
-    e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
-    e.currentTarget.onerror = null;
+  const img = e.currentTarget;
+  if (!img) return;
+  if (img.dataset.fallbackAttempted === 'true') {
+    img.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
+    img.onerror = null;
     return;
   }
-  
   const backendUrl = getBackendUrl();
   const fallbackPath = '/uploads/80819ebe-14af-4328-9fa6-8078050df4f1_Saree.jpg';
-  e.currentTarget.dataset.fallbackAttempted = 'true';
-  e.currentTarget.src = `${backendUrl}/api/image?path=${encodeURIComponent(fallbackPath)}&w=400&q=80`;
-  // Set a timeout to prevent infinite loops
+  img.dataset.fallbackAttempted = 'true';
+  img.src = `${backendUrl}/api/image?path=${encodeURIComponent(fallbackPath)}&w=400&q=80`;
   setTimeout(() => {
-    if (e.currentTarget.complete === false || e.currentTarget.naturalWidth === 0) {
-      e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
-      e.currentTarget.onerror = null;
+    if (!img) return;
+    if (img.naturalWidth <= 1 || img.naturalHeight <= 1) {
+      img.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
+      img.onerror = null;
     }
   }, 2000);
 };

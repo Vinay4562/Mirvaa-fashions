@@ -11,8 +11,8 @@ import { Separator } from '@/components/ui/separator';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
-import { apiClient } from '@/utils/api';
-import { getImageUrl } from '@/utils/imageHelper';
+import { API } from '@/utils/api';
+import { getImageUrl, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -401,6 +401,7 @@ export default function Checkout({ user, setUser }) {
                             src={getImageUrl(item.product.images[0])}
                             alt={item.product.title}
                             className="w-full h-full object-cover"
+                            onError={onImageError}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
