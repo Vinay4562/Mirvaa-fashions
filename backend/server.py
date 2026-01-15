@@ -691,13 +691,9 @@ async def register(user_data: UserRegister):
     return TokenResponse(token=token, user=user)
 
 def _send_reset_email(to_email: str, raw_token: str):
-    if not SMTP_USER or not SMTP_PASS:
-        logging.warning("SMTP credentials missing")
+    if not SMTP_USER and not RESEND_API_KEY and not SENDGRID_API_KEY:
+        logging.warning("No email provider configured")
     reset_url = f"{FRONTEND_URL}/reset-password?token={raw_token}"
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Reset your Mirvaa password"
-    msg["From"] = MAIL_FROM or SMTP_USER
-    msg["To"] = to_email
     html = f"""<div style="font-family:Inter,Arial,sans-serif">
       <h2>Mirvaa Fashions</h2>
       <p>Click the button below to reset your password. This link expires in 30 minutes.</p>
@@ -705,13 +701,23 @@ def _send_reset_email(to_email: str, raw_token: str):
       <p>If the button doesn't work, paste this URL into your browser:</p>
       <p>{reset_url}</p>
     </div>"""
+    _send_email_via_providers(
+        to_email=to_email,
+        subject="Reset your Mirvaa password",
+        html=html,
+    )
+
+def _send_email_via_providers(to_email: str, subject: str, html: str):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = MAIL_FROM or SMTP_USER
+    msg["To"] = to_email
     msg.attach(MIMEText(html, "html"))
 
-    # 1. Try Resend API
     if RESEND_API_KEY:
         try:
             headers = {"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"}
-            payload = {"from": MAIL_FROM or SMTP_USER, "to": to_email, "subject": "Reset your Mirvaa password", "html": html}
+            payload = {"from": MAIL_FROM or SMTP_USER, "to": to_email, "subject": subject, "html": html}
             r = requests.post("https://api.resend.com/emails", headers=headers, json=payload, timeout=15)
             if r.status_code in (200, 201, 202):
                 logging.info(f"Email sent via Resend to {to_email}")
@@ -719,20 +725,19 @@ def _send_reset_email(to_email: str, raw_token: str):
             logging.error(f"Resend error: {r.status_code} {r.text}")
             if r.status_code == 403:
                 if "gmail.com" in payload.get("from", ""):
-                     logging.error("Tip: Resend does not allow sending from @gmail.com. Set MAIL_FROM='onboarding@resend.dev' in your environment variables for testing.")
+                    logging.error("Tip: Resend does not allow sending from @gmail.com. Set MAIL_FROM='onboarding@resend.dev' in your environment variables for testing.")
                 elif "onboarding@resend.dev" in payload.get("from", ""):
-                     logging.error("Tip: When using 'onboarding@resend.dev', you can ONLY send emails to the address you used to sign up for Resend. To send to real users, you must verify your domain (mirvaafashions.com) on Resend.")
+                    logging.error("Tip: When using 'onboarding@resend.dev', you can ONLY send emails to the address you used to sign up for Resend. To send to real users, you must verify your domain (mirvaafashions.com) on Resend.")
         except Exception as e:
             logging.error(f"Resend exception: {type(e).__name__}: {str(e)}")
 
-    # 2. Try SendGrid API
     if SENDGRID_API_KEY:
         try:
             headers = {"Authorization": f"Bearer {SENDGRID_API_KEY}", "Content-Type": "application/json"}
             payload = {
                 "personalizations": [{"to": [{"email": to_email}]}],
                 "from": {"email": MAIL_FROM or SMTP_USER},
-                "subject": "Reset your Mirvaa password",
+                "subject": subject,
                 "content": [{"type": "text/html", "value": html}],
             }
             r = requests.post("https://api.sendgrid.com/v3/mail/send", headers=headers, json=payload, timeout=15)
@@ -743,7 +748,6 @@ def _send_reset_email(to_email: str, raw_token: str):
         except Exception as e:
             logging.error(f"SendGrid exception: {type(e).__name__}: {str(e)}")
 
-    # 3. Try SMTP (Standard Port 587 with STARTTLS)
     context = ssl.create_default_context()
     try:
         logging.info(f"Attempting SMTP connection to {SMTP_HOST}:{SMTP_PORT}...")
@@ -761,9 +765,7 @@ def _send_reset_email(to_email: str, raw_token: str):
             return
     except Exception as e:
         logging.error(f"SMTP {SMTP_PORT} error: {type(e).__name__}: {str(e)}")
-        # If network is unreachable, it might be IPv6 issue.
 
-    # 4. Try SMTP SSL (Port 465)
     try:
         logging.info(f"Attempting SMTP_SSL connection to {SMTP_HOST}:465...")
         with smtplib.SMTP_SSL(SMTP_HOST, 465, context=context, timeout=15) as server:
@@ -775,7 +777,80 @@ def _send_reset_email(to_email: str, raw_token: str):
     except Exception as e:
         logging.error(f"SMTP_SSL 465 error: {type(e).__name__}: {str(e)}")
 
-    logging.error("All email sending methods failed. Please configure RESEND_API_KEY or SENDGRID_API_KEY for reliable delivery in production.")
+
+def _send_order_status_email(order: Dict[str, Any], previous_status: Optional[str], new_status: str):
+    try:
+        user_email = order.get("user_email") or order.get("email")
+        shipping = order.get("shipping_address", {})
+        customer_name = shipping.get("name") or order.get("customer_name") or "Customer"
+        items = order.get("items", [])
+        order_number = order.get("order_number", order.get("id", ""))
+        status_label = new_status.replace("_", " ").title()
+
+        rows = []
+        for item in items:
+            title = item.get("product_title") or item.get("title") or "Product"
+            qty = item.get("quantity", 1)
+            price = item.get("price", 0)
+            rows.append(f"<tr><td>{title}</td><td style='text-align:center'>{qty}</td><td style='text-align:right'>₹{price:.2f}</td></tr>")
+
+        items_html = "".join(rows)
+        total = order.get("total", 0)
+        subtotal = order.get("subtotal", 0)
+        shipping_amount = order.get("shipping", 0)
+
+        base_html = f"""
+        <div style="font-family:Inter,Arial,sans-serif;font-size:14px;color:#111">
+          <h2 style="margin-bottom:8px;">Mirvaa Fashions</h2>
+          <p style="margin:0 0 8px;">Hi {customer_name},</p>
+          <p style="margin:0 0 12px;">Your order <strong>{order_number}</strong> is now <strong>{status_label}</strong>.</p>
+          <p style="margin:0 0 12px;">Order summary:</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+            <thead>
+              <tr>
+                <th style="text-align:left;border-bottom:1px solid #eee;padding:6px 0;">Product</th>
+                <th style="text-align:center;border-bottom:1px solid #eee;padding:6px 0;">Qty</th>
+                <th style="text-align:right;border-bottom:1px solid #eee;padding:6px 0;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items_html}
+            </tbody>
+          </table>
+          <p style="margin:0 0 4px;"><strong>Subtotal:</strong> ₹{subtotal:.2f}</p>
+          <p style="margin:0 0 4px;"><strong>Shipping:</strong> ₹{shipping_amount:.2f}</p>
+          <p style="margin:0 0 12px;"><strong>Total:</strong> ₹{total:.2f}</p>
+          <p style="margin:0 0 4px;"><strong>Current status:</strong> {status_label}</p>
+        </div>
+        """
+
+        if user_email:
+            _send_email_via_providers(
+                to_email=user_email,
+                subject=f"Your Mirvaa order {order_number} is {status_label}",
+                html=base_html,
+            )
+
+        admin_email = "mirvaafashions@gmail.com"
+        admin_html = f"""
+        <div style="font-family:Inter,Arial,sans-serif;font-size:14px;color:#111">
+          <h2 style="margin-bottom:8px;">Order status updated</h2>
+          <p style="margin:0 0 8px;"><strong>Order:</strong> {order_number}</p>
+          <p style="margin:0 0 4px;"><strong>Previous status:</strong> {previous_status or "N/A"}</p>
+          <p style="margin:0 0 12px;"><strong>New status:</strong> {status_label}</p>
+          <p style="margin:0 0 8px;"><strong>Customer:</strong> {customer_name}</p>
+          <p style="margin:0 0 8px;"><strong>Customer email:</strong> {user_email or "Unknown"}</p>
+          {base_html}
+        </div>
+        """
+        _send_email_via_providers(
+            to_email=admin_email,
+            subject=f"Order {order_number} status updated to {status_label}",
+            html=admin_html,
+        )
+    except Exception as e:
+        logging.error(f"Failed to send order status email: {type(e).__name__}: {str(e)}")
+
 
 @api_router.post("/auth/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks):
@@ -1562,7 +1637,11 @@ async def update_return_status(return_id: str, status: str = Body(..., embed=Tru
 # ==================== Order Routes ====================
 
 @api_router.post("/orders/create")
-async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get_current_user)):
+async def create_order(
+    order_data: OrderCreate,
+    background_tasks: BackgroundTasks,
+    current_user: Dict = Depends(get_current_user),
+):
     # Generate order number
     order_number = f"ORD{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:8].upper()}"
     
@@ -1610,15 +1689,29 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
             {"_id": result.inserted_id},
             {"$set": update_fields}
         )
-            
-        # Create Notification
+    
+    if order_data.payment_method == "cod":
         await create_notification(
             type="order_placed",
             message=f"New order placed: {order_number}",
             order_id=order.id
         )
 
-        # Clear cart after order only for COD
+        user_doc = await db.users.find_one({"id": order.user_id}, {"_id": 0})
+        if user_doc:
+            order_dict["user_email"] = user_doc.get("email")
+            if not order_dict.get("shipping_address"):
+                order_dict["shipping_address"] = {
+                    "name": user_doc.get("name"),
+                    "phone": user_doc.get("phone"),
+                }
+        background_tasks.add_task(
+            _send_order_status_email,
+            order_dict,
+            None,
+            "placed",
+        )
+
         await db.cart.delete_many({"user_id": current_user['id']})
     
     # Convert ObjectId to string to make it JSON serializable
@@ -1631,27 +1724,47 @@ async def create_order(order_data: OrderCreate, current_user: Dict = Depends(get
 async def payment_success(
     order_id: str,
     razorpay_payment_id: str,
+    background_tasks: BackgroundTasks,
     razorpay_order_id: Optional[str] = None,
     razorpay_signature: Optional[str] = None,
-    current_user: Dict = Depends(get_current_user)
+    current_user: Dict = Depends(get_current_user),
 ):
     if razorpay_signature and razorpay_order_id and RAZORPAY_KEY_SECRET:
         payload = f"{razorpay_order_id}|{razorpay_payment_id}".encode()
         expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), payload, hashlib.sha256).hexdigest()
         if expected != razorpay_signature:
             raise HTTPException(status_code=400, detail="Invalid payment signature")
+
+    order = await db.orders.find_one({"id": order_id, "user_id": current_user["id"]})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    previous_status = order.get("status")
+
     await db.orders.update_one(
-        {"id": order_id, "user_id": current_user['id']},
+        {"id": order_id, "user_id": current_user["id"]},
         {
             "$set": {
                 "payment_status": "completed",
                 "razorpay_payment_id": razorpay_payment_id,
                 "razorpay_order_id": razorpay_order_id,
                 "status": "placed",
-                "updated_at": datetime.now(timezone.utc).isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         }
     )
+
+    updated_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if updated_order:
+        user_doc = await db.users.find_one({"id": updated_order["user_id"]}, {"_id": 0})
+        if user_doc:
+            updated_order["user_email"] = user_doc.get("email")
+            if not updated_order.get("shipping_address"):
+                updated_order["shipping_address"] = {
+                    "name": user_doc.get("name"),
+                    "phone": user_doc.get("phone"),
+                }
+        background_tasks.add_task(_send_order_status_email, updated_order, previous_status, "placed")
     
     await create_notification(
         type="order_placed",
@@ -1659,8 +1772,7 @@ async def payment_success(
         order_id=order_id
     )
     
-    # Clear cart after successful payment
-    await db.cart.delete_many({"user_id": current_user['id']})
+    await db.cart.delete_many({"user_id": current_user["id"]})
 
     return {"message": "Payment successful", "order_id": order_id}
 
@@ -1914,9 +2026,9 @@ async def get_all_orders(admin: Dict = Depends(get_current_admin)):
 async def update_order_status(
     order_id: str,
     data: OrderStatusUpdate,
-    admin: Dict = Depends(get_current_admin)
+    background_tasks: BackgroundTasks,
+    admin: Dict = Depends(get_current_admin),
 ):
-    # Get the order first to check if status is changing to "shipped"
     order = await db.orders.find_one({"id": order_id})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -1937,46 +2049,55 @@ async def update_order_status(
     if data.cancellation_reason is not None:
         updates["cancellation_reason"] = data.cancellation_reason
 
-    # Update order status
-    result = await db.orders.update_one(
+    await db.orders.update_one(
         {"id": order_id},
         {
             "$set": updates
         }
     )
-    
-    # If status is changed to "shipped", update product stock and sold_count
+
     if status == "shipped" and order["status"] != "shipped":
         for item in order["items"]:
             product_id = item["product_id"]
             quantity = item["quantity"]
-            
-            # Get current product data
             product = await db.products.find_one({"id": product_id})
             if product:
-                # Update product stock and sold_count
                 current_sold_count = product.get('sold_count', 0)
                 new_sold_count = current_sold_count + quantity
-                
                 await db.products.update_one(
                     {"id": product_id},
                     {
                         "$inc": {
-                            "stock": -quantity  # Decrease available stock
+                            "stock": -quantity
                         },
                         "$set": {
-                            "sold_count": new_sold_count  # Set the sold count explicitly
+                            "sold_count": new_sold_count
                         }
                     }
                 )
-                print(f"Stock updated for product {product_id}: new stock = {product['stock'] - quantity}, sold count = {new_sold_count}")
-    
-    # Create Notification if status is delivered
+
     if status == "delivered" and order["status"] != "delivered":
         await create_notification(
             type="order_delivered",
             message=f"Order delivered: {order_id}",
             order_id=order_id
+        )
+
+    updated_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if updated_order:
+        user_doc = await db.users.find_one({"id": updated_order["user_id"]}, {"_id": 0})
+        if user_doc:
+            updated_order["user_email"] = user_doc.get("email")
+            if not updated_order.get("shipping_address"):
+                updated_order["shipping_address"] = {
+                    "name": user_doc.get("name"),
+                    "phone": user_doc.get("phone"),
+                }
+        background_tasks.add_task(
+            _send_order_status_email,
+            updated_order,
+            order.get("status"),
+            status,
         )
 
     return {"message": "Order status updated", "status": status}

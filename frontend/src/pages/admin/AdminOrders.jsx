@@ -24,6 +24,8 @@ export default function AdminOrders({ admin, setAdmin }) {
   const [cancellationReasonInput, setCancellationReasonInput] = useState('');
   const [courierNameInput, setCourierNameInput] = useState('');
   const [trackingUrlInput, setTrackingUrlInput] = useState('');
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [detailsDialogOrder, setDetailsDialogOrder] = useState(null);
 
   useEffect(() => {
     fetchOrders();
@@ -83,6 +85,11 @@ export default function AdminOrders({ admin, setAdmin }) {
     }
 
     handleStatusChange(order.id, newStatus);
+  };
+
+  const handleOrderClick = (order) => {
+    setDetailsDialogOrder(order);
+    setDetailsDialogOpen(true);
   };
 
   const handleStatusDialogSubmit = async (event) => {
@@ -222,7 +229,12 @@ export default function AdminOrders({ admin, setAdmin }) {
         {orders.length > 0 ? (
           <div className="space-y-4" data-testid="admin-orders-list">
             {orders.map((order) => (
-              <Card key={order.id} className="overflow-hidden" data-testid={`admin-order-${order.id}`}>
+              <Card
+                key={order.id}
+                className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                data-testid={`admin-order-${order.id}`}
+                onClick={() => handleOrderClick(order)}
+              >
                 <CardContent className="p-6">
                   <div className="grid md:grid-cols-4 gap-6">
                     {/* Order Info */}
@@ -257,6 +269,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                             target="_blank"
                             rel="noreferrer"
                             className="hover:underline"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             Open tracking link
                           </a>
@@ -299,7 +312,10 @@ export default function AdminOrders({ admin, setAdmin }) {
                         value={order.status}
                         onValueChange={(value) => handleStatusSelect(order, value)}
                       >
-                        <SelectTrigger data-testid={`status-select-${order.id}`}>
+                        <SelectTrigger
+                          data-testid={`status-select-${order.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <SelectValue>
                             <Badge className={getStatusColor(order.status)}>
                               {formatStatusLabel(order.status)}
@@ -325,7 +341,10 @@ export default function AdminOrders({ admin, setAdmin }) {
                       {/* Confirm Order Button */}
                       {(order.status === 'placed' || order.status === 'pending') && (
                         <Button 
-                            onClick={() => handleConfirmOrder(order.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConfirmOrder(order.id);
+                            }}
                             className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white"
                             size="sm"
                         >
@@ -339,7 +358,10 @@ export default function AdminOrders({ admin, setAdmin }) {
                           variant="outline"
                           size="sm"
                           className="w-full mt-2"
-                          onClick={() => handleDownloadLabel(order)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadLabel(order);
+                          }}
                         >
                           <Download className="h-4 w-4 mr-2" />
                           Download PDF
@@ -428,6 +450,137 @@ export default function AdminOrders({ admin, setAdmin }) {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={detailsDialogOpen}
+        onOpenChange={(open) => {
+          setDetailsDialogOpen(open);
+          if (!open) {
+            setDetailsDialogOrder(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {detailsDialogOrder ? `Order #${detailsDialogOrder.order_number}` : 'Order details'}
+            </DialogTitle>
+          </DialogHeader>
+          {detailsDialogOrder && (
+            <div className="space-y-6 text-sm">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <p className="font-semibold mb-1">Customer details</p>
+                  <p className="text-gray-700">{detailsDialogOrder.shipping_address.name}</p>
+                  <p className="text-gray-700">{detailsDialogOrder.shipping_address.phone}</p>
+                  <p className="text-gray-600 mt-1">
+                    {detailsDialogOrder.shipping_address.address}
+                  </p>
+                  <p className="text-gray-600">
+                    {detailsDialogOrder.shipping_address.city}, {detailsDialogOrder.shipping_address.state} - {detailsDialogOrder.shipping_address.pincode}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold mb-1">Order summary</p>
+                  <p className="text-gray-700">
+                    Placed on {new Date(detailsDialogOrder.created_at).toLocaleString()}
+                  </p>
+                  <p className="text-gray-700">
+                    Payment method: {detailsDialogOrder.payment_method}
+                  </p>
+                  <p className="text-gray-700">
+                    Payment status: {detailsDialogOrder.payment_status}
+                  </p>
+                  <div className="mt-1">
+                    <span className="text-gray-700 mr-2">Order status:</span>
+                    <Badge className={getStatusColor(detailsDialogOrder.status)}>
+                      {formatStatusLabel(detailsDialogOrder.status)}
+                    </Badge>
+                  </div>
+                  {detailsDialogOrder.tracking_id && (
+                    <p className="text-gray-700 mt-1">
+                      Tracking ID: {detailsDialogOrder.tracking_id}
+                    </p>
+                  )}
+                  {detailsDialogOrder.courier_name && (
+                    <p className="text-gray-700">
+                      Courier: {detailsDialogOrder.courier_name}
+                    </p>
+                  )}
+                  {detailsDialogOrder.tracking_url && (
+                    <p className="text-blue-600">
+                      <a
+                        href={detailsDialogOrder.tracking_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open tracking link
+                      </a>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className="font-semibold mb-2">
+                  Items ({detailsDialogOrder.items.length})
+                </p>
+                <div className="space-y-3">
+                  {detailsDialogOrder.items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 border rounded-lg p-2"
+                    >
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        <img
+                          src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
+                          alt={item.product_title}
+                          className="w-full h-full object-cover"
+                          onError={onImageError}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{item.product_title}</p>
+                        <div className="flex flex-wrap gap-2 text-xs text-gray-600 mt-1">
+                          {item.size && <span>Size: {item.size}</span>}
+                          {item.color && <span>Color: {item.color}</span>}
+                          <span>Qty: {item.quantity}</span>
+                        </div>
+                      </div>
+                      <div className="text-right text-sm flex-shrink-0">
+                        <p className="font-semibold">
+                          ₹{item.price.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Line total: ₹{(item.price * item.quantity).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t pt-3 flex flex-col items-end gap-1 text-sm">
+                <p>
+                  Subtotal: <span className="font-semibold">₹{detailsDialogOrder.subtotal.toLocaleString()}</span>
+                </p>
+                <p>
+                  Tax: <span className="font-semibold">₹{detailsDialogOrder.tax.toLocaleString()}</span>
+                </p>
+                <p>
+                  Shipping: <span className="font-semibold">₹{detailsDialogOrder.shipping.toLocaleString()}</span>
+                </p>
+                <p className="text-base">
+                  Total:{' '}
+                  <span className="font-bold">
+                    ₹{detailsDialogOrder.total.toLocaleString()}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AdminLayout>
