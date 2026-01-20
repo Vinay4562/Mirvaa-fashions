@@ -151,15 +151,10 @@ export default function AdminOrders({ admin, setAdmin }) {
     try {
       let url;
 
-      // Prefer invoice_url (Mirvaa invoice PDF). Fallback to label_url, then Delhivery label endpoint.
-      const pdfPath = order.invoice_url || order.label_url || null;
+      const hasInvoice = order.invoice_url || order.label_url;
 
-      if (pdfPath) {
-        if (pdfPath.startsWith('http')) {
-          url = pdfPath;
-        } else {
-          url = `${BACKEND_URL}${pdfPath}`;
-        }
+      if (hasInvoice) {
+        url = `${BACKEND_URL}/api/admin/orders/${order.id}/invoice`;
       } else if (order.delhivery_waybill) {
         url = `${BACKEND_URL}/api/admin/orders/${order.id}/label`;
       } else {

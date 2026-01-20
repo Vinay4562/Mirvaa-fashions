@@ -899,14 +899,50 @@ async def reset_password(data: ResetPasswordConfirm):
     )
     return {"message": "Password updated"}
 
+DISPOSABLE_DOMAINS = {
+    "tempmail.com", "10minutemail.com", "guerrillamail.com", "mailinator.com",
+    "yopmail.com", "throwawaymail.com", "getnada.com", "sharklasers.com",
+    "temp-mail.org", "fakemail.net"
+}
+
 @api_router.post("/auth/send-otp")
 async def send_otp(req: SendOtpRequest):
+    # Validate disposable email
+    email_domain = req.email.split('@')[-1].lower()
+    if email_domain in DISPOSABLE_DOMAINS:
+        logging.warning(f"Blocked disposable email signup attempt: {req.email}")
+        raise HTTPException(status_code=400, detail="Disposable email addresses are not allowed. Please use a real email ID.")
+
+    # Rate limiting
+    existing_otp = await db.email_otps.find_one({"email": req.email})
+    if existing_otp:
+        last_sent = existing_otp.get("last_sent_at")
+        if last_sent:
+            if isinstance(last_sent, str):
+                try:
+                    last_sent_dt = datetime.fromisoformat(last_sent)
+                except ValueError:
+                    last_sent_dt = datetime.now(timezone.utc) - timedelta(minutes=2)
+            else:
+                last_sent_dt = last_sent
+            
+            if datetime.now(timezone.utc) - last_sent_dt < timedelta(minutes=1):
+                 logging.warning(f"Rate limit exceeded for OTP request: {req.email}")
+                 raise HTTPException(status_code=429, detail="Please wait before requesting another OTP.")
+
     code = f"{uuid.uuid4().int % 1000000:06d}"
     code_hash = hashlib.sha256(code.encode()).hexdigest()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
     await db.email_otps.update_one(
         {"email": req.email},
-        {"$set": {"email": req.email, "code_hash": code_hash, "expires_at": expires_at.isoformat()}},
+        {
+            "$set": {
+                "email": req.email, 
+                "code_hash": code_hash, 
+                "expires_at": expires_at.isoformat(),
+                "last_sent_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
         upsert=True,
     )
     msg = MIMEMultipart("alternative")

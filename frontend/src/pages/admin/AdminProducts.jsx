@@ -21,7 +21,7 @@ export default function AdminProducts({ admin, setAdmin }) {
   const [showDialog, setShowDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [categories, setCategories] = useState(['All', 'Sarees', 'T-Shirts', 'Shirts', 'Hoodies', 'Jewelry', 'Kids Wear', 'Ladies Dresses', 'Men\'s Wear']);
+  const [categories, setCategories] = useState(['All', 'Sarees', 'T-Shirts', 'Shirts', 'Hoodies', 'Jewelry', 'Kids Wear', 'Ladies Dresses', 'Men\'s Wear', 'Jeans']);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
