@@ -26,6 +26,8 @@ import asyncio
 import smtplib
 import socket
 import ssl
+import time
+import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 try:
@@ -1249,14 +1251,52 @@ async def get_products(
 
 @api_router.get("/products/featured", response_model=List[Product])
 async def get_featured_products():
-    products = await db.products.find({"is_featured": True}, {"_id": 0}).limit(8).to_list(8)
+    # Fetch a larger pool to allow for rotation
+    products = await db.products.find({"is_featured": True}, {"_id": 0}).limit(50).to_list(50)
     
-    for product in products:
+    # Shuffle based on time (every 10 minutes)
+    if products:
+        seed = int(time.time() / 600)
+        random.seed(seed)
+        random.shuffle(products)
+    
+    # Return top 8
+    selected_products = products[:8]
+    
+    for product in selected_products:
         if isinstance(product.get('created_at'), str):
             product['created_at'] = datetime.fromisoformat(product['created_at'])
         ensure_product_images(product)
     
-    return products
+    return selected_products
+
+@api_router.get("/products/new-arrivals", response_model=List[Product])
+async def get_new_arrivals():
+    # Categories to include (pulling from all requested categories)
+    # We include variations like "Men's Wear" just in case, but prioritize the user's list.
+    target_categories = ["Shirts", "Jeans", "Ladies Dresses", "Sarees", "Men's Wear"]
+    
+    # Fetch recent products from these categories (larger pool for rotation)
+    products = await db.products.find(
+        {"category": {"$in": target_categories}}, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    # Shuffle based on time (every 10 minutes)
+    if products:
+        seed = int(time.time() / 600)
+        random.seed(seed)
+        random.shuffle(products)
+    
+    # Return top 8
+    selected_products = products[:8]
+    
+    for product in selected_products:
+        if isinstance(product.get('created_at'), str):
+            product['created_at'] = datetime.fromisoformat(product['created_at'])
+        ensure_product_images(product)
+    
+    return selected_products
 
 @api_router.get("/products/{product_id}", response_model=Product)
 async def get_product(product_id: str):

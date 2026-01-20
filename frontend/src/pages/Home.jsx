@@ -54,7 +54,7 @@ export default function Home({ user, setUser }) {
       const [categoriesRes, featuredRes, newRes] = await Promise.all([
         apiClient.get('/categories').catch(() => ({ data: [] })),
         apiClient.get('/products/featured').catch(() => ({ data: [] })),
-        apiClient.get('/products?sort=newest&limit=8').catch(() => ({ data: [] })),
+        apiClient.get('/products/new-arrivals').catch(() => ({ data: [] })),
       ]);
 
       const categoriesData = categoriesRes.data || [];
