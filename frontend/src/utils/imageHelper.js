@@ -10,7 +10,7 @@ const getBackendUrl = () => {
   
   // Production frontend should use production backend
   if (hostname === 'mirvaa-fashions.vercel.app' || hostname.includes('vercel.app')) {
-    return 'https://mirvaa-backend.onrender.com';
+    return 'https://mirvaa-backend-production.up.railway.app';
   }
   
   // Development or localhost
