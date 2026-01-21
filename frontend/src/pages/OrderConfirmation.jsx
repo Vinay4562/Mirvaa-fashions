@@ -10,7 +10,7 @@ import Footer from '@/components/Footer';
 import TrackingTimeline from '@/components/TrackingTimeline';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -197,8 +197,11 @@ export default function OrderConfirmation({ user, setUser }) {
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                     <img
                       src={getImageUrl(item.product_image || productImageById[item.product_id] || item.product?.images?.[0]) || 'https://via.placeholder.com/100'}
+                      srcSet={getSrcSet(item.product_image || productImageById[item.product_id] || item.product?.images?.[0])}
+                      sizes="80px"
                       alt={item.product_title}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                       onError={onImageError}
                     />
                   </div>
@@ -281,7 +284,7 @@ export default function OrderConfirmation({ user, setUser }) {
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                           <img
                             src={
-                              getImageUrl(
+                              getThumbnailUrl(
                                 item.product_image ||
                                   productImageById[item.product_id] ||
                                   item.product?.images?.[0]
@@ -289,6 +292,7 @@ export default function OrderConfirmation({ user, setUser }) {
                             }
                             alt={item.product_title}
                             className="w-full h-full object-cover"
+                            loading="lazy"
                             onError={onImageError}
                           />
                         </div>

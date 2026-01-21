@@ -38,6 +38,19 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
     navigate('/');
   };
 
+  const hideMobileSearch = 
+    location.pathname.startsWith('/products/') || 
+    location.pathname === '/cart' || 
+    location.pathname === '/wishlist' || 
+    location.pathname.startsWith('/account');
+
+  const isProductDetail = location.pathname.startsWith('/products/') && location.pathname !== '/products';
+  const shouldHideMobileSearch = 
+    location.pathname === '/cart' || 
+    location.pathname === '/wishlist' || 
+    location.pathname.startsWith('/account') || 
+    isProductDetail;
+
   return (
     <>
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -127,6 +140,18 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
               {/* Notification - Mobile only */}
               <NotificationPopover user={user} />
 
+              {/* Cart - Mobile only */}
+              <Link to="/cart" className="md:hidden relative" data-testid="mobile-cart-link">
+                <Button variant="ghost" size="icon" className="relative btn-hover">
+                  <ShoppingCart className="h-6 w-6" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" data-testid="mobile-cart-count">
+                      {cartCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+
               {/* Cart - Desktop only */}
               <Link to="/cart" data-testid="cart-link" className="hidden md:flex">
                 <Button variant="ghost" size="icon" className="relative btn-hover">
@@ -185,22 +210,24 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
           </div>
         </div>
 
-        {/* Mobile Search Bar - Always visible on mobile */}
-        <div className="md:hidden px-4 pb-4">
-          <form onSubmit={handleSearch}>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Search by Keyword or Product ID"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 bg-gray-50 text-sm"
-                data-testid="mobile-search-input-main"
-              />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            </div>
-          </form>
-        </div>
+        {/* Mobile Search Bar - Always visible on mobile unless on specific pages */}
+        {!shouldHideMobileSearch && (
+          <div className="md:hidden px-4 pb-4">
+            <form onSubmit={handleSearch}>
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search by Keyword or Product ID"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 bg-gray-50 text-sm"
+                  data-testid="mobile-search-input-main"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
+            </form>
+          </div>
+        )}
 
       </nav>
 

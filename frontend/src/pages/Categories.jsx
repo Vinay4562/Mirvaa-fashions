@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiClient } from "@/utils/api";
+import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import BottomNav from "@/components/BottomNav";
 
 export default function Categories({ user, setUser }) {
   const [categories, setCategories] = useState([]);
@@ -53,23 +55,26 @@ export default function Categories({ user, setUser }) {
 
   const GridItem = ({ item }) => (
     <Link to={`/products?category=${item.slug}`} className="block group">
-      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gray-100 overflow-hidden shrink-0">
+      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 h-full">
+        <CardContent className="p-3 sm:p-5 h-full">
+          <div className="flex flex-col items-center gap-3 text-center h-full">
+            <div className="relative w-full aspect-square rounded-lg bg-gray-100 overflow-hidden shrink-0">
               <img
-                src={item.image}
+                src={getImageUrl(item.image)}
+                srcSet={getSrcSet(item.image)}
+                sizes="(max-width: 768px) 50vw, 33vw"
                 alt={item.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
+                onError={onImageError}
               />
             </div>
-            <div className="min-w-0">
-              <div className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+            <div className="min-w-0 flex flex-col justify-center flex-1">
+              <div className="text-sm sm:text-lg font-semibold text-gray-900 truncate w-full">
                 {item.name}
               </div>
-              <div className="text-xs sm:text-sm text-gray-500">
-                Explore {item.name.toLowerCase()}
+              <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                Explore
               </div>
             </div>
           </div>
@@ -99,13 +104,13 @@ export default function Categories({ user, setUser }) {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <Card key={i}>
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="w-16 h-16 sm:w-20 sm:h-20 rounded-full" />
-                    <div className="flex-1 space-y-2">
+                <CardContent className="p-3 sm:p-5">
+                  <div className="flex flex-col items-center gap-3">
+                    <Skeleton className="w-full aspect-square rounded-lg" />
+                    <div className="w-full space-y-2 flex flex-col items-center">
                       <Skeleton className="h-4 w-2/3" />
                       <Skeleton className="h-3 w-1/3" />
                     </div>
@@ -115,13 +120,14 @@ export default function Categories({ user, setUser }) {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
             {categories.map((cat) => (
               <GridItem key={cat.slug} item={cat} />
             ))}
           </div>
         )}
       </div>
+      <BottomNav />
     </div>
   );
 }

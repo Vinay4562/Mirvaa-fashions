@@ -115,8 +115,13 @@ export default function Checkout({ user, setUser }) {
     return 0;
   };
 
+  const calculateShipping = () => {
+    const subtotal = calculateSubtotal();
+    return subtotal < 500 ? 50 : 0;
+  };
+
   const calculateTotal = () => {
-    return calculateSubtotal();
+    return calculateSubtotal() + calculateShipping();
   };
 
   const loadRazorpay = () =>
@@ -178,7 +183,7 @@ export default function Checkout({ user, setUser }) {
         })),
         subtotal: calculateSubtotal(),
         tax: calculateTax(),
-        shipping: 0,
+        shipping: calculateShipping(),
         total: calculateTotal(),
         payment_method: paymentMethod,
         shipping_address: shippingAddress,
@@ -399,9 +404,12 @@ export default function Checkout({ user, setUser }) {
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                           <img
                             src={getImageUrl(item.product.images[0])}
+                            srcSet={getSrcSet(item.product.images[0])}
+                            sizes="64px"
                             alt={item.product.title}
                             className="w-full h-full object-cover"
                             onError={onImageError}
+                            loading="lazy"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -423,7 +431,11 @@ export default function Checkout({ user, setUser }) {
                     </div>
                     <div className="flex justify-between text-gray-600">
                       <span>Shipping</span>
-                      <span className="text-green-600">FREE</span>
+                      {calculateShipping() > 0 ? (
+                        <span className="text-red-600">+₹{calculateShipping()}</span>
+                      ) : (
+                        <span className="text-green-600">FREE</span>
+                      )}
                     </div>
                   </div>
 

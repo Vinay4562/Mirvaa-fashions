@@ -1,18 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
-import { getImageUrl, getOptimizedImageUrl, getThumbnailUrl, getMediumImageUrl, getLargeImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getOptimizedImageUrl, getThumbnailUrl, getMediumImageUrl, getLargeImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -42,6 +46,178 @@ export default function ProductDetail({ user, setUser }) {
   const touchStartYRef = useRef(0);
   const isSwipingMainImageRef = useRef(false);
   const lastSwipeTimeRef = useRef(0);
+
+  // WhatsApp Order State
+  const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false);
+  const [waPaymentMethod, setWaPaymentMethod] = useState('upi');
+  const [waName, setWaName] = useState('');
+  const [waPhone, setWaPhone] = useState('');
+  const [waAddress, setWaAddress] = useState('');
+  const [waCity, setWaCity] = useState('');
+  const [waState, setWaState] = useState('');
+  const [waPincode, setWaPincode] = useState('');
+  const [waProcessing, setWaProcessing] = useState(false);
+  
+  // Pre-fill user data if available for WhatsApp Order
+  useEffect(() => {
+    if (user) {
+      setWaName(user.name || '');
+      setWaPhone(user.phone || '');
+      if (user.addresses && user.addresses.length > 0) {
+        const defaultAddr = user.addresses[0];
+        setWaAddress(defaultAddr.address || '');
+        setWaCity(defaultAddr.city || '');
+        setWaState(defaultAddr.state || '');
+        setWaPincode(defaultAddr.pincode || '');
+      }
+    }
+  }, [user]);
+
+  const loadRazorpay = () =>
+    new Promise((resolve, reject) => {
+      if (window.Razorpay) return resolve();
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Razorpay'));
+      document.body.appendChild(script);
+    });
+
+  const handleWhatsAppOrder = async () => {
+     // Validation
+     if (!waName || !waPhone || !waAddress || !waCity || !waPincode) {
+       toast.error('Please fill in all address fields');
+       return;
+     }
+
+     setWaProcessing(true);
+
+     try {
+       let paymentDetails = 'COD (Cash on Delivery)';
+       let paymentId = '';
+       let orderIdForMsg = '';
+
+       if (waPaymentMethod === 'upi') {
+         // Create Order
+         const subtotal = product.price * quantity;
+         const shipping = subtotal < 500 ? 50 : 0;
+         const total = subtotal + shipping;
+
+         const orderData = {
+            items: [{
+              product_id: product.id,
+              product_title: product.title,
+              product_image: images[0],
+              price: product.price,
+              quantity: quantity,
+              size: selectedSize,
+              color: selectedColor,
+            }],
+            subtotal: subtotal,
+            tax: 0,
+            shipping: shipping,
+            total: total,
+            payment_method: 'razorpay',
+            shipping_address: {
+              name: waName,
+              phone: waPhone,
+              address: waAddress,
+              city: waCity,
+              state: waState,
+              pincode: waPincode
+            },
+         };
+         
+         const response = await apiClient.post('/orders/create', orderData);
+         const order = response.data;
+         orderIdForMsg = order.order_number;
+
+         // Open Razorpay
+         await loadRazorpay();
+         
+         await new Promise((resolve, reject) => {
+            const options = {
+              key: order.razorpay_key_id,
+              amount: Math.round(order.total * 100),
+              currency: 'INR',
+              name: 'Mirvaa Fashions',
+              description: `Order #${order.order_number}`,
+              order_id: order.razorpay_order_id,
+              prefill: {
+                name: waName,
+                email: user?.email || '',
+                contact: waPhone,
+              },
+              handler: async function (response) {
+                 try {
+                    const params = new URLSearchParams({
+                      razorpay_payment_id: response.razorpay_payment_id,
+                      razorpay_order_id: response.razorpay_order_id,
+                      razorpay_signature: response.razorpay_signature,
+                    }).toString();
+                    await apiClient.post(`/orders/${order.id}/payment-success?${params}`);
+                    paymentDetails = `PAID via UPI/Online`;
+                    paymentId = response.razorpay_payment_id;
+                    resolve();
+                 } catch (e) {
+                    reject(e);
+                 }
+              },
+              modal: {
+                ondismiss: function() {
+                  reject(new Error('Payment cancelled'));
+                }
+              }
+            };
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+         });
+       }
+
+       // Construct WhatsApp Message
+       const subtotal = product.price * quantity;
+       const shipping = subtotal < 500 ? 50 : 0;
+       const total = subtotal + shipping;
+
+       const message = `*New Order Request*
+Product: ${product.title}
+Price: ₹${product.price}
+Qty: ${quantity}
+${selectedSize ? `Size: ${selectedSize}` : ''}
+${selectedColor ? `Color: ${selectedColor}` : ''}
+---------------------------
+Subtotal: ₹${subtotal}
+Shipping: ₹${shipping}
+*Total*: ₹${total}
+---------------------------
+*Payment*: ${paymentDetails}
+${paymentId ? `Payment ID: ${paymentId}` : ''}
+${orderIdForMsg ? `Order ID: ${orderIdForMsg}` : ''}
+---------------------------
+*Delivery Address*:
+${waName}
+${waPhone}
+${waAddress}
+${waCity}, ${waState} - ${waPincode}
+
+Please confirm my order.`;
+
+       const encodedMessage = encodeURIComponent(message);
+       const whatsappUrl = `https://wa.me/919391243377?text=${encodedMessage}`;
+       
+       window.open(whatsappUrl, '_blank');
+       setIsWhatsAppDialogOpen(false);
+       toast.success('Redirecting to WhatsApp...');
+
+     } catch (error) {
+       console.error(error);
+       if (error.message !== 'Payment cancelled') {
+          toast.error(error.message || 'Something went wrong');
+       }
+     } finally {
+       setWaProcessing(false);
+     }
+  };
 
   useEffect(() => {
     fetchProduct();
@@ -379,11 +555,7 @@ export default function ProductDetail({ user, setUser }) {
             >
               <img
                 src={getMediumImageUrl(images[selectedImage])}
-                srcSet={[
-                  `${getThumbnailUrl(images[selectedImage])} 160w`,
-                  `${getMediumImageUrl(images[selectedImage])} 768w`,
-                  `${getLargeImageUrl(images[selectedImage])} 1600w`,
-                ].join(', ')}
+                srcSet={getSrcSet(images[selectedImage])}
                 sizes="(max-width: 768px) calc(100vw - 2rem), 50vw"
                 alt={product.title}
                 className="w-full h-full object-contain md:object-cover transition-all duration-200"
@@ -669,11 +841,7 @@ export default function ProductDetail({ user, setUser }) {
                     <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                       <img
                         src={getMediumImageUrl(relProduct.images[0])}
-                        srcSet={[
-                          `${getThumbnailUrl(relProduct.images[0])} 160w`,
-                          `${getMediumImageUrl(relProduct.images[0])} 768w`,
-                          `${getLargeImageUrl(relProduct.images[0])} 1600w`,
-                        ].join(', ')}
+                        srcSet={getSrcSet(relProduct.images[0])}
                         sizes="(max-width: 768px) 50vw, 25vw"
                         alt={relProduct.title}
                         className="w-full h-full object-cover image-zoom"
@@ -831,6 +999,79 @@ export default function ProductDetail({ user, setUser }) {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp Float Button (Mobile Only) */}
+      <div className="md:hidden fixed bottom-20 right-4 z-40">
+        <Button
+          onClick={() => setIsWhatsAppDialogOpen(true)}
+          className="rounded-full w-14 h-14 bg-[#25D366] hover:bg-[#128C7E] shadow-lg p-0 flex items-center justify-center animate-pulse-zoom"
+        >
+           <svg 
+             viewBox="0 0 24 24" 
+             className="w-8 h-8 fill-white"
+             xmlns="http://www.w3.org/2000/svg"
+           >
+             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+           </svg>
+        </Button>
+      </div>
+
+      <Dialog open={isWhatsAppDialogOpen} onOpenChange={setIsWhatsAppDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Order via WhatsApp</DialogTitle>
+            <DialogDescription>
+              Complete your order details below to proceed.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+             {/* Product Summary */}
+             <div className="flex gap-3 bg-gray-50 p-2 rounded">
+                <img src={getThumbnailUrl(images[0])} className="w-16 h-16 object-cover rounded" />
+                <div>
+                   <p className="font-semibold line-clamp-1">{product.title}</p>
+                   <p className="text-sm">Qty: {quantity} • ₹{product.price}</p>
+                   {(selectedSize || selectedColor) && <p className="text-xs text-gray-500">{selectedSize} {selectedColor}</p>}
+                </div>
+             </div>
+
+             {/* Payment Method */}
+             <div className="space-y-2">
+               <Label>Payment Method</Label>
+               <RadioGroup value={waPaymentMethod} onValueChange={setWaPaymentMethod} className="flex gap-4">
+                 <div className="flex items-center space-x-2">
+                   <RadioGroupItem value="upi" id="wa-upi" />
+                   <Label htmlFor="wa-upi">UPI (Pay Now)</Label>
+                 </div>
+                 <div className="flex items-center space-x-2">
+                   <RadioGroupItem value="cod" id="wa-cod" />
+                   <Label htmlFor="wa-cod">Cash on Delivery</Label>
+                 </div>
+               </RadioGroup>
+             </div>
+
+             {/* Address Form */}
+             <div className="space-y-3">
+               <Label>Delivery Details</Label>
+               <Input placeholder="Full Name" value={waName} onChange={e => setWaName(e.target.value)} />
+               <Input placeholder="Phone Number" value={waPhone} onChange={e => setWaPhone(e.target.value)} />
+               <Textarea placeholder="Address" value={waAddress} onChange={e => setWaAddress(e.target.value)} rows={2} />
+               <div className="grid grid-cols-2 gap-2">
+                 <Input placeholder="City" value={waCity} onChange={e => setWaCity(e.target.value)} />
+                 <Input placeholder="Pincode" value={waPincode} onChange={e => setWaPincode(e.target.value)} />
+               </div>
+               <Input placeholder="State" value={waState} onChange={e => setWaState(e.target.value)} />
+             </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={handleWhatsAppOrder} disabled={waProcessing} className="w-full bg-green-600 hover:bg-green-700">
+               {waProcessing ? 'Processing...' : (waPaymentMethod === 'upi' ? 'Pay & Order on WhatsApp' : 'Order on WhatsApp')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

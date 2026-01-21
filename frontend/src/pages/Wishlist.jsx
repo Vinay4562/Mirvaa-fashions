@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -98,9 +98,12 @@ export default function Wishlist({ user, setUser }) {
                   <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                     <img
                       src={(item.product.images && item.product.images[0]) ? getImageUrl(item.product.images[0]) : 'https://via.placeholder.com/400x500'}
+                      srcSet={(item.product.images && item.product.images[0]) ? getSrcSet(item.product.images[0]) : ''}
+                      sizes="(max-width: 768px) 50vw, 25vw"
                       alt={item.product.title}
                       className="w-full h-full object-cover image-zoom"
                       onError={onImageError}
+                      loading="lazy"
                     />
                   </div>
                 </Link>

@@ -8,7 +8,7 @@ import AuthDialog from '@/components/AuthDialog';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 
 export default function Home({ user, setUser }) {
@@ -129,6 +129,7 @@ export default function Home({ user, setUser }) {
             src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop" 
             alt="Hero Fashion" 
             className="w-full h-full object-cover opacity-60 scale-105 animate-slow-zoom"
+            fetchPriority="high"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         </div>
@@ -213,6 +214,7 @@ export default function Home({ user, setUser }) {
                     src={category.image} 
                     alt={category.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 </div>
                 <span className="text-xs text-center font-medium leading-tight text-gray-800">{category.name}</span>
@@ -263,9 +265,12 @@ export default function Home({ user, setUser }) {
                   <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 mb-2 md:mb-4">
                     <img 
                       src={getImageUrl(product.images?.[0])} 
+                      srcSet={getSrcSet(product.images?.[0])}
+                      sizes="(max-width: 768px) 160px, 320px"
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       onError={onImageError}
+                      loading="lazy"
                     />
                     {/* Quick Action Overlay - Desktop only */}
                     <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
@@ -309,9 +314,12 @@ export default function Home({ user, setUser }) {
                   <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-white mb-2 md:mb-4 shadow-sm">
                     <img 
                       src={getImageUrl(product.images?.[0])} 
+                      srcSet={getSrcSet(product.images?.[0])}
+                      sizes="(max-width: 768px) 160px, 320px"
                       alt={product.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       onError={onImageError}
+                      loading="lazy"
                     />
                     {/* Quick Action Overlay - Desktop only */}
                     <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">

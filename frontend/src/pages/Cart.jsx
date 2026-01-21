@@ -8,7 +8,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -75,10 +75,19 @@ export default function Cart({ user, setUser }) {
     }
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
       return total + item.product.price * item.quantity;
     }, 0);
+  };
+
+  const calculateShipping = () => {
+    const subtotal = calculateSubtotal();
+    return subtotal < 500 ? 50 : 0;
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateShipping();
   };
 
   const handleCheckout = () => {
@@ -108,9 +117,12 @@ export default function Cart({ user, setUser }) {
                         <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-gray-100">
                           <img
                             src={getImageUrl(item.product.images[0])}
+                            srcSet={getSrcSet(item.product.images[0])}
+                            sizes="(max-width: 768px) 80px, 96px"
                             alt={item.product.title}
                             className="w-full h-full object-cover"
                             onError={onImageError}
+                            loading="lazy"
                           />
                         </div>
                       </Link>
@@ -180,11 +192,15 @@ export default function Cart({ user, setUser }) {
                   <div className="space-y-2">
                     <div className="flex justify-between text-gray-600">
                       <span>Subtotal ({cartItems.length} items)</span>
-                      <span>₹{calculateTotal().toLocaleString()}</span>
+                      <span>₹{calculateSubtotal().toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-gray-600">
                       <span>Shipping</span>
-                      <span className="text-green-600">FREE</span>
+                      {calculateShipping() > 0 ? (
+                        <span className="text-red-600">+₹{calculateShipping()}</span>
+                      ) : (
+                        <span className="text-green-600">FREE</span>
+                      )}
                     </div>
                   </div>
 
@@ -224,6 +240,7 @@ export default function Cart({ user, setUser }) {
       </div>
 
       <Footer />
+      <BottomNav cartCount={cartItems.length} />
     </div>
   );
 }

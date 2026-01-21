@@ -135,12 +135,25 @@ code {
     }
 }
 
+@keyframes pulse-zoom {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
 .animate-fade-in-up {
     animation: fade-in-up 0.8s ease-out forwards;
 }
 
 .animate-slow-zoom {
     animation: slow-zoom 20s linear infinite alternate;
+}
+
+.animate-pulse-zoom {
+    animation: pulse-zoom 2s infinite ease-in-out;
 }
 
 .delay-100 {

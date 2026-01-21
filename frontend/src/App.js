@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
+import BackButtonHandler from "./components/BackButtonHandler";
 import Loading from "./components/Loading";
 import { Toaster } from "@/components/ui/sonner";
 import { apiClient } from "@/utils/api";

@@ -10,7 +10,7 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import AuthDialog from '@/components/AuthDialog';
 import Loading from '@/components/Loading';
@@ -204,9 +204,12 @@ export default function Account({ user, setUser }) {
                           <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                             <img
                               src={getImageUrl(productImageById[item.product_id] || item.product_image || 'https://via.placeholder.com/100')}
+                              srcSet={getSrcSet(productImageById[item.product_id] || item.product_image)}
+                              sizes="64px"
                               alt={item.product_title}
                               className="w-full h-full object-cover"
                               onError={onImageError}
+                              loading="lazy"
                             />
                           </div>
                         ))}

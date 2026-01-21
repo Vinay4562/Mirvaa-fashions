@@ -107,6 +107,21 @@ export const getLargeImageUrl = (imagePath) => {
   return getOptimizedImageUrl(imagePath, 1600, undefined, 90);
 };
 
+/**
+ * Helper function to generate srcSet for responsive images
+ * @param {string} imagePath - The relative or absolute image path
+ * @returns {string} - The srcSet string
+ */
+export const getSrcSet = (imagePath) => {
+  if (!imagePath) return '';
+  const small = getThumbnailUrl(imagePath);
+  const medium = getImageUrl(imagePath); // 400px
+  const large = getMediumImageUrl(imagePath); // 768px
+  const extraLarge = getLargeImageUrl(imagePath); // 1600px
+  
+  return `${small} 160w, ${medium} 400w, ${large} 768w, ${extraLarge} 1600w`;
+};
+
 export const onImageError = (e) => {
   const img = e.currentTarget;
   if (!img) return;
