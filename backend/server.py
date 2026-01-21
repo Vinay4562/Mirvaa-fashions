@@ -135,7 +135,7 @@ os.makedirs(uploads_dir, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=["*"] + ALLOWED_ORIGINS + ["http://localhost", "capacitor://localhost"],  # Allow all origins for development plus explicit Capacitor origins
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -1721,6 +1721,17 @@ async def create_order(
     # Generate order number
     order_number = f"ORD{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:8].upper()}"
     
+    # Enforce delivery charge rule
+    # If subtotal < 500, shipping must be 50. Otherwise 0 (or whatever was passed, but we force 0 for consistency with "Free Shipping" logic if > 500)
+    # Note: This overrides client-side calculations to ensure security
+    if order_data.subtotal < 500:
+        order_data.shipping = 50.0
+    else:
+        order_data.shipping = 0.0
+    
+    # Recalculate total to ensure consistency
+    order_data.total = order_data.subtotal + order_data.tax + order_data.shipping
+
     razorpay_order_id = None
     if order_data.payment_method == "razorpay":
         if razorpay_client is None:

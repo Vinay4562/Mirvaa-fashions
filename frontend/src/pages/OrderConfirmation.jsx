@@ -231,7 +231,11 @@ export default function OrderConfirmation({ user, setUser }) {
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Shipping</span>
-                <span className="text-green-600">FREE</span>
+                {order.shipping > 0 ? (
+                  <span className="text-red-600">+₹{order.shipping.toLocaleString()}</span>
+                ) : (
+                  <span className="text-green-600">FREE</span>
+                )}
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Tax</span>
