@@ -34,7 +34,7 @@ import qrcode
 try:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, A6, landscape, portrait
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepInFrame
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as PlatypusImage, KeepInFrame
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch, mm, cm
     from reportlab.graphics.barcode import code128
@@ -567,7 +567,7 @@ def generate_order_label(order: Dict) -> str:
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             buf.seek(0)
-            return Image(buf, width=1.0*inch, height=1.0*inch)
+            return PlatypusImage(buf, width=1.0*inch, height=1.0*inch)
 
         # Helper to create Barcode
         def create_barcode(data):
