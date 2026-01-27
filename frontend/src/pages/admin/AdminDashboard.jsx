@@ -38,55 +38,61 @@ export default function AdminDashboard({ admin, setAdmin }) {
   return (
     <AdminLayout admin={admin} setAdmin={setAdmin} title="Dashboard">
       {/* Stats Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link to="/admin/analytics/products">
-          <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <div className="p-2 rounded-full bg-blue-50">
-                <Package className="h-5 w-5 text-blue-600" />
+          <Card className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-gray-600 group-hover:text-blue-600 transition-colors">Total Products</CardTitle>
+              <div className="p-3 rounded-2xl bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                <Package className="h-5 w-5" />
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.products_count}</div>
-              <p className="text-xs text-gray-600">
-                Products in inventory
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black tracking-tight text-gray-900 group-hover:scale-105 transition-transform origin-left duration-300">
+                {stats.products_count}
+              </div>
+              <p className="text-xs font-medium text-gray-500 mt-1">
+                Active inventory items
               </p>
             </CardContent>
           </Card>
         </Link>
 
         <Link to="/admin/analytics/orders">
-          <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-green-400 to-green-600"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <div className="p-2 rounded-full bg-green-50">
-                <ShoppingBag className="h-5 w-5 text-green-600" />
+          <Card className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-gray-600 group-hover:text-green-600 transition-colors">Total Orders</CardTitle>
+              <div className="p-3 rounded-2xl bg-green-100 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                <ShoppingBag className="h-5 w-5" />
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.orders_count}</div>
-              <p className="text-xs text-gray-600">
-                Orders processed
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black tracking-tight text-gray-900 group-hover:scale-105 transition-transform origin-left duration-300">
+                {stats.orders_count}
+              </div>
+              <p className="text-xs font-medium text-gray-500 mt-1">
+                Processed & Pending
               </p>
             </CardContent>
           </Card>
         </Link>
 
         <Link to="/admin/analytics/users">
-          <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-purple-400 to-purple-600"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <div className="p-2 rounded-full bg-purple-50">
-                <Users className="h-5 w-5 text-purple-600" />
+          <Card className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-gray-600 group-hover:text-purple-600 transition-colors">Total Users</CardTitle>
+              <div className="p-3 rounded-2xl bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                <Users className="h-5 w-5" />
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.users_count}</div>
-              <p className="text-xs text-gray-600">
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black tracking-tight text-gray-900 group-hover:scale-105 transition-transform origin-left duration-300">
+                {stats.users_count}
+              </div>
+              <p className="text-xs font-medium text-gray-500 mt-1">
                 Registered customers
               </p>
             </CardContent>
@@ -94,20 +100,20 @@ export default function AdminDashboard({ admin, setAdmin }) {
         </Link>
 
         <Link to="/admin/analytics/revenue">
-          <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:translate-y-[-5px] border-0 shadow-md">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 to-amber-600"></div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <div className="p-2 rounded-full bg-amber-50">
-                <TrendingUp className="h-5 w-5 text-amber-600" />
+          <Card className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-gray-600 group-hover:text-amber-600 transition-colors">Total Revenue</CardTitle>
+              <div className="p-3 rounded-2xl bg-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                <TrendingUp className="h-5 w-5" />
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="relative z-10">
+              <div className="text-4xl font-black tracking-tight text-gray-900 group-hover:scale-105 transition-transform origin-left duration-300">
                 {`₹${stats.total_revenue.toLocaleString()}`}
               </div>
-              <p className="text-xs text-gray-600">
-                Lifetime revenue
+              <p className="text-xs font-medium text-gray-500 mt-1">
+                Lifetime earnings
               </p>
             </CardContent>
           </Card>
@@ -115,62 +121,70 @@ export default function AdminDashboard({ admin, setAdmin }) {
       </div>
 
       {/* Quick Actions */}
-      <h3 className="text-lg font-semibold text-gray-800 mt-8 mb-4">Quick Actions</h3>
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-lg transition-all duration-300">
+      <h3 className="text-2xl font-black tracking-tight text-gray-900 mt-12 mb-6">Quick Actions</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="group overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-white">
           <CardHeader>
-            <CardTitle>Product Management</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-xl font-bold">
+              <Package className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+              Products
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4 text-sm">Add, edit, or remove products from your store</p>
+            <p className="text-gray-500 mb-6 text-sm">Add, edit, or remove products from your store inventory.</p>
             <Link to="/admin/products">
-              <Button className="w-full bg-slate-800 hover:bg-slate-700" data-testid="go-to-products">
-                <Package className="mr-2 h-4 w-4" />
+              <Button className="w-full rounded-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 hover:scale-105 transition-all duration-300 shadow-lg" data-testid="go-to-products">
                 Manage Products
               </Button>
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-all duration-300">
+        <Card className="group overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-white">
           <CardHeader>
-            <CardTitle>Order Management</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-xl font-bold">
+              <ShoppingBag className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+              Orders
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4 text-sm">View and manage customer orders</p>
+            <p className="text-gray-500 mb-6 text-sm">View, process, and track customer orders efficiently.</p>
             <Link to="/admin/orders">
-              <Button className="w-full bg-slate-800 hover:bg-slate-700" data-testid="go-to-orders">
-                <ShoppingBag className="mr-2 h-4 w-4" />
+              <Button className="w-full rounded-full h-12 text-base font-bold bg-black text-white hover:bg-gray-800 hover:scale-105 transition-all duration-300 shadow-lg" data-testid="go-to-orders">
                 Manage Orders
               </Button>
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-all duration-300">
+        <Card className="group overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-white">
           <CardHeader>
-            <CardTitle>Return Management</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-xl font-bold">
+              <RefreshCcw className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+              Returns
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4 text-sm">Review and update return requests</p>
+            <p className="text-gray-500 mb-6 text-sm">Handle return requests and manage refunds seamlessly.</p>
             <Link to="/admin/returns">
-              <Button className="w-full bg-slate-800 hover:bg-slate-700" data-testid="go-to-returns">
-                <RefreshCcw className="mr-2 h-4 w-4" />
+              <Button className="w-full rounded-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 hover:scale-105 transition-all duration-300 shadow-lg" data-testid="go-to-returns">
                 Manage Returns
               </Button>
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-all duration-300">
+        <Card className="group overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 bg-white">
           <CardHeader>
-            <CardTitle>Settings</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-xl font-bold">
+              <Users className="w-5 h-5 text-gray-400 group-hover:text-black transition-colors" />
+              Settings
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4 text-sm">Manage admin profile and store settings</p>
+            <p className="text-gray-500 mb-6 text-sm">Configure your store settings and admin profile.</p>
             <Link to="/admin/settings">
-              <Button className="w-full bg-slate-800 hover:bg-slate-700" data-testid="go-to-settings">
-                <Users className="mr-2 h-4 w-4" />
+              <Button className="w-full rounded-full h-12 text-base font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 hover:scale-105 transition-all duration-300 shadow-lg" data-testid="go-to-settings">
                 Settings
               </Button>
             </Link>

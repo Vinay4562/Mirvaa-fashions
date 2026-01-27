@@ -1,12 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingBag, 
-  RefreshCcw, 
-  BarChart, 
-  FileText, 
   Settings, 
   Menu,
   LogOut,
@@ -25,6 +19,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import NotificationBell from '@/components/admin/NotificationBell';
+import Sidebar from '@/components/admin/Sidebar';
 
 export default function AdminLayout({ children, admin, setAdmin, title }) {
   const location = useLocation();
@@ -38,84 +33,30 @@ export default function AdminLayout({ children, admin, setAdmin, title }) {
     navigate('/admin/login');
   };
 
-  const navItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/products', label: 'Products', icon: Package },
-    { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-    { href: '/admin/returns', label: 'Returns', icon: RefreshCcw },
-    { href: '/admin/analytics', label: 'Analytics', icon: BarChart },
-    { href: '/admin/cms', label: 'Content (CMS)', icon: FileText },
-    { href: '/admin/settings', label: 'Settings', icon: Settings },
-  ];
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-slate-900 text-white">
-      <div className="p-6 border-b border-slate-800">
-        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-400">
-          Mirvaa Admin
-        </h1>
-      </div>
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = location.pathname.startsWith(item.href);
-          return (
-            <Link 
-              key={item.href} 
-              to={item.href}
-              onClick={() => setIsMobileOpen(false)}
-            >
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                isActive 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}>
-                <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-                <span className="font-medium">{item.label}</span>
-              </div>
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center gap-3 px-4 py-3 text-slate-400">
-          <Avatar className="h-8 w-8 border border-slate-600">
-            <AvatarFallback className="bg-slate-800 text-white">
-              {admin?.username?.charAt(0).toUpperCase() || 'A'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{admin?.username || 'Admin'}</p>
-            <p className="text-xs text-slate-500 truncate">{admin?.role || 'Administrator'}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex font-sans selection:bg-purple-500 selection:text-white">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-64 shrink-0 fixed inset-y-0 z-50">
-        <SidebarContent />
+      <aside className="hidden md:block w-72 shrink-0 fixed inset-y-0 z-50 shadow-2xl">
+        <Sidebar admin={admin} setIsMobileOpen={setIsMobileOpen} />
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen transition-all duration-300">
+      <div className="flex-1 md:ml-72 flex flex-col min-h-screen transition-all duration-300">
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm h-16">
+        <header className="bg-white/80 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-40 shadow-sm h-16 transition-all duration-300">
           <div className="flex items-center justify-between h-full px-6">
             <div className="flex items-center gap-4">
               <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden">
+                  <Button variant="ghost" size="icon" className="md:hidden hover:bg-gray-100 rounded-full">
                     <Menu className="h-6 w-6" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="p-0 w-72 bg-slate-900 border-r-slate-800 text-white">
-                  <SidebarContent />
+                <SheetContent side="left" className="p-0 w-80 bg-black border-r-gray-800 text-white">
+                  <Sidebar admin={admin} setIsMobileOpen={setIsMobileOpen} />
                 </SheetContent>
               </Sheet>
-              <h2 className="text-xl font-semibold text-gray-800 hidden sm:block">
+              <h2 className="text-2xl font-black tracking-tight text-gray-900 hidden sm:block">
                 {title || 'Dashboard'}
               </h2>
             </div>

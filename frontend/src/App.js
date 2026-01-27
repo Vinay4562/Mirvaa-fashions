@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ScrollToTop from "./components/ScrollToTop";
+import AnalyticsTracker from "./components/AnalyticsTracker";
 import BackButtonHandler from "./components/BackButtonHandler";
 import Loading from "./components/Loading";
 import { Toaster } from "@/components/ui/sonner";
@@ -85,6 +86,7 @@ function App() {
       {showIntro && <IntroSplash onFinish={() => setShowIntro(false)} />}
       <BrowserRouter>
         <ScrollToTop />
+        <AnalyticsTracker />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/" element={<Home user={user} setUser={setUser} />} />

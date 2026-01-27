@@ -119,23 +119,23 @@ export default function NotificationBell() {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative">
+          <Button variant="ghost" size="icon" className="relative rounded-full hover:bg-gray-100 w-10 h-10">
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
               <Badge 
                 variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full"
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full border-2 border-white shadow-sm"
               >
                 {unreadCount}
               </Badge>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="end">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h4 className="font-semibold">Notifications</h4>
+        <PopoverContent className="w-80 p-0 rounded-2xl shadow-xl border-gray-100" align="end">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <h4 className="font-bold">Notifications</h4>
             {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-auto py-1 px-2">
+              <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead} className="text-xs h-auto py-1 px-2 rounded-full hover:bg-gray-100">
                 Mark all read
               </Button>
             )}
@@ -146,11 +146,11 @@ export default function NotificationBell() {
                 No notifications
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="divide-y divide-gray-100">
                 {notifications.map((notification) => (
                   <div 
                     key={notification.id} 
-                    className={`p-4 hover:bg-gray-50 transition-colors ${!notification.is_read ? 'bg-blue-50/50' : ''}`}
+                    className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${!notification.is_read ? 'bg-blue-50/50' : ''}`}
                     onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
                   >
                     <div className="flex gap-3">
@@ -158,10 +158,10 @@ export default function NotificationBell() {
                         {getIcon(notification.type)}
                       </div>
                       <div className="flex-1 space-y-1">
-                        <p className={`text-sm ${!notification.is_read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                        <p className={`text-sm ${!notification.is_read ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
                           {notification.message}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-400 font-medium">
                           {format(new Date(notification.created_at), 'MMM d, h:mm a')}
                         </p>
                       </div>
@@ -175,15 +175,17 @@ export default function NotificationBell() {
       </Popover>
 
       <Dialog open={showPopup} onOpenChange={setShowPopup}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl border-0 shadow-2xl">
           <DialogHeader>
-            <DialogTitle>New Order Received!</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl font-black text-center text-green-600">New Order Received! 🎉</DialogTitle>
+            <DialogDescription className="text-center text-lg text-gray-700 mt-2">
               {popupNotification?.message}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button onClick={handlePopupOk}>OK</Button>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={handlePopupOk} className="rounded-full bg-green-600 hover:bg-green-700 text-white font-bold px-8">
+              View Order
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

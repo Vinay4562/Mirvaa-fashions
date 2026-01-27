@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Package, Download } from 'lucide-react';
+import { Package, Download, Truck, CheckCircle, XCircle, Clock, MapPin, Phone, User, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -192,16 +192,16 @@ export default function AdminOrders({ admin, setAdmin }) {
 
   const getStatusColor = (status) => {
     const colors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      confirmed: 'bg-blue-100 text-blue-700',
-      packed: 'bg-purple-100 text-purple-700',
-      shipped: 'bg-indigo-100 text-indigo-700',
-      delivered: 'bg-green-100 text-green-700',
-      cancelled: 'bg-red-100 text-red-700',
-      return_requested: 'bg-orange-100 text-orange-700',
-      returned: 'bg-orange-100 text-orange-700',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
+      confirmed: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200',
+      packed: 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
+      shipped: 'bg-indigo-100 text-indigo-800 border-indigo-200 hover:bg-indigo-200',
+      delivered: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+      cancelled: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+      return_requested: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
+      returned: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700';
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const formatStatusLabel = (status) => {
@@ -218,202 +218,261 @@ export default function AdminOrders({ admin, setAdmin }) {
 
   return (
     <AdminLayout admin={admin} setAdmin={setAdmin} title="Order Management">
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold mb-6">Orders ({orders.length})</h2>
+      <div className="space-y-8 pb-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+              Orders
+            </h2>
+            <p className="text-gray-500 font-medium">Manage and track your customer orders</p>
+          </div>
+          <Badge className="text-lg px-4 py-1 rounded-full bg-black text-white shadow-lg">
+            {orders.length} Total
+          </Badge>
+        </div>
 
         {orders.length > 0 ? (
-          <div className="space-y-4" data-testid="admin-orders-list">
+          <div className="grid gap-6" data-testid="admin-orders-list">
             {orders.map((order) => (
               <Card
                 key={order.id}
-                className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                className="group relative overflow-hidden rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 bg-white/90 backdrop-blur-sm"
                 data-testid={`admin-order-${order.id}`}
                 onClick={() => handleOrderClick(order)}
               >
+                {/* Decorative Gradient Border/Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
                 <CardContent className="p-6">
-                  <div className="grid md:grid-cols-4 gap-6">
-                    {/* Order Info */}
-                    <div className="md:col-span-2">
-                      <h3 className="font-bold text-lg mb-2">Order #{order.order_number}</h3>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Placed on {new Date(order.created_at).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Customer: {order.shipping_address.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Phone: {order.shipping_address.phone}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-2">
-                        Address: {order.shipping_address.address}, {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.pincode}
-                      </p>
-                      {order.status === 'shipped' && order.tracking_id && (
-                        <p className="text-sm text-gray-700 mt-1">
-                          Tracking ID: {order.tracking_id}
-                        </p>
+                  <div className="grid md:grid-cols-12 gap-6 items-start">
+                    
+                    {/* Order Details Column */}
+                    <div className="md:col-span-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-xl group-hover:text-purple-600 transition-colors flex items-center gap-2">
+                          #{order.order_number}
+                          <Clock className="w-4 h-4 text-gray-400" />
+                        </h3>
+                        <span className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2 pl-1">
+                        <div className="flex items-start gap-2 text-sm text-gray-600">
+                          <User className="w-4 h-4 mt-0.5 text-purple-500" />
+                          <span className="font-medium">{order.shipping_address.name}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm text-gray-600">
+                          <Phone className="w-4 h-4 mt-0.5 text-blue-500" />
+                          <span>{order.shipping_address.phone}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm text-gray-600">
+                          <MapPin className="w-4 h-4 mt-0.5 text-pink-500" />
+                          <span className="line-clamp-2">
+                            {order.shipping_address.address}, {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.pincode}
+                          </span>
+                        </div>
+                      </div>
+
+                      {order.status === 'shipped' && (
+                        <div className="mt-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1">Shipment Details</p>
+                          {order.tracking_id && (
+                            <p className="text-sm text-gray-700 flex items-center gap-1">
+                              <span className="font-medium">ID:</span> {order.tracking_id}
+                            </p>
+                          )}
+                          {order.courier_name && (
+                            <p className="text-sm text-gray-700 flex items-center gap-1">
+                              <span className="font-medium">Courier:</span> {order.courier_name}
+                            </p>
+                          )}
+                          {order.tracking_url && (
+                            <a
+                              href={order.tracking_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 mt-1 font-medium"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Track Order <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
                       )}
-                      {order.status === 'shipped' && order.courier_name && (
-                        <p className="text-sm text-gray-700">
-                          Courier: {order.courier_name}
-                        </p>
-                      )}
-                      {order.status === 'shipped' && order.tracking_url && (
-                        <p className="text-sm text-blue-600">
-                          <a
-                            href={order.tracking_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Open tracking link
-                          </a>
-                        </p>
-                      )}
+                      
                       {order.status === 'cancelled' && order.cancellation_reason && (
-                        <p className="text-sm text-red-600 mt-1">
-                          Cancellation remarks: {order.cancellation_reason}
-                        </p>
+                        <div className="mt-3 p-3 bg-red-50 rounded-2xl border border-red-100">
+                          <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">Cancellation Reason</p>
+                          <p className="text-sm text-red-600 italic">"{order.cancellation_reason}"</p>
+                        </div>
                       )}
                     </div>
 
-                    {/* Order Items Preview */}
-                    <div>
-                      <p className="text-sm font-semibold mb-2">Items ({order.items.length})</p>
+                    {/* Items Preview Column */}
+                    <div className="md:col-span-4">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Items ({order.items.length})</p>
                       <div className="flex gap-2 flex-wrap">
                         {order.items.slice(0, 3).map((item, idx) => (
-                          <div key={idx} className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                          <div key={idx} className="group/item relative w-14 h-14 rounded-2xl overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
                             <img
                               src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
                               alt={item.product_title}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-110"
                               onError={onImageError}
                             />
                           </div>
                         ))}
                         {order.items.length > 3 && (
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-600">
+                          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 border border-gray-200">
                             +{order.items.length - 3}
                           </div>
                         )}
                       </div>
-                      <p className="text-sm font-bold mt-2">₹{order.total.toLocaleString()}</p>
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-500 mb-1">Total Amount</p>
+                        <p className="text-xl font-black text-gray-900 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
+                          ₹{order.total.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Status Management */}
-                    <div>
-                      <p className="text-sm font-semibold mb-2">Update Status</p>
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) => handleStatusSelect(order, value)}
-                      >
-                        <SelectTrigger
-                          data-testid={`status-select-${order.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <SelectValue>
-                            <Badge className={getStatusColor(order.status)}>
-                              {formatStatusLabel(order.status)}
-                            </Badge>
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
-                          <SelectItem value="packed">Packed</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Payment: {order.payment_method}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Status: {order.payment_status}
-                      </p>
+                    {/* Actions Column */}
+                    <div className="md:col-span-3 flex flex-col justify-between h-full gap-4">
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Status</p>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value={order.status}
+                            onValueChange={(value) => handleStatusSelect(order, value)}
+                          >
+                            <SelectTrigger
+                              className="w-full rounded-xl border-gray-200 shadow-sm hover:border-purple-300 transition-colors h-10"
+                              data-testid={`status-select-${order.id}`}
+                            >
+                              <SelectValue>
+                                <Badge className={`${getStatusColor(order.status)} border px-3 py-1 rounded-full shadow-sm`}>
+                                  {formatStatusLabel(order.status)}
+                                </Badge>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl shadow-xl border-gray-100">
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="packed">Packed</SelectItem>
+                              <SelectItem value="shipped">Shipped</SelectItem>
+                              <SelectItem value="delivered">Delivered</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="mt-3 space-y-1">
+                          <p className="text-xs text-gray-500 flex justify-between">
+                            Payment: <span className="font-medium text-gray-900">{order.payment_method}</span>
+                          </p>
+                          <p className="text-xs text-gray-500 flex justify-between">
+                            Status: <span className={`font-medium ${order.payment_status === 'paid' ? 'text-green-600' : 'text-orange-600'}`}>{order.payment_status}</span>
+                          </p>
+                        </div>
+                      </div>
                       
-                      {/* Confirm Order Button */}
-                      {(order.status === 'placed' || order.status === 'pending') && (
-                        <Button 
+                      <div className="flex flex-col gap-2 mt-auto">
+                        {/* Confirm Order Button */}
+                        {(order.status === 'placed' || order.status === 'pending') && (
+                          <Button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConfirmOrder(order.id);
+                              }}
+                              className="w-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold shadow-md hover:shadow-lg transition-all hover:scale-[1.02]"
+                              size="sm"
+                          >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Confirm Order
+                          </Button>
+                        )}
+
+                        {/* Download PDF Button - visible only for confirmed orders */}
+                        {order.status === 'confirmed' && (order.label_url || order.delhivery_waybill) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full rounded-full border-2 border-gray-200 hover:border-purple-200 hover:bg-purple-50 text-gray-700 font-semibold"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleConfirmOrder(order.id);
+                              handleDownloadLabel(order);
                             }}
-                            className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white"
-                            size="sm"
-                        >
-                            Confirm Order
-                        </Button>
-                      )}
-
-                      {/* Download PDF Button - visible only for confirmed orders */}
-                      {order.status === 'confirmed' && (order.label_url || order.delhivery_waybill) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full mt-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadLabel(order);
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download PDF
-                        </Button>
-                      )}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download Label
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : (
-          <div className="text-center py-20" data-testid="no-orders-admin">
-            <Package className="h-24 w-24 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold mb-2">No orders yet</h2>
-            <p className="text-gray-600">Orders will appear here when customers place them</p>
+          <div className="text-center py-20 rounded-3xl bg-white/50 border-2 border-dashed border-gray-200" data-testid="no-orders-admin">
+            <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Package className="h-10 w-10 text-gray-400" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2 text-gray-800">No orders yet</h2>
+            <p className="text-gray-500">Orders will appear here when customers place them</p>
           </div>
         )}
       </div>
 
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-3xl shadow-2xl border-0 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {statusDialogStatus === 'shipped' && 'Enter Tracking ID'}
-              {statusDialogStatus === 'cancelled' && 'Enter Cancellation Remarks'}
+            <DialogTitle className="text-2xl font-black text-center bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+              {statusDialogStatus === 'shipped' && 'Ship Order'}
+              {statusDialogStatus === 'cancelled' && 'Cancel Order'}
             </DialogTitle>
+            <DialogDescription className="text-center">
+              {statusDialogStatus === 'shipped' && 'Enter the tracking details for this order.'}
+              {statusDialogStatus === 'cancelled' && 'Please provide a reason for cancellation.'}
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleStatusDialogSubmit} className="space-y-4">
+          <form onSubmit={handleStatusDialogSubmit} className="space-y-6 pt-4">
             {statusDialogStatus === 'shipped' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="tracking-id-input">Tracking ID</Label>
+                  <Label htmlFor="tracking-id-input" className="text-gray-700 font-bold">Tracking ID</Label>
                   <Input
                     id="tracking-id-input"
                     value={trackingIdInput}
                     onChange={(e) => setTrackingIdInput(e.target.value)}
                     placeholder="Enter shipment tracking ID"
                     autoFocus
+                    className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="courier-name-input">Courier Name (optional)</Label>
+                  <Label htmlFor="courier-name-input" className="text-gray-700 font-bold">Courier Name (optional)</Label>
                   <Input
                     id="courier-name-input"
                     value={courierNameInput}
                     onChange={(e) => setCourierNameInput(e.target.value)}
-                    placeholder="Enter courier name (e.g., Bluedart, Delhivery)"
+                    placeholder="e.g., Bluedart, Delhivery"
+                    className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tracking-url-input">Tracking URL (optional)</Label>
+                  <Label htmlFor="tracking-url-input" className="text-gray-700 font-bold">Tracking URL (optional)</Label>
                   <Input
                     id="tracking-url-input"
                     value={trackingUrlInput}
                     onChange={(e) => setTrackingUrlInput(e.target.value)}
                     placeholder="Paste full tracking URL"
+                    className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200"
                   />
                 </div>
               </>
@@ -421,29 +480,31 @@ export default function AdminOrders({ admin, setAdmin }) {
 
             {statusDialogStatus === 'cancelled' && (
               <div className="space-y-2">
-                <Label htmlFor="cancellation-reason-input">Cancellation Remarks</Label>
+                <Label htmlFor="cancellation-reason-input" className="text-gray-700 font-bold">Cancellation Remarks</Label>
                 <Textarea
                   id="cancellation-reason-input"
                   value={cancellationReasonInput}
                   onChange={(e) => setCancellationReasonInput(e.target.value)}
                   placeholder="Provide a brief reason for cancelling this order"
                   rows={4}
+                  className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200 resize-none"
                 />
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <DialogFooter className="flex gap-2 sm:justify-center">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setStatusDialogOpen(false)}
+                className="rounded-full px-6"
               >
                 Close
               </Button>
-              <Button type="submit">
-                Save
+              <Button type="submit" className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold px-8 hover:shadow-lg transition-all">
+                Save Changes
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -457,78 +518,72 @@ export default function AdminOrders({ admin, setAdmin }) {
           }
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl border-0">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
               {detailsDialogOrder ? `Order #${detailsDialogOrder.order_number}` : 'Order details'}
             </DialogTitle>
           </DialogHeader>
           {detailsDialogOrder && (
-            <div className="space-y-6 text-sm">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <p className="font-semibold mb-1">Customer details</p>
-                  <p className="text-gray-700">{detailsDialogOrder.shipping_address.name}</p>
-                  <p className="text-gray-700">{detailsDialogOrder.shipping_address.phone}</p>
-                  <p className="text-gray-600 mt-1">
-                    {detailsDialogOrder.shipping_address.address}
-                  </p>
-                  <p className="text-gray-600">
-                    {detailsDialogOrder.shipping_address.city}, {detailsDialogOrder.shipping_address.state} - {detailsDialogOrder.shipping_address.pincode}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="font-semibold mb-1">Order summary</p>
-                  <p className="text-gray-700">
-                    Placed on {new Date(detailsDialogOrder.created_at).toLocaleString()}
-                  </p>
-                  <p className="text-gray-700">
-                    Payment method: {detailsDialogOrder.payment_method}
-                  </p>
-                  <p className="text-gray-700">
-                    Payment status: {detailsDialogOrder.payment_status}
-                  </p>
-                  <div className="mt-1">
-                    <span className="text-gray-700 mr-2">Order status:</span>
-                    <Badge className={getStatusColor(detailsDialogOrder.status)}>
-                      {formatStatusLabel(detailsDialogOrder.status)}
-                    </Badge>
+            <div className="space-y-8 text-sm pt-4">
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h4 className="text-lg font-bold text-gray-900 border-b pb-2">Customer Details</h4>
+                  <div className="space-y-2">
+                    <p className="text-gray-900 font-semibold text-base">{detailsDialogOrder.shipping_address.name}</p>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Phone className="w-4 h-4" />
+                      <p>{detailsDialogOrder.shipping_address.phone}</p>
+                    </div>
+                    <div className="flex items-start gap-2 text-gray-600">
+                      <MapPin className="w-4 h-4 mt-1" />
+                      <p>
+                        {detailsDialogOrder.shipping_address.address}<br />
+                        {detailsDialogOrder.shipping_address.city}, {detailsDialogOrder.shipping_address.state} - {detailsDialogOrder.shipping_address.pincode}
+                      </p>
+                    </div>
                   </div>
-                  {detailsDialogOrder.tracking_id && (
-                    <p className="text-gray-700 mt-1">
-                      Tracking ID: {detailsDialogOrder.tracking_id}
-                    </p>
-                  )}
-                  {detailsDialogOrder.courier_name && (
-                    <p className="text-gray-700">
-                      Courier: {detailsDialogOrder.courier_name}
-                    </p>
-                  )}
-                  {detailsDialogOrder.tracking_url && (
-                    <p className="text-blue-600">
-                      <a
-                        href={detailsDialogOrder.tracking_url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open tracking link
-                      </a>
-                    </p>
-                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="text-lg font-bold text-gray-900 border-b pb-2">Order Summary</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Placed on:</span>
+                      <span className="font-medium">{new Date(detailsDialogOrder.created_at).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Payment method:</span>
+                      <span className="font-medium">{detailsDialogOrder.payment_method}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Payment status:</span>
+                      <Badge variant="outline" className={detailsDialogOrder.payment_status === 'paid' ? 'text-green-600 border-green-200 bg-green-50' : 'text-orange-600 border-orange-200 bg-orange-50'}>
+                        {detailsDialogOrder.payment_status}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-gray-600">Order status:</span>
+                      <Badge className={getStatusColor(detailsDialogOrder.status)}>
+                        {formatStatusLabel(detailsDialogOrder.status)}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div>
-                <p className="font-semibold mb-2">
+                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-purple-500" />
                   Items ({detailsDialogOrder.items.length})
-                </p>
-                <div className="space-y-3">
+                </h4>
+                <div className="space-y-4">
                   {detailsDialogOrder.items.map((item, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 border rounded-lg p-2"
+                      className="flex items-center gap-4 border border-gray-100 rounded-2xl p-3 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all duration-300"
                     >
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-white shadow-sm flex-shrink-0 border border-gray-100">
                         <img
                           src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
                           alt={item.product_title}
@@ -536,20 +591,20 @@ export default function AdminOrders({ admin, setAdmin }) {
                           onError={onImageError}
                         />
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{item.product_title}</p>
-                        <div className="flex flex-wrap gap-2 text-xs text-gray-600 mt-1">
-                          {item.size && <span>Size: {item.size}</span>}
-                          {item.color && <span>Color: {item.color}</span>}
-                          <span>Qty: {item.quantity}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-900 truncate">{item.product_title}</p>
+                        <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-1">
+                          {item.size && <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Size: <strong>{item.size}</strong></span>}
+                          {item.color && <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Color: <strong>{item.color}</strong></span>}
+                          <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Qty: <strong>{item.quantity}</strong></span>
                         </div>
                       </div>
-                      <div className="text-right text-sm flex-shrink-0">
-                        <p className="font-semibold">
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-lg text-gray-900">
                           ₹{item.price.toLocaleString()}
                         </p>
-                        <p className="text-xs text-gray-600">
-                          Line total: ₹{(item.price * item.quantity).toLocaleString()}
+                        <p className="text-xs text-gray-500">
+                          Total: ₹{(item.price * item.quantity).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -557,22 +612,25 @@ export default function AdminOrders({ admin, setAdmin }) {
                 </div>
               </div>
 
-              <div className="border-t pt-3 flex flex-col items-end gap-1 text-sm">
-                <p>
-                  Subtotal: <span className="font-semibold">₹{detailsDialogOrder.subtotal.toLocaleString()}</span>
-                </p>
-                <p>
-                  Tax: <span className="font-semibold">₹{detailsDialogOrder.tax.toLocaleString()}</span>
-                </p>
-                <p>
-                  Shipping: <span className="font-semibold">₹{detailsDialogOrder.shipping.toLocaleString()}</span>
-                </p>
-                <p className="text-base">
-                  Total:{' '}
-                  <span className="font-bold">
+              <div className="bg-gray-50 rounded-2xl p-6 space-y-2">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal</span>
+                  <span>₹{detailsDialogOrder.subtotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Tax</span>
+                  <span>₹{detailsDialogOrder.tax.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  <span>₹{detailsDialogOrder.shipping.toLocaleString()}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-3 mt-2 flex justify-between items-center">
+                  <span className="text-lg font-bold text-gray-900">Total</span>
+                  <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
                     ₹{detailsDialogOrder.total.toLocaleString()}
                   </span>
-                </p>
+                </div>
               </div>
             </div>
           )}

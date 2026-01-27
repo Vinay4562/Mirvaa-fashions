@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -103,7 +103,19 @@ export default function Cart({ user, setUser }) {
       <Navbar user={user} setUser={setUser} cartCount={cartItems.length} wishlistCount={wishlistCount} />
 
       <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
-        <h1 className="text-3xl font-bold mb-8" data-testid="cart-heading">Shopping Cart</h1>
+        <div className="flex items-center gap-2 mb-6 md:mb-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden -ml-2"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl md:text-3xl font-bold" data-testid="cart-heading">
+            Shopping Cart
+          </h1>
+        </div>
 
         {cartItems.length > 0 ? (
           <div className="grid lg:grid-cols-3 gap-8">

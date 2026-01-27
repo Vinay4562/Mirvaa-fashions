@@ -146,19 +146,26 @@ export default function Account({ user, setUser }) {
       <Navbar user={user} setUser={setUser} cartCount={cartCount} wishlistCount={wishlistCount} />
 
       <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
-        <div className="md:hidden flex items-center justify-between mb-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+        <div className="flex items-center justify-between mb-6 md:mb-8">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate(-1)} 
+              aria-label="Back"
+              className="md:hidden -ml-2"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl md:text-3xl font-bold" data-testid="account-heading">My Account</h1>
+          </div>
           {user && (
-            <Button variant="outline" size="sm" onClick={handleLogout} className="btn-hover" aria-label="Logout">
+            <Button variant="outline" size="sm" onClick={handleLogout} className="md:hidden btn-hover" aria-label="Logout">
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
           )}
         </div>
-
-        <h1 className="text-3xl font-bold mb-8" data-testid="account-heading">My Account</h1>
 
         <Tabs defaultValue="orders" className="w-full">
           <TabsList>

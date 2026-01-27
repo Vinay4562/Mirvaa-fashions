@@ -138,7 +138,7 @@ export default function Home({ user, setUser }) {
         <div className="relative z-10 container mx-auto px-6 text-center text-white space-y-8">
           <div className="inline-block animate-fade-in-up">
             <span className="py-2 px-4 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-sm font-medium tracking-wider uppercase">
-              New Collection 2025
+              New Collection 2026
             </span>
           </div>
           

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock } from 'lucide-react';
+import { Lock, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,31 +40,42 @@ export default function AdminLogin({ setAdmin }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center px-4">
-      <Card className="w-full max-w-md shadow-xl" data-testid="admin-login-form">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="h-8 w-8 text-blue-600" />
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-300/20 rounded-full blur-3xl animate-blob" />
+        <div className="absolute top-[20%] right-[-10%] w-[30%] h-[30%] bg-pink-300/20 rounded-full blur-3xl animate-blob animation-delay-2000" />
+        <div className="absolute bottom-[-10%] left-[20%] w-[30%] h-[30%] bg-blue-300/20 rounded-full blur-3xl animate-blob animation-delay-4000" />
+      </div>
+
+      <Card className="w-full max-w-md shadow-2xl rounded-3xl border-0 bg-white/80 backdrop-blur-xl relative z-10 overflow-hidden" data-testid="admin-login-form">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500" />
+        <CardHeader className="text-center pb-2">
+          <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner transform rotate-3 hover:rotate-0 transition-transform duration-300">
+            <ShieldCheck className="h-10 w-10 text-purple-600 drop-shadow-sm" />
           </div>
-          <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
-          <p className="text-sm text-gray-600 mt-2">Mirvaa Fashions Admin Panel</p>
+          <CardTitle className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+            Admin Access
+          </CardTitle>
+          <p className="text-gray-500 font-medium mt-2">Secure entry for Mirvaa staff</p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <Label htmlFor="username">Username</Label>
+        <CardContent className="pt-6">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-gray-700 font-bold ml-1">Username</Label>
               <Input
                 id="username"
                 data-testid="admin-username"
                 type="text"
-                placeholder="admin"
+                placeholder="Enter admin username"
                 value={credentials.username}
                 onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
                 required
+                className="rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-purple-500 focus:ring-purple-200 transition-all h-11"
               />
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-gray-700 font-bold ml-1">Password</Label>
               <Input
                 id="password"
                 data-testid="admin-password"
@@ -73,23 +84,43 @@ export default function AdminLogin({ setAdmin }) {
                 value={credentials.password}
                 onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                 required
+                className="rounded-xl border-gray-200 bg-gray-50/50 focus:bg-white focus:border-purple-500 focus:ring-purple-200 transition-all h-11"
               />
             </div>
             <Button
               data-testid="admin-login-submit"
               type="submit"
-              className="w-full btn-hover"
+              className="w-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold h-11 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
               disabled={loading}
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Verifying...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Lock className="w-4 h-4" />
+                  Login to Dashboard
+                </span>
+              )}
             </Button>
           </form>
-          <div className="mt-4 text-sm text-gray-600 text-center">
-            <p>Default credentials:</p>
-            <p className="font-mono">admin / admin123</p>
+          
+          <div className="mt-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
+             <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-2">Development Access</p>
+             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white rounded-lg border border-gray-200 shadow-sm text-sm font-mono text-gray-600">
+                <span>admin</span>
+                <span className="text-gray-300">/</span>
+                <span>admin123</span>
+             </div>
           </div>
         </CardContent>
       </Card>
+      
+      <p className="absolute bottom-6 text-center text-xs text-gray-400 font-medium">
+        © 2024 Mirvaa Fashions. Secured System.
+      </p>
     </div>
   );
 }

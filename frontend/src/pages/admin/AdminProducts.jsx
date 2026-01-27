@@ -243,80 +243,128 @@ export default function AdminProducts({ admin, setAdmin }) {
     return <Loading />;
   }
 
+  const filteredProducts = products.filter(product => selectedCategory === 'All' || product.category === selectedCategory);
+
   return (
     <AdminLayout admin={admin} setAdmin={setAdmin} title="Product Management">
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Products ({products.length})</h2>
-          <Button onClick={() => handleOpenDialog()} className="btn-hover" data-testid="add-product-button">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight text-gray-900">Products ({products.length})</h2>
+            <p className="text-gray-500 mt-1">Manage your store inventory and catalog</p>
+          </div>
+          <Button 
+            onClick={() => handleOpenDialog()} 
+            className="w-full md:w-auto rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 hover:scale-105 transition-all duration-300 shadow-lg px-6 h-12 text-base font-bold" 
+            data-testid="add-product-button"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            Add New Product
           </Button>
         </div>
 
         {/* Category Filter */}
-        <div className="overflow-x-auto">
-          <div className="flex space-x-2 pb-2">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
-                className={`whitespace-nowrap ${selectedCategory === category ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-              </Button>
-            ))}
+        <div className="pb-4">
+          <div className="w-[200px]">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full rounded-xl border-gray-200 bg-white shadow-sm hover:border-purple-300 focus:ring-purple-500 transition-all duration-300">
+                <SelectValue placeholder="Filter by Category" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-gray-100 shadow-lg">
+                {categories.map((category) => (
+                  <SelectItem 
+                    key={category} 
+                    value={category}
+                    className="cursor-pointer hover:bg-purple-50 hover:text-purple-600 focus:bg-purple-50 focus:text-purple-600 rounded-lg my-1"
+                  >
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="admin-products-grid">
-          {products
-            .filter(product => selectedCategory === 'All' || product.category === selectedCategory)
-            .map((product) => (
-            <Card key={product.id} className="overflow-hidden shadow-md hover:shadow-xl transition-all duration-300" data-testid={`admin-product-${product.id}`}>
-              <div className="aspect-[3/4] overflow-hidden bg-gray-100">
+        {filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+            <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+              <Plus className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">No products found</h3>
+            <p className="text-gray-500 mt-1 mb-6">No products are added in this category</p>
+            <Button 
+              onClick={() => {
+                setFormData(prev => ({ ...prev, category: selectedCategory === 'All' ? '' : selectedCategory }));
+                handleOpenDialog();
+              }}
+              className="rounded-full bg-black text-white hover:bg-gray-800"
+            >
+              Add Product to {selectedCategory === 'All' ? 'Catalog' : selectedCategory}
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" data-testid="admin-products-grid">
+            {filteredProducts.map((product) => (
+            <Card key={product.id} className="group overflow-hidden rounded-2xl border-0 shadow-sm hover:shadow-lg transition-all duration-500 hover:-translate-y-1 bg-white" data-testid={`admin-product-${product.id}`}>
+              <div className="aspect-[3/4] overflow-hidden bg-gray-100 relative">
                 <img
                   src={getImageUrl(product.images[0])}
                   alt={product.title}
-                  className="w-full h-full object-cover transition-transform hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   onError={onImageError}
                 />
-              </div>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-lg mb-1 line-clamp-1">{product.title}</h3>
-                <p className="text-sm text-gray-600 mb-2">{product.category}</p>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg font-bold">₹{product.price.toLocaleString()}</span>
-                  <span className="text-sm text-gray-500">Stock: {product.stock}</span>
-                </div>
-                <div className="flex gap-2">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Overlay Actions */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex gap-2">
                   <Button
                     onClick={() => handleOpenDialog(product)}
-                    variant="outline"
+                    className="flex-1 bg-white text-black hover:bg-gray-100 rounded-lg font-bold shadow-lg h-8 text-xs"
                     size="sm"
-                    className="flex-1 btn-hover"
                     data-testid={`edit-product-${product.id}`}
                   >
-                    <Pencil className="h-4 w-4 mr-1" />
+                    <Pencil className="h-3 w-3 mr-1" />
                     Edit
                   </Button>
                   <Button
                     onClick={() => handleDelete(product.id)}
                     variant="destructive"
-                    size="sm"
-                    className="flex-1 btn-hover"
+                    size="icon"
+                    className="w-8 h-8 rounded-lg shadow-lg"
                     data-testid={`delete-product-${product.id}`}
                   >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
+                    <Trash2 className="h-3 w-3" />
                   </Button>
+                </div>
+              </div>
+              <CardContent className="p-3">
+                <div className="flex justify-between items-start mb-1.5">
+                  <div className="bg-gray-100 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-gray-600">
+                    {product.category}
+                  </div>
+                  {product.stock < 5 && (
+                    <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+                      Low: {product.stock}
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-bold text-sm mb-1 line-clamp-1 group-hover:text-purple-600 transition-colors" title={product.title}>{product.title}</h3>
+                <div className="flex items-end justify-between mt-2">
+                  <div>
+                    <p className="text-[10px] text-gray-500 font-medium">Price</p>
+                    <span className="text-base font-black tracking-tight">₹{product.price.toLocaleString()}</span>
+                  </div>
+                  <div className="text-right">
+                     <p className="text-[10px] text-gray-500 font-medium">Stock</p>
+                     <span className="text-xs font-bold text-gray-900">{product.stock}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Product Form Dialog */}
@@ -458,13 +506,13 @@ export default function AdminProducts({ admin, setAdmin }) {
                   </div>
                 )}
                 <div className="mt-4 space-y-2">
-                  <Label>Assign Images to Color</Label>
+                  <Label className="font-bold text-gray-700">Assign Images to Color</Label>
                   <div className="flex items-center gap-2">
                     <Select value={selectedColorForImages} onValueChange={(value) => setSelectedColorForImages(value)}>
-                      <SelectTrigger className="w-52">
+                      <SelectTrigger className="w-52 rounded-xl border-gray-200 focus:ring-purple-200">
                         <SelectValue placeholder="Select color" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-xl">
                         {(formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(Boolean) : []).map((c) => (
                           <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
@@ -473,6 +521,7 @@ export default function AdminProducts({ admin, setAdmin }) {
                     <Button
                       type="button"
                       variant="outline"
+                      className="rounded-full"
                       onClick={() => {
                         if (!selectedColorForImages) {
                           toast.error('Select a color first');
@@ -497,7 +546,7 @@ export default function AdminProducts({ admin, setAdmin }) {
                   </div>
                   {selectedColorForImages && (
                     <div className="mt-3">
-                      <Label>Images for {selectedColorForImages}</Label>
+                      <Label className="text-xs text-gray-500 uppercase tracking-wider font-bold">Images for {selectedColorForImages}</Label>
                       <Input
                         value={(formData.color_images_map[selectedColorForImages] || []).join(', ')}
                         onChange={(e) => {
@@ -508,6 +557,7 @@ export default function AdminProducts({ admin, setAdmin }) {
                           }));
                         }}
                         placeholder="/uploads/color-img1.jpg, /uploads/color-img2.jpg"
+                        className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200 mt-1"
                       />
                     </div>
                   )}
@@ -516,34 +566,36 @@ export default function AdminProducts({ admin, setAdmin }) {
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="sizes">Sizes (comma-separated)</Label>
+                <Label htmlFor="sizes" className="font-bold text-gray-700">Sizes (comma-separated)</Label>
                 <Input
                   id="sizes"
                   data-testid="product-sizes-input"
                   value={formData.sizes}
                   onChange={(e) => setFormData({ ...formData, sizes: e.target.value })}
                   placeholder="S, M, L, XL"
+                  className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200"
                 />
               </div>
               <div>
-                <Label htmlFor="colors">Colors (comma-separated)</Label>
+                <Label htmlFor="colors" className="font-bold text-gray-700">Colors (comma-separated)</Label>
                 <Input
                   id="colors"
                   data-testid="product-colors-input"
                   value={formData.colors}
                   onChange={(e) => setFormData({ ...formData, colors: e.target.value })}
                   placeholder="Red, Blue, Black"
+                  className="rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-200"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Color-Specific Details</Label>
+              <Label className="font-bold text-gray-700">Color-Specific Details</Label>
               <div className="flex items-center gap-2 mb-2">
                 <Select value={selectedColorForDetails} onValueChange={(value) => setSelectedColorForDetails(value)}>
-                  <SelectTrigger className="w-52">
+                  <SelectTrigger className="w-52 rounded-xl border-gray-200 focus:ring-purple-200">
                     <SelectValue placeholder="Select color" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl">
                     {(formData.colors ? formData.colors.split(',').map(c => c.trim()).filter(Boolean) : []).map((c) => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
@@ -554,6 +606,7 @@ export default function AdminProducts({ admin, setAdmin }) {
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="rounded-full"
                     onClick={() => {
                       setFormData(prev => ({
                         ...prev,

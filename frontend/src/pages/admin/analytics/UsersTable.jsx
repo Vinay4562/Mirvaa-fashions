@@ -71,10 +71,10 @@ export default function UsersTable({ onBack }) {
   };
 
   const getCustomerTier = (totalSpent) => {
-    if (totalSpent >= 50000) return { tier: 'VIP', color: 'bg-purple-100 text-purple-800' };
-    if (totalSpent >= 25000) return { tier: 'Gold', color: 'bg-yellow-100 text-yellow-800' };
-    if (totalSpent >= 10000) return { tier: 'Silver', color: 'bg-gray-100 text-gray-800' };
-    return { tier: 'Bronze', color: 'bg-orange-100 text-orange-800' };
+    if (totalSpent >= 50000) return { tier: 'VIP', color: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (totalSpent >= 25000) return { tier: 'Gold', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    if (totalSpent >= 10000) return { tier: 'Silver', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+    return { tier: 'Bronze', color: 'bg-orange-100 text-orange-800 border-orange-200' };
   };
 
   const filteredUsers = users.filter(user => {
@@ -127,7 +127,7 @@ export default function UsersTable({ onBack }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
-        <div className="text-lg">Loading users...</div>
+        <div className="text-lg text-purple-600 animate-pulse">Loading users...</div>
       </div>
     );
   }
@@ -135,40 +135,40 @@ export default function UsersTable({ onBack }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-2">
+          <Button variant="ghost" onClick={onBack} className="flex items-center gap-2 hover:bg-purple-50 text-purple-600">
             <ArrowLeft className="h-4 w-4" />
             Back to Analytics
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">All Users</h1>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">All Users</h1>
             <p className="text-gray-600">Registered customers and their order history</p>
           </div>
         </div>
-        <Button onClick={handleExport} className="flex items-center gap-2">
+        <Button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-0">
           <Download className="h-4 w-4" />
           Export CSV
         </Button>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="rounded-3xl border-0 shadow-lg bg-white/90 backdrop-blur-sm">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-400" />
                 <Input
                   placeholder="Search by name, email, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 rounded-xl border-purple-100 focus:ring-purple-500 focus:border-purple-500"
                 />
               </div>
             </div>
             <Select value={tierFilter} onValueChange={setTierFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-purple-100 focus:ring-purple-500">
                 <SelectValue placeholder="Customer Tier" />
               </SelectTrigger>
               <SelectContent>
@@ -180,7 +180,7 @@ export default function UsersTable({ onBack }) {
               </SelectContent>
             </Select>
             <Select value={orderFilter} onValueChange={setOrderFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-purple-100 focus:ring-purple-500">
                 <SelectValue placeholder="Order Status" />
               </SelectTrigger>
               <SelectContent>
@@ -194,62 +194,62 @@ export default function UsersTable({ onBack }) {
       </Card>
 
       {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
+      <Card className="rounded-3xl border-0 shadow-lg overflow-hidden bg-white/90 backdrop-blur-sm">
+        <CardHeader className="border-b border-purple-100 bg-purple-50/30">
+          <CardTitle className="text-purple-900">
             Users ({filteredUsers.length} total)
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Orders</TableHead>
-                  <TableHead>Total Spent</TableHead>
-                  <TableHead>Tier</TableHead>
-                  <TableHead>Last Order</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Actions</TableHead>
+                <TableRow className="hover:bg-transparent border-b border-purple-100">
+                  <TableHead className="font-semibold text-purple-900">Customer</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Contact</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Orders</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Total Spent</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Tier</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Last Order</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Joined</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedUsers.map((user) => {
                   const tier = getCustomerTier(user.totalSpent || 0);
                   return (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.id} className="hover:bg-purple-50/30 border-b border-gray-50 transition-colors">
                       <TableCell>
                         <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-gray-600">ID: {user.id.slice(0, 8)}...</div>
+                          <div className="font-medium text-gray-900">{user.name}</div>
+                          <div className="text-xs text-gray-500">ID: {user.id.slice(0, 8)}...</div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="text-sm">{user.email}</div>
-                          <div className="text-sm text-gray-600">{user.phone || 'No phone'}</div>
+                          <div className="text-sm text-gray-700">{user.email}</div>
+                          <div className="text-xs text-gray-500">{user.phone || 'No phone'}</div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-center">
-                          <div className="font-medium">{user.orderCount || 0}</div>
-                          <div className="text-xs text-gray-600">orders</div>
+                          <div className="font-medium text-gray-900">{user.orderCount || 0}</div>
+                          <div className="text-xs text-gray-500">orders</div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium text-gray-900">
                         {formatCurrency(user.totalSpent || 0)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={tier.color}>
+                        <Badge className={`${tier.color} border shadow-sm`}>
                           {tier.tier}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
+                      <TableCell className="text-sm text-gray-500">
                         {user.lastOrderDate ? formatDate(user.lastOrderDate) : 'Never'}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
+                      <TableCell className="text-sm text-gray-500">
                         {formatDate(user.created_at)}
                       </TableCell>
                       <TableCell>
@@ -257,7 +257,7 @@ export default function UsersTable({ onBack }) {
                           variant="outline" 
                           size="sm"
                           onClick={() => handleViewOrders(user)}
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 rounded-lg border-purple-200 hover:bg-purple-50 hover:text-purple-700 text-purple-600"
                         >
                           <Eye className="h-4 w-4" />
                           View Orders
@@ -272,7 +272,7 @@ export default function UsersTable({ onBack }) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between p-4 border-t border-purple-100 bg-purple-50/10">
               <div className="text-sm text-gray-600">
                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
               </div>
@@ -282,6 +282,7 @@ export default function UsersTable({ onBack }) {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  className="rounded-xl border-purple-200 hover:bg-purple-50 text-purple-600 disabled:opacity-50"
                 >
                   Previous
                 </Button>
@@ -290,6 +291,7 @@ export default function UsersTable({ onBack }) {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  className="rounded-xl border-purple-200 hover:bg-purple-50 text-purple-600 disabled:opacity-50"
                 >
                   Next
                 </Button>
@@ -298,42 +300,49 @@ export default function UsersTable({ onBack }) {
           )}
         </CardContent>
       </Card>
+
       {/* Orders Modal */}
       <Dialog open={ordersModalOpen} onOpenChange={setOrdersModalOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl rounded-3xl border-0 shadow-2xl">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
               {selectedUser ? `Orders for ${selectedUser.name}` : 'Orders'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {ordersLoading ? (
-              <div className="py-8 text-center text-gray-600">Loading orders...</div>
+              <div className="py-8 text-center text-purple-600 animate-pulse">Loading orders...</div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-purple-100">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Order #</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Date</TableHead>
+                    <TableRow className="bg-purple-50/50">
+                      <TableHead className="text-purple-900">Order #</TableHead>
+                      <TableHead className="text-purple-900">Status</TableHead>
+                      <TableHead className="text-purple-900">Payment</TableHead>
+                      <TableHead className="text-purple-900">Total</TableHead>
+                      <TableHead className="text-purple-900">Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(selectedUser && userOrders[selectedUser.id] ? userOrders[selectedUser.id] : []).map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.order_number}</TableCell>
-                        <TableCell>{order.status}</TableCell>
-                        <TableCell>{order.payment_method}</TableCell>
-                        <TableCell className="font-medium">{formatCurrency(order.total)}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{formatDate(order.created_at)}</TableCell>
+                      <TableRow key={order.id} className="hover:bg-purple-50/30">
+                        <TableCell className="font-medium text-gray-900">{order.order_number}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">
+                            {order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-gray-600">{order.payment_method}</TableCell>
+                        <TableCell className="font-medium text-gray-900">{formatCurrency(order.total)}</TableCell>
+                        <TableCell className="text-sm text-gray-500">{formatDate(order.created_at)}</TableCell>
                       </TableRow>
                     ))}
                     {selectedUser && (!userOrders[selectedUser.id] || userOrders[selectedUser.id].length === 0) && !ordersLoading && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-600">No orders found for this user.</TableCell>
+                        <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                          No orders found for this user.
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -341,7 +350,7 @@ export default function UsersTable({ onBack }) {
               </div>
             )}
             <div className="flex justify-end">
-              <Button variant="outline" onClick={() => setOrdersModalOpen(false)}>Close</Button>
+              <Button variant="outline" onClick={() => setOrdersModalOpen(false)} className="rounded-xl border-purple-200 hover:bg-purple-50 text-purple-600">Close</Button>
             </div>
           </div>
         </DialogContent>

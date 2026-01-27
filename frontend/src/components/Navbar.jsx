@@ -69,7 +69,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-6">
             {/* Logo */}
-            {location.pathname !== '/' && location.pathname !== '/account' && (
+            {location.pathname !== '/' && location.pathname !== '/account' && location.pathname !== '/wishlist' && location.pathname !== '/cart' && !location.pathname.startsWith('/products') && !location.pathname.startsWith('/order-confirmation') && (
               <Button
                 variant="ghost"
                 size="icon"

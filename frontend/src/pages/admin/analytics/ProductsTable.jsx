@@ -112,7 +112,7 @@ export default function ProductsTable({ onBack }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
-        <div className="text-lg">Loading products...</div>
+        <div className="text-lg text-purple-600 animate-pulse">Loading products...</div>
       </div>
     );
   }
@@ -120,21 +120,21 @@ export default function ProductsTable({ onBack }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-2">
+          <Button variant="ghost" onClick={onBack} className="flex items-center gap-2 hover:bg-purple-50 text-purple-600 rounded-xl">
             <ArrowLeft className="h-4 w-4" />
             Back to Analytics
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">All Products</h1>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">All Products</h1>
             <p className="text-gray-600">Complete product catalog and management</p>
           </div>
         </div>
         <div className="flex gap-2">
           {selectedProducts.length > 0 && (
             <Select onValueChange={handleBulkAction}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-purple-100 focus:ring-purple-500">
                 <SelectValue placeholder="Bulk Actions" />
               </SelectTrigger>
               <SelectContent>
@@ -144,7 +144,7 @@ export default function ProductsTable({ onBack }) {
               </SelectContent>
             </Select>
           )}
-          <Button onClick={handleExport} className="flex items-center gap-2">
+          <Button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-0">
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
@@ -152,22 +152,22 @@ export default function ProductsTable({ onBack }) {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="rounded-3xl border-0 shadow-lg bg-white/90 backdrop-blur-sm">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-64">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-400" />
                 <Input
                   placeholder="Search by title, description, brand, or SKU..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 rounded-xl border-purple-100 focus:ring-purple-500 focus:border-purple-500"
                 />
               </div>
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-purple-100 focus:ring-purple-500">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -178,7 +178,7 @@ export default function ProductsTable({ onBack }) {
               </SelectContent>
             </Select>
             <Select value={stockFilter} onValueChange={setStockFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-purple-100 focus:ring-purple-500">
                 <SelectValue placeholder="Stock" />
               </SelectTrigger>
               <SelectContent>
@@ -189,7 +189,7 @@ export default function ProductsTable({ onBack }) {
               </SelectContent>
             </Select>
             <Select value={featuredFilter} onValueChange={setFeaturedFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-purple-100 focus:ring-purple-500">
                 <SelectValue placeholder="Featured" />
               </SelectTrigger>
               <SelectContent>
@@ -203,50 +203,52 @@ export default function ProductsTable({ onBack }) {
       </Card>
 
       {/* Products Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
+      <Card className="rounded-3xl border-0 shadow-lg overflow-hidden bg-white/90 backdrop-blur-sm">
+        <CardHeader className="border-b border-purple-100 bg-purple-50/30">
+          <CardTitle className="text-purple-900">
             Products ({filteredProducts.length} total)
             {selectedProducts.length > 0 && (
-              <span className="text-sm font-normal text-gray-600 ml-2">
+              <span className="text-sm font-normal text-purple-600 ml-2">
                 ({selectedProducts.length} selected)
               </span>
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-transparent border-b border-purple-100">
                   <TableHead className="w-12">
                     <Checkbox
                       checked={selectedProducts.length === paginatedProducts.length && paginatedProducts.length > 0}
                       onCheckedChange={handleSelectAll}
+                      className="border-purple-300 data-[state=checked]:bg-purple-600 data-[state=checked]:text-white"
                     />
                   </TableHead>
-                  <TableHead>Image</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Available Stock</TableHead>
-                  <TableHead>Sold Stock</TableHead>
-                  <TableHead>Rating</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Image</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Product</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Category</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Price</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Available Stock</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Sold Stock</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Rating</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Status</TableHead>
+                  <TableHead className="font-semibold text-purple-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedProducts.map((product) => (
-                  <TableRow key={product.id}>
+                  <TableRow key={product.id} className="hover:bg-purple-50/30 border-b border-gray-50 transition-colors">
                     <TableCell>
                       <Checkbox
                         checked={selectedProducts.includes(product.id)}
                         onCheckedChange={() => handleSelectProduct(product.id)}
+                        className="border-purple-300 data-[state=checked]:bg-purple-600 data-[state=checked]:text-white"
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
                         <img
                           src={getImageUrl(product.images[0])}
                           alt={product.title}
@@ -257,19 +259,19 @@ export default function ProductsTable({ onBack }) {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium line-clamp-1">{product.title}</div>
-                        <div className="text-sm text-gray-600">{product.brand || 'No Brand'}</div>
-                        <div className="text-sm text-gray-600">SKU: {product.sku || 'N/A'}</div>
+                        <div className="font-medium line-clamp-1 text-gray-900">{product.title}</div>
+                        <div className="text-sm text-gray-500">{product.brand || 'No Brand'}</div>
+                        <div className="text-sm text-gray-400">SKU: {product.sku || 'N/A'}</div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{product.category}</Badge>
+                      <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50">{product.category}</Badge>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{formatCurrency(product.price)}</div>
+                        <div className="font-medium text-gray-900">{formatCurrency(product.price)}</div>
                         {product.mrp > product.price && (
-                          <div className="text-sm text-gray-500 line-through">
+                          <div className="text-sm text-gray-400 line-through">
                             {formatCurrency(product.mrp)}
                           </div>
                         )}
@@ -284,32 +286,32 @@ export default function ProductsTable({ onBack }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium text-blue-600">
+                      <div className="font-medium text-purple-600">
                         {product.sold_count || 0}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <span className="text-sm font-medium">{product.rating}</span>
-                        <span className="text-xs text-gray-600">({product.reviews_count})</span>
+                        <span className="text-sm font-medium text-gray-700">{product.rating}</span>
+                        <span className="text-xs text-gray-500">({product.reviews_count})</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         {product.is_featured && (
-                          <Badge className="bg-yellow-100 text-yellow-800">Featured</Badge>
+                          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200 shadow-none">Featured</Badge>
                         )}
                         {product.returnable && (
-                          <Badge variant="outline" className="text-xs">Returnable</Badge>
+                          <Badge variant="outline" className="text-xs border-blue-200 text-blue-700 bg-blue-50">Returnable</Badge>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" className="rounded-lg border-purple-200 hover:bg-purple-50 text-purple-600">
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                        <Button variant="outline" size="sm" className="rounded-lg border-red-200 hover:bg-red-50 text-red-600 hover:text-red-700">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -322,7 +324,7 @@ export default function ProductsTable({ onBack }) {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between p-4 border-t border-purple-100 bg-purple-50/10">
               <div className="text-sm text-gray-600">
                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
               </div>
@@ -332,6 +334,7 @@ export default function ProductsTable({ onBack }) {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  className="rounded-xl border-purple-200 hover:bg-purple-50 text-purple-600 disabled:opacity-50"
                 >
                   Previous
                 </Button>
@@ -340,6 +343,7 @@ export default function ProductsTable({ onBack }) {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  className="rounded-xl border-purple-200 hover:bg-purple-50 text-purple-600 disabled:opacity-50"
                 >
                   Next
                 </Button>

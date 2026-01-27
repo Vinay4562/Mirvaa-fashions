@@ -12,6 +12,7 @@ import ProductsAnalytics from './ProductsAnalytics';
 import OrdersAnalytics from './OrdersAnalytics';
 import UsersAnalytics from './UsersAnalytics';
 import RevenueAnalytics from './RevenueAnalytics';
+import SiteAnalytics from './SiteAnalytics';
 import OrdersTable from './OrdersTable';
 import ProductsTable from './ProductsTable';
 import UsersTable from './UsersTable';
@@ -93,24 +94,24 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
   return (
     <AdminLayout admin={admin} setAdmin={setAdmin} title="Analytics">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Overview</h2>
+          <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">Overview</h2>
           <p className="text-gray-600 mt-2">Comprehensive insights into your business performance</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4 mt-4 sm:mt-0">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           {/* Date Range Picker */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-[280px] justify-start text-left font-normal",
+                  "w-full sm:w-[280px] justify-start text-left font-normal rounded-xl border-gray-200 hover:border-purple-300 transition-all duration-300",
                   !dateRange && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
+                <CalendarIcon className="mr-2 h-4 w-4 text-purple-500" />
                 {dateRange?.from ? (
                   dateRange.to ? (
                     <>
@@ -125,7 +126,7 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 rounded-2xl shadow-xl border-0" align="end">
               <Calendar
                 initialFocus
                 mode="range"
@@ -133,6 +134,7 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
                 selected={dateRange}
                 onSelect={setDateRange}
                 numberOfMonths={2}
+                className="rounded-2xl bg-white"
               />
             </PopoverContent>
           </Popover>
@@ -140,8 +142,7 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
           <Button
             onClick={fetchOverviewData}
             disabled={loading}
-            variant="outline"
-            size="sm"
+            className="rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-md hover:shadow-lg transition-all duration-300"
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -152,88 +153,92 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="group cursor-pointer rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 bg-white/90 backdrop-blur-sm overflow-hidden"
           onClick={() => setCurrentView('products-table')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-            <Eye className="h-4 w-4 text-gray-400" />
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Products</CardTitle>
+            <Eye className="h-4 w-4 text-purple-400 group-hover:text-purple-600 transition-colors" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{overviewData.totalProducts}</div>
-            <p className="text-xs text-muted-foreground">
-              Active products in catalog
+          <CardContent className="relative">
+            <div className="text-2xl font-bold text-gray-800">{overviewData.totalProducts}</div>
+            <p className="text-xs text-gray-500 mt-1">
+              Active products
             </p>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="group cursor-pointer rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 bg-white/90 backdrop-blur-sm overflow-hidden"
           onClick={() => setCurrentView('orders-table')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Eye className="h-4 w-4 text-gray-400" />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Orders</CardTitle>
+            <Eye className="h-4 w-4 text-blue-400 group-hover:text-blue-600 transition-colors" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{overviewData.totalOrders}</div>
-            <p className="text-xs text-muted-foreground">
-              Orders in selected period
+          <CardContent className="relative">
+            <div className="text-2xl font-bold text-gray-800">{overviewData.totalOrders}</div>
+            <p className="text-xs text-gray-500 mt-1">
+              Selected period
             </p>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="group cursor-pointer rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 bg-white/90 backdrop-blur-sm overflow-hidden"
           onClick={() => setCurrentView('users-table')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Eye className="h-4 w-4 text-gray-400" />
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
+            <Eye className="h-4 w-4 text-green-400 group-hover:text-green-600 transition-colors" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{overviewData.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="relative">
+            <div className="text-2xl font-bold text-gray-800">{overviewData.totalUsers}</div>
+            <p className="text-xs text-gray-500 mt-1">
               Registered customers
             </p>
           </CardContent>
         </Card>
 
         <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+          className="group cursor-pointer rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 bg-white/90 backdrop-blur-sm overflow-hidden"
           onClick={() => setCurrentView('revenue-table')}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <Eye className="h-4 w-4 text-gray-400" />
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
+            <Eye className="h-4 w-4 text-amber-400 group-hover:text-amber-600 transition-colors" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(overviewData.totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">
-              Revenue in selected period
+          <CardContent className="relative">
+            <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">{formatCurrency(overviewData.totalRevenue)}</div>
+            <p className="text-xs text-gray-500 mt-1">
+              Selected period
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="group rounded-3xl border-0 shadow-lg bg-white/90 backdrop-blur-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recent Orders</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Recent Orders</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overviewData.recentOrders}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-gray-800">{overviewData.recentOrders}</div>
+            <p className="text-xs text-gray-500 mt-1">
               Last 7 days
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="group rounded-3xl border-0 shadow-lg bg-white/90 backdrop-blur-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overviewData.conversionRate}%</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-2xl font-bold text-gray-800">{overviewData.conversionRate}%</div>
+            <p className="text-xs text-gray-500 mt-1">
               Visitors to customers
             </p>
           </CardContent>
@@ -243,65 +248,101 @@ export default function AnalyticsDashboard({ admin, setAdmin }) {
       {/* Conditional Rendering based on current view */}
       {currentView === 'overview' && (
         <Tabs defaultValue="products" className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <TabsList className="grid w-full sm:w-auto grid-cols-2 lg:grid-cols-4">
-              <TabsTrigger value="products">Products</TabsTrigger>
-              <TabsTrigger value="orders">Orders</TabsTrigger>
-              <TabsTrigger value="users">Users</TabsTrigger>
-              <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <TabsList className="grid w-full lg:w-auto grid-cols-2 lg:grid-cols-5 gap-2 bg-gray-100/50 p-1.5 rounded-2xl h-auto">
+              <TabsTrigger 
+                value="products" 
+                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-md transition-all duration-300 py-2.5"
+              >
+                Products
+              </TabsTrigger>
+              <TabsTrigger 
+                value="orders" 
+                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-md transition-all duration-300 py-2.5"
+              >
+                Orders
+              </TabsTrigger>
+              <TabsTrigger 
+                value="users" 
+                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-md transition-all duration-300 py-2.5"
+              >
+                Users
+              </TabsTrigger>
+              <TabsTrigger 
+                value="revenue" 
+                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-md transition-all duration-300 py-2.5"
+              >
+                Revenue
+              </TabsTrigger>
+              <TabsTrigger 
+                value="site" 
+                className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-md transition-all duration-300 py-2.5"
+              >
+                Site Analytics
+              </TabsTrigger>
             </TabsList>
 
-            <div className="flex gap-2 mt-4 sm:mt-0">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full lg:w-auto">
               <Button
                 onClick={() => handleExport('products')}
                 variant="outline"
                 size="sm"
+                className="rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export Products
+                Products
               </Button>
               <Button
                 onClick={() => handleExport('orders')}
                 variant="outline"
                 size="sm"
+                className="rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export Orders
+                Orders
               </Button>
               <Button
                 onClick={() => handleExport('users')}
                 variant="outline"
                 size="sm"
+                className="rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export Users
+                Users
               </Button>
               <Button
                 onClick={() => handleExport('revenue')}
                 variant="outline"
                 size="sm"
+                className="rounded-xl border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Export Revenue
+                Revenue
               </Button>
             </div>
           </div>
+          
+          <div className="bg-white/50 backdrop-blur-sm rounded-3xl p-1">
+            <TabsContent value="products" className="mt-0">
+              <ProductsAnalytics dateRange={dateRange} />
+            </TabsContent>
 
-          <TabsContent value="products">
-            <ProductsAnalytics dateRange={dateRange} />
-          </TabsContent>
+            <TabsContent value="orders" className="mt-0">
+              <OrdersAnalytics dateRange={dateRange} />
+            </TabsContent>
 
-          <TabsContent value="orders">
-            <OrdersAnalytics dateRange={dateRange} />
-          </TabsContent>
+            <TabsContent value="users" className="mt-0">
+              <UsersAnalytics dateRange={dateRange} />
+            </TabsContent>
 
-          <TabsContent value="users">
-            <UsersAnalytics dateRange={dateRange} />
-          </TabsContent>
+            <TabsContent value="revenue" className="mt-0">
+              <RevenueAnalytics dateRange={dateRange} />
+            </TabsContent>
 
-          <TabsContent value="revenue">
-            <RevenueAnalytics dateRange={dateRange} />
-          </TabsContent>
+            <TabsContent value="site" className="mt-0">
+              <SiteAnalytics dateRange={dateRange} />
+            </TabsContent>
+          </div>
         </Tabs>
       )}
 

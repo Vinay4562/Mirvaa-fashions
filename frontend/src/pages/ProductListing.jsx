@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Filter, X, Star, Heart } from 'lucide-react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { Filter, X, Star, Heart, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -30,10 +30,12 @@ import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
 export default function ProductListing({ user, setUser }) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [wishlistItems, setWishlistItems] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -107,6 +109,7 @@ export default function ProductListing({ user, setUser }) {
       ]);
       setCartCount(cartRes.data.length);
       setWishlistCount(wishlistRes.data.length);
+      setWishlistItems(new Set(wishlistRes.data.map(item => item.product_id)));
     } catch (error) {
       if (error?.response?.status === 401) return;
       console.error('Error fetching counts:', error);
@@ -120,12 +123,37 @@ export default function ProductListing({ user, setUser }) {
       return;
     }
 
+    const isInWishlist = wishlistItems.has(productId);
+    const newWishlistItems = new Set(wishlistItems);
+    
+    // Optimistic update
+    if (isInWishlist) {
+      newWishlistItems.delete(productId);
+    } else {
+      newWishlistItems.add(productId);
+    }
+    setWishlistItems(newWishlistItems);
+    setWishlistCount(newWishlistItems.size);
+
     try {
-      await apiClient.post(`/wishlist/${productId}`);
-      toast.success('Added to wishlist');
+      if (isInWishlist) {
+        await apiClient.delete(`/wishlist/${productId}`);
+        toast.success('Removed from wishlist');
+      } else {
+        await apiClient.post(`/wishlist/${productId}`);
+        toast.success('Added to wishlist');
+      }
       fetchCounts();
     } catch (error) {
-      toast.error('Failed to add to wishlist');
+      // Revert on error
+      if (isInWishlist) {
+        newWishlistItems.add(productId);
+      } else {
+        newWishlistItems.delete(productId);
+      }
+      setWishlistItems(new Set(newWishlistItems));
+      setWishlistCount(newWishlistItems.size);
+      toast.error(isInWishlist ? 'Failed to remove from wishlist' : 'Failed to add to wishlist');
     }
   };
 
@@ -287,21 +315,31 @@ export default function ProductListing({ user, setUser }) {
       <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 md:pt-8 md:pb-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2" data-testid="products-heading">
-              {searchParams.get('category')
-                ? searchParams.get('category').replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-                : searchParams.get('search')
-                ? `Search results for "${searchParams.get('search')}"`
-                : 'All Products'}
-            </h1>
-            <p className="text-gray-600">
-              {products.length} products found
-              {appliedFiltersCount > 0 && ` • ${appliedFiltersCount} filters applied`}
-            </p>
+          <div className="flex items-start gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden -ml-2 mt-1"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2" data-testid="products-heading">
+                {searchParams.get('category')
+                  ? searchParams.get('category').replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+                  : searchParams.get('search')
+                  ? `Search results for "${searchParams.get('search')}"`
+                  : 'All Products'}
+              </h1>
+              <p className="text-gray-600">
+                {products.length} products found
+                {appliedFiltersCount > 0 && ` • ${appliedFiltersCount} filters applied`}
+              </p>
+            </div>
           </div>
 
-          <div className="flex gap-3 items-center w-full md:w-auto">
+          <div className="flex gap-3 items-center w-full md:w-auto pl-9 md:pl-0">
             {/* Mobile Filter */}
             <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <SheetTrigger asChild>
@@ -374,7 +412,7 @@ export default function ProductListing({ user, setUser }) {
                       className="absolute top-3 right-3 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors z-10"
                       data-testid={`wishlist-button-${product.id}`}
                     >
-                      <Heart className="h-5 w-5 text-gray-600" />
+                      <Heart className={`h-5 w-5 ${wishlistItems.has(product.id) ? 'fill-pink-500 text-pink-500' : 'text-gray-600'}`} />
                     </button>
 
                     {/* Discount Badge */}

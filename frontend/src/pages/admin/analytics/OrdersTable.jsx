@@ -120,23 +120,23 @@ export default function OrdersTable({ onBack }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="flex items-center gap-2">
+          <Button variant="ghost" onClick={onBack} className="flex items-center gap-2 hover:bg-white/50 rounded-xl">
             <ArrowLeft className="h-4 w-4" />
             Back to Analytics
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">All Orders</h1>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">All Orders</h1>
             <p className="text-gray-600">Complete order details and management</p>
           </div>
         </div>
-        <Button onClick={handleExport} className="flex items-center gap-2">
+        <Button onClick={handleExport} className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-0">
           <Download className="h-4 w-4" />
           Export CSV
         </Button>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="rounded-3xl border-0 shadow-lg bg-white/90 backdrop-blur-sm">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-64">
@@ -146,15 +146,15 @@ export default function OrdersTable({ onBack }) {
                   placeholder="Search by order number, customer name, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-500"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-500">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
@@ -167,10 +167,10 @@ export default function OrdersTable({ onBack }) {
               </SelectContent>
             </Select>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-xl border-gray-200 focus:border-purple-500 focus:ring-purple-500">
                 <SelectValue placeholder="Payment" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl">
                 <SelectItem value="all">All Payment</SelectItem>
                 <SelectItem value="razorpay">Razorpay</SelectItem>
                 <SelectItem value="cod">Cash on Delivery</SelectItem>
@@ -181,9 +181,9 @@ export default function OrdersTable({ onBack }) {
       </Card>
 
       {/* Orders Table */}
-      <Card>
+      <Card className="rounded-3xl border-0 shadow-lg bg-white/90 backdrop-blur-sm overflow-hidden">
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
             Orders ({filteredOrders.length} total)
           </CardTitle>
         </CardHeader>
@@ -191,20 +191,20 @@ export default function OrdersTable({ onBack }) {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Order #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                <TableRow className="hover:bg-transparent border-b border-gray-100">
+                  <TableHead className="text-purple-900 font-semibold">Order #</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Customer</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Items</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Status</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Payment</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Total</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Date</TableHead>
+                  <TableHead className="text-purple-900 font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedOrders.map((order) => (
-                  <TableRow key={order.id}>
+                  <TableRow key={order.id} className="hover:bg-purple-50/30 border-b border-gray-50 transition-colors">
                     <TableCell className="font-medium">{order.order_number}</TableCell>
                     <TableCell>
                       <div>
@@ -227,12 +227,12 @@ export default function OrdersTable({ onBack }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(order.status)}>
+                      <Badge className={`${getStatusColor(order.status)} rounded-lg`}>
                         {formatStatusLabel(order.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">
+                      <Badge variant="outline" className="rounded-lg border-purple-200 text-purple-700 bg-purple-50">
                         {order.payment_method}
                       </Badge>
                     </TableCell>
@@ -243,7 +243,7 @@ export default function OrdersTable({ onBack }) {
                       {formatDate(order.created_at)}
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="rounded-xl hover:bg-purple-50 hover:text-purple-700 border-gray-200">
                         View Details
                       </Button>
                     </TableCell>
@@ -265,6 +265,7 @@ export default function OrdersTable({ onBack }) {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  className="rounded-xl"
                 >
                   Previous
                 </Button>
@@ -273,6 +274,7 @@ export default function OrdersTable({ onBack }) {
                   size="sm"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  className="rounded-xl"
                 >
                   Next
                 </Button>

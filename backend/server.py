@@ -156,6 +156,7 @@ async def add_corp_header(request, call_next):
 
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 # Health endpoint and startup check
 @app.on_event("startup")
 async def verify_db_connection_on_startup():
@@ -453,6 +454,24 @@ class Notification(BaseModel):
     order_id: Optional[str] = None
     is_read: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class SiteAnalyticsEvent(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+    event_type: str
+    page: str
+    product_id: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class SiteAnalyticsEventCreate(BaseModel):
+    event_type: str
+    page: str
+    session_id: Optional[str] = None
+    product_id: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 # ==================== Helper Functions ====================
 
@@ -2681,6 +2700,184 @@ async def get_admin_orders(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching orders: {str(e)}")
+
+@api_router.post("/analytics/events")
+async def track_site_analytics_event(
+    event: SiteAnalyticsEventCreate,
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)
+):
+    try:
+        user_id = None
+        if credentials and credentials.credentials:
+            try:
+                payload = jose_jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                user_id = payload.get("user_id")
+            except Exception:
+                user_id = None
+        metadata = event.metadata or {}
+        metadata = dict(metadata)
+        metadata["user_agent"] = request.headers.get("user-agent")
+        if request.client:
+            metadata["ip"] = request.client.host
+        analytics_event = SiteAnalyticsEvent(
+            user_id=user_id,
+            session_id=event.session_id,
+            event_type=event.event_type,
+            page=event.page,
+            product_id=event.product_id,
+            metadata=metadata
+        )
+        event_dict = analytics_event.model_dump()
+        created_at = event_dict.get("created_at")
+        if isinstance(created_at, datetime):
+            event_dict["created_at"] = created_at.isoformat()
+        if db is not None:
+            await db.site_analytics.insert_one(event_dict)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error tracking analytics event: {str(e)}")
+
+@api_router.get("/admin/analytics/site")
+async def get_site_analytics(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    admin: Dict = Depends(get_current_admin)
+):
+    try:
+        from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00')) if from_date else datetime.now(timezone.utc) - timedelta(days=30)
+        to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00')) if to_date else datetime.now(timezone.utc)
+        date_filter = {
+            "created_at": {"$gte": from_dt.isoformat(), "$lte": to_dt.isoformat()}
+        }
+        total_visits = await db.site_analytics.count_documents({
+            **date_filter,
+            "event_type": "page_view"
+        })
+        total_product_views = await db.site_analytics.count_documents({
+            **date_filter,
+            "event_type": "product_view"
+        })
+        total_clicks = await db.site_analytics.count_documents({
+            **date_filter,
+            "event_type": "click"
+        })
+        traffic_pipeline = [
+            {"$match": date_filter},
+            {"$group": {
+                "_id": {
+                    "year": {"$year": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "month": {"$month": {"$dateFromString": {"dateString": "$created_at"}}},
+                    "day": {"$dayOfMonth": {"$dateFromString": {"dateString": "$created_at"}}}
+                },
+                "visits": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$event_type", "page_view"]},
+                            1,
+                            0
+                        ]
+                    }
+                },
+                "productViews": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$event_type", "product_view"]},
+                            1,
+                            0
+                        ]
+                    }
+                },
+                "clicks": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$event_type", "click"]},
+                            1,
+                            0
+                        ]
+                    }
+                }
+            }},
+            {"$project": {
+                "period": {
+                    "$dateFromParts": {
+                        "year": "$_id.year",
+                        "month": "$_id.month",
+                        "day": "$_id.day"
+                    }
+                },
+                "visits": 1,
+                "productViews": 1,
+                "clicks": 1
+            }},
+            {"$sort": {"period": 1}}
+        ]
+        traffic_over_time = await db.site_analytics.aggregate(traffic_pipeline).to_list(365)
+        for item in traffic_over_time:
+            period = item.get("period")
+            if isinstance(period, datetime):
+                item["period"] = period.strftime("%Y-%m-%d")
+        product_pipeline = [
+            {"$match": {
+                **date_filter,
+                "product_id": {"$ne": None}
+            }},
+            {"$group": {
+                "_id": "$product_id",
+                "visits": {"$sum": 1}
+            }},
+            {"$sort": {"visits": -1}},
+            {"$limit": 50}
+        ]
+        product_stats = await db.site_analytics.aggregate(product_pipeline).to_list(50)
+        product_ids = [item["_id"] for item in product_stats if item.get("_id")]
+        products_cursor = db.products.find(
+            {"id": {"$in": product_ids}},
+            {"_id": 0, "id": 1, "title": 1}
+        )
+        products_list = await products_cursor.to_list(len(product_ids) or 50)
+        products_map = {p["id"]: p for p in products_list}
+        product_visits = []
+        for item in product_stats:
+            product_id = item.get("_id")
+            if not product_id:
+                continue
+            product = products_map.get(product_id)
+            if not product:
+                continue
+            product_visits.append({
+                "productId": product_id,
+                "title": product.get("title", "Unknown Product"),
+                "visits": item.get("visits", 0)
+            })
+        page_pipeline = [
+            {"$match": date_filter},
+            {"$group": {
+                "_id": "$page",
+                "visits": {"$sum": 1}
+            }},
+            {"$project": {
+                "page": "$_id",
+                "visits": 1
+            }},
+            {"$sort": {"visits": -1}},
+            {"$limit": 50}
+        ]
+        page_views = await db.site_analytics.aggregate(page_pipeline).to_list(50)
+        most_viewed_products = product_visits[:10]
+        return {
+            "summary": {
+                "totalVisits": total_visits,
+                "totalProductViews": total_product_views,
+                "totalClicks": total_clicks
+            },
+            "trafficOverTime": traffic_over_time,
+            "productVisits": product_visits,
+            "mostViewedProducts": most_viewed_products,
+            "pageViews": page_views
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching site analytics: {str(e)}")
 
 # ==================== Admin Analytics Routes ====================
 

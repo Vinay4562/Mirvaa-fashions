@@ -16,6 +16,7 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
+import { trackProductView } from '@/utils/analytics';
 import { getImageUrl, getOptimizedImageUrl, getThumbnailUrl, getMediumImageUrl, getLargeImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
@@ -28,6 +29,7 @@ export default function ProductDetail({ user, setUser }) {
   const [reviews, setReviews] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [wishlistItems, setWishlistItems] = useState(new Set());
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
@@ -245,6 +247,9 @@ Please confirm my order.`;
       setProduct(productRes.data);
       setReviews(reviewsRes.data);
 
+      // Track product view
+      trackProductView(productRes.data.id, productRes.data.title, productRes.data.category);
+
       // Set default selections
       if (productRes.data.sizes.length > 0) {
         setSelectedSize(productRes.data.sizes[0]);
@@ -273,6 +278,7 @@ Please confirm my order.`;
       ]);
       setCartCount(cartRes.data.length);
       setWishlistCount(wishlistRes.data.length);
+      setWishlistItems(new Set(wishlistRes.data.map(item => item.product_id)));
     } catch (error) {
       console.error('Error fetching counts:', error);
     }
@@ -314,12 +320,37 @@ Please confirm my order.`;
       return;
     }
 
+    const isInWishlist = wishlistItems.has(product.id);
+    const newWishlistItems = new Set(wishlistItems);
+    
+    // Optimistic update
+    if (isInWishlist) {
+      newWishlistItems.delete(product.id);
+    } else {
+      newWishlistItems.add(product.id);
+    }
+    setWishlistItems(newWishlistItems);
+    setWishlistCount(newWishlistItems.size);
+
     try {
-      await apiClient.post(`/wishlist/${product.id}`);
-      toast.success('Added to wishlist');
+      if (isInWishlist) {
+        await apiClient.delete(`/wishlist/${product.id}`);
+        toast.success('Removed from wishlist');
+      } else {
+        await apiClient.post(`/wishlist/${product.id}`);
+        toast.success('Added to wishlist');
+      }
       fetchCounts();
     } catch (error) {
-      toast.error('Failed to add to wishlist');
+      // Revert on error
+      if (isInWishlist) {
+        newWishlistItems.add(product.id);
+      } else {
+        newWishlistItems.delete(product.id);
+      }
+      setWishlistItems(new Set(newWishlistItems));
+      setWishlistCount(newWishlistItems.size);
+      toast.error(isInWishlist ? 'Failed to remove from wishlist' : 'Failed to add to wishlist');
     }
   };
 
@@ -738,7 +769,7 @@ Please confirm my order.`;
                 className="btn-hover"
                 data-testid="add-to-wishlist-button"
               >
-                <Heart className="h-5 w-5" />
+                <Heart className={`h-5 w-5 ${wishlistItems.has(product.id) ? 'fill-pink-500 text-pink-500' : ''}`} />
               </Button>
             </div>
 
