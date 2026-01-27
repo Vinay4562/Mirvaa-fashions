@@ -10,7 +10,7 @@ import Footer from '@/components/Footer';
 import TrackingTimeline from '@/components/TrackingTimeline';
 import BottomNav from '@/components/BottomNav';
 import { apiClient } from '@/utils/api';
-import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError, PLACEHOLDER_IMAGE } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -196,7 +196,7 @@ export default function OrderConfirmation({ user, setUser }) {
                 <div key={idx} className="flex gap-4">
                   <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                     <img
-                      src={getImageUrl(item.product_image || productImageById[item.product_id] || item.product?.images?.[0]) || 'https://via.placeholder.com/100'}
+                      src={getImageUrl(item.product_image || productImageById[item.product_id] || item.product?.images?.[0]) || PLACEHOLDER_IMAGE}
                       srcSet={getSrcSet(item.product_image || productImageById[item.product_id] || item.product?.images?.[0])}
                       sizes="80px"
                       alt={item.product_title}
@@ -288,11 +288,11 @@ export default function OrderConfirmation({ user, setUser }) {
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                           <img
                             src={
-                              getThumbnailUrl(
+                              getImageUrl(
                                 item.product_image ||
                                   productImageById[item.product_id] ||
                                   item.product?.images?.[0]
-                              ) || 'https://via.placeholder.com/100'
+                              ) || PLACEHOLDER_IMAGE
                             }
                             alt={item.product_title}
                             className="w-full h-full object-cover"

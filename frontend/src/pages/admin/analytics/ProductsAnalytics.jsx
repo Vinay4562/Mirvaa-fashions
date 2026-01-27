@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { adminClient } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, onImageError, PLACEHOLDER_IMAGE } from '@/utils/imageHelper';
 
 export default function ProductsAnalytics({ dateRange }) {
   const [loading, setLoading] = useState(true);
@@ -141,7 +141,7 @@ export default function ProductsAnalytics({ dateRange }) {
                 <div key={product.id} className="flex items-center space-x-4 p-2 rounded-xl hover:bg-purple-50/50 transition-colors">
                   <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
                     <img
-                      src={getImageUrl(product.images?.[0]) || 'https://via.placeholder.com/100'}
+                      src={getImageUrl(product.images?.[0]) || PLACEHOLDER_IMAGE}
                       alt={product.title}
                       className="w-full h-full object-cover"
                       onError={onImageError}
@@ -172,7 +172,7 @@ export default function ProductsAnalytics({ dateRange }) {
                 <div key={product.id} className="flex items-center space-x-4 p-2 rounded-xl hover:bg-red-50/50 transition-colors">
                   <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-sm">
                     <img
-                      src={getImageUrl(product.images?.[0]) || 'https://via.placeholder.com/100'}
+                      src={getImageUrl(product.images?.[0]) || PLACEHOLDER_IMAGE}
                       alt={product.title}
                       className="w-full h-full object-cover"
                       onError={onImageError}

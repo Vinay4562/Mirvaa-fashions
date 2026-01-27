@@ -18,6 +18,15 @@ class DelhiveryClient:
         self.api_key = api_key or os.environ.get("DELHIVERY_API_KEY")
         self.client_name = client_name or os.environ.get("DELHIVERY_CLIENT")
         self.warehouse_name = warehouse_name or os.environ.get("DELHIVERY_WAREHOUSE")
+        self.warehouse_details = {
+            "name": self.warehouse_name,
+            "add": os.environ.get("WAREHOUSE_ADDRESS", ""),
+            "pin_code": os.environ.get("WAREHOUSE_PIN", ""),
+            "city": os.environ.get("WAREHOUSE_CITY", ""),
+            "state": os.environ.get("WAREHOUSE_STATE", ""),
+            "country": "India",
+            "phone": os.environ.get("WAREHOUSE_PHONE", "")
+        }
         self.base_url = self.BASE_URL if is_production else self.STAGING_URL
         
         if not self.api_key:
@@ -106,12 +115,14 @@ class DelhiveryClient:
         # Prepare products
         products = []
         for item in items:
+            # Fix: safely get product_id or fallback
+            sku_fallback = f"MIRVAA-{item.get('product_id', 'UNKNOWN')}"
             products.append({
-                "name": item["name"],
-                "sku": item.get("sku", f"MIRVAA-{item['product_id']}"),
-                "units": item["quantity"],
-                "price": item["price"],
-                "gross_amount": item["price"] * item["quantity"],
+                "name": item.get("name") or item.get("title") or item.get("product_title") or "Product",
+                "sku": item.get("sku") or sku_fallback,
+                "units": item.get("quantity", 1),
+                "price": item.get("price", 0),
+                "gross_amount": item.get("price", 0) * item.get("quantity", 1),
                 # "tax_rate": 0, # Optional
                 # "hsn_code": "" # Optional but recommended
             })
@@ -122,14 +133,14 @@ class DelhiveryClient:
         # Construct payload
         payload = {
             "shipments": [{
-                "name": address["name"],
-                "add": address["street"],
-                "pin": address["pincode"],
-                "city": address["city"],
-                "state": address["state"],
+                "name": address.get("name", "Customer"),
+                "add": address.get("street") or address.get("address") or "",
+                "pin": address.get("pincode") or address.get("pin") or "",
+                "city": address.get("city", ""),
+                "state": address.get("state", ""),
                 "country": "India",
-                "phone": address["phone"],
-                "order": order["id"], # Order ID
+                "phone": address.get("phone", ""),
+                "order": str(order.get("id", "")), # Ensure string
                 "payment_mode": payment_mode,
                 "return_pin": "", # Optional, uses warehouse default
                 "return_city": "",
@@ -137,13 +148,13 @@ class DelhiveryClient:
                 "return_add": "",
                 "products_desc": ", ".join([p["name"] for p in products])[:150], # Truncate if too long
                 "hsn_code": "", # Optional
-                "cod_amount": order["total"] if payment_mode == "COD" else 0,
+                "cod_amount": float(order.get("total", 0)) if payment_mode == "COD" else 0,
                 "order_date": datetime.now().isoformat(),
-                "total_amount": order["total"],
+                "total_amount": float(order.get("total", 0)),
                 "seller_add": "", # Optional, uses warehouse default
                 "seller_name": self.client_name,
                 "seller_inv": "", # Optional
-                "quantity": sum(item["quantity"] for item in items),
+                "quantity": sum(item.get("quantity", 1) for item in items),
                 "waybill": waybill, # Use provided waybill or empty for auto-generation
                 "shipment_width": order.get("width", 10),
                 "shipment_height": order.get("height", 10),
@@ -170,7 +181,7 @@ class DelhiveryClient:
         # { "format": "json", "data": { "pickup_location": "...", "shipments": [...] } }
         
         final_payload = {
-            "pickup_location": self.warehouse_name,
+            "pickup_location": self.warehouse_details,
             "shipments": payload["shipments"]
         }
         

@@ -25,7 +25,7 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import axios from 'axios';
 import { API, apiClient } from '@/utils/api';
-import { getImageUrl, getSrcSet, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, getSrcSet, onImageError, PLACEHOLDER_IMAGE } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -395,7 +395,7 @@ export default function ProductListing({ user, setUser }) {
                     <Link to={`/products/${product.id}`}>
                       <div className="aspect-[3/4] overflow-hidden image-zoom-container bg-gray-100">
                         <img
-                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : 'https://via.placeholder.com/400x500'}
+                          src={product.images && product.images[0] ? getImageUrl(product.images[0]) : PLACEHOLDER_IMAGE}
                           srcSet={product.images && product.images[0] ? getSrcSet(product.images[0]) : ''}
                           sizes="(max-width: 768px) 50vw, 25vw"
                           alt={product.title}

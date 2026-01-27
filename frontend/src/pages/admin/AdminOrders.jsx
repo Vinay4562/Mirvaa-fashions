@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { adminClient, BACKEND_URL } from '@/utils/api';
-import { getImageUrl, onImageError } from '@/utils/imageHelper';
+import { getImageUrl, onImageError, PLACEHOLDER_IMAGE } from '@/utils/imageHelper';
 import { toast } from 'sonner';
 import Loading from '@/components/Loading';
 
@@ -318,7 +318,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                         {order.items.slice(0, 3).map((item, idx) => (
                           <div key={idx} className="group/item relative w-14 h-14 rounded-2xl overflow-hidden bg-gray-100 shadow-sm border border-gray-100">
                             <img
-                              src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
+                              src={getImageUrl(item.product_image) || PLACEHOLDER_IMAGE}
                               alt={item.product_title}
                               className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-110"
                               onError={onImageError}
@@ -585,7 +585,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                     >
                       <div className="w-20 h-20 rounded-xl overflow-hidden bg-white shadow-sm flex-shrink-0 border border-gray-100">
                         <img
-                          src={getImageUrl(item.product_image) || 'https://via.placeholder.com/100'}
+                          src={getImageUrl(item.product_image) || PLACEHOLDER_IMAGE}
                           alt={item.product_title}
                           className="w-full h-full object-cover"
                           onError={onImageError}

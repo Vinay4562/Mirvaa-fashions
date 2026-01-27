@@ -17,6 +17,8 @@ const getBackendUrl = () => {
   return 'http://localhost:8000';
 };
 
+export const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24px' fill='%239ca3af'%3EImage Not Found%3C/text%3E%3C/svg%3E";
+
 /**
  * Helper function to get the full image URL
  * @param {string} imagePath - The relative or absolute image path
@@ -42,7 +44,7 @@ export const getImageUrl = (imagePath) => {
 export const getOptimizedImageUrl = (imagePath, width = 400, height = undefined, quality = 80) => {
   const backendUrl = getBackendUrl();
   if (!imagePath || typeof imagePath !== 'string' || imagePath.trim() === '') {
-    return 'https://via.placeholder.com/400x400?text=No+Image';
+    return PLACEHOLDER_IMAGE;
   }
   
   // Trim whitespace
@@ -126,7 +128,7 @@ export const onImageError = (e) => {
   const img = e.currentTarget;
   if (!img) return;
   if (img.dataset.fallbackAttempted === 'true') {
-    img.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
+    img.src = PLACEHOLDER_IMAGE;
     img.onerror = null;
     return;
   }
@@ -137,7 +139,7 @@ export const onImageError = (e) => {
   setTimeout(() => {
     if (!img) return;
     if (img.naturalWidth <= 1 || img.naturalHeight <= 1) {
-      img.src = 'https://via.placeholder.com/400x400?text=Image+Not+Found';
+      img.src = PLACEHOLDER_IMAGE;
       img.onerror = null;
     }
   }, 2000);
