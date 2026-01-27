@@ -747,6 +747,16 @@ export default function AdminProducts({ admin, setAdmin }) {
                 />
                 <Label htmlFor="returnable">Returnable</Label>
                </div>
+               <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="is_meesho_seller"
+                  checked={formData.is_meesho_seller}
+                  onChange={(e) => setFormData({ ...formData, is_meesho_seller: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <Label htmlFor="is_meesho_seller">Note (Meesho Seller)</Label>
+               </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
