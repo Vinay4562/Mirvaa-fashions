@@ -134,7 +134,7 @@ class DelhiveryClient:
         payload = {
             "shipments": [{
                 "name": address.get("name", "Customer"),
-                "add": address.get("street") or address.get("address") or "",
+                "add": address.get("address") or address.get("street") or address.get("line1") or address.get("house_no") or ".",
                 "pin": address.get("pincode") or address.get("pin") or "",
                 "city": address.get("city", ""),
                 "state": address.get("state", ""),

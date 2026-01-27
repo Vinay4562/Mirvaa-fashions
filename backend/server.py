@@ -589,7 +589,7 @@ def generate_order_label(order: Dict) -> str:
         customer_address_html = f"""
         <b>Customer Address</b><br/>
         <b>{shipping.get('name', 'Customer Name')}</b><br/>
-        {shipping.get('address', '')}<br/>
+        {shipping.get('address') or shipping.get('street') or shipping.get('line1') or ''}<br/>
         {shipping.get('city', '')}, {shipping.get('state', '')}, {shipping.get('pincode', '')}<br/>
         Phone: {shipping.get('phone', '')}
         """
@@ -813,8 +813,13 @@ def generate_order_label(order: Dict) -> str:
                 f"Rs.{item_total:.2f}"
             ])
             
-        shipping_cost = order.get('shipping_cost', 0)
+        shipping_cost = float(order.get('shipping_cost', 0) or order.get('shipping', 0))
         if shipping_cost > 0:
+             # Assuming shipping is inclusive of tax or exempt? 
+             # Usually shipping attracts 18% GST but for simplicity matching 5% or treating as exempt if not specified.
+             # User said: "product price is 499, shipping is 50, total 549".
+             # If we treat 50 as gross, we can back calculate or just add it.
+             # Let's treat it as a line item.
              base_ship = shipping_cost / 1.05
              tax_ship = shipping_cost - base_ship
              items_data.append([
