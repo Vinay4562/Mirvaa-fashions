@@ -30,12 +30,16 @@ import time
 import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import qrcode
 try:
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.pagesizes import A4, A6, landscape, portrait
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepInFrame
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
+    from reportlab.lib.units import inch, mm, cm
+    from reportlab.graphics.barcode import code128
+    from reportlab.graphics.shapes import Drawing 
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
     REPORTLAB_AVAILABLE = True
 except Exception:
     REPORTLAB_AVAILABLE = False
@@ -515,119 +519,348 @@ def generate_order_label(order: Dict) -> str:
         filepath = uploads_dir / "labels" / filename
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         
-        doc = SimpleDocTemplate(str(filepath), pagesize=A4)
+        # A4 page size
+        doc = SimpleDocTemplate(
+            str(filepath), 
+            pagesize=A4,
+            leftMargin=0.5*inch,
+            rightMargin=0.5*inch,
+            topMargin=0.5*inch,
+            bottomMargin=0.5*inch
+        )
         elements = []
         styles = getSampleStyleSheet()
+        
+        # Custom Styles
+        style_normal = styles["Normal"]
+        style_normal.fontName = "Helvetica"
+        style_normal.fontSize = 8
+        style_normal.leading = 10
+        
+        style_bold = ParagraphStyle(
+            'Bold',
+            parent=style_normal,
+            fontName="Helvetica-Bold",
+        )
+        
+        style_title = ParagraphStyle(
+            'TitleCustom',
+            parent=styles["Title"],
+            fontName="Helvetica-Bold",
+            fontSize=16,
+            alignment=TA_LEFT,
+            spaceAfter=5
+        )
 
-        # Header with logo (optional) and main store heading
-        logo_path = os.environ.get("MIRVAA_LOGO_PATH")
-        header_row = []
-        if logo_path and os.path.exists(logo_path):
-            try:
-                logo = Image(logo_path, width=1.2 * inch, height=1.2 * inch)
-                header_row = [
-                    logo,
-                    Paragraph("Mirvaa Fashions", styles["Title"]),
-                ]
-                header_table = Table([header_row], colWidths=[1.5 * inch, 5.5 * inch])
-                header_table.setStyle(
-                    TableStyle(
-                        [
-                            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ]
-                    )
-                )
-                elements.append(header_table)
-            except Exception:
-                elements.append(Paragraph("Mirvaa Fashions", styles["Title"]))
-        else:
-            elements.append(Paragraph("Mirvaa Fashions", styles["Title"]))
+        style_center = ParagraphStyle(
+            'Center',
+            parent=style_normal,
+            alignment=TA_CENTER
+        )
 
-        elements.append(Spacer(1, 6))
-        elements.append(Paragraph(f"Order #: {order['order_number']}", styles["Heading3"]))
-        date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        elements.append(Paragraph(f"Date: {date_str}", styles["Normal"]))
-        elements.append(Spacer(1, 16))
+        # Helper to create QR code image
+        def create_qr_code(data):
+            qr = qrcode.QRCode(box_size=10, border=1)
+            qr.add_data(data)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            buf.seek(0)
+            return Image(buf, width=1.0*inch, height=1.0*inch)
 
-        # From / To addresses
-        from_address_text = """
-        <b>From:</b><br/>
-        Mirvaa Fashions<br/>
-        Hyderabad - 500074
-        """
+        # Helper to create Barcode
+        def create_barcode(data):
+            barcode = code128.Code128(data, barHeight=0.5*inch, barWidth=1.2)
+            return Drawing(150, 40, transform=[1,0,0,1,0,0], contents=[barcode])
 
+        # --- Data Extraction ---
         shipping = order.get('shipping_address', {})
-        to_address_text = f"""
-        <b>To:</b><br/>
-        {shipping.get('name', '')}<br/>
+        waybill = order.get('delhivery_waybill') or order.get('order_number')
+        # Format: City_Temp1_L (mock pattern from image)
+        city = shipping.get('city', 'City').split()[0]
+        dest_code = f"{city}_Temp1_L"
+        pincode = shipping.get('pincode', '000000')
+        return_code = f"{pincode},3733369"
+        
+        # --- Top Section: Shipping Label ---
+        
+        # Left Column: Customer Address
+        customer_address_html = f"""
+        <b>Customer Address</b><br/>
+        <b>{shipping.get('name', 'Customer Name')}</b><br/>
         {shipping.get('address', '')}<br/>
-        {shipping.get('city', '')}, {shipping.get('state', '')} - {shipping.get('pincode', '')}<br/>
+        {shipping.get('city', '')}, {shipping.get('state', '')}, {shipping.get('pincode', '')}<br/>
         Phone: {shipping.get('phone', '')}
         """
-
-        address_table = Table(
-            [
-                [
-                    Paragraph(from_address_text, styles["Normal"]),
-                    Paragraph(to_address_text, styles["Normal"]),
-                ]
-            ],
-            colWidths=[3.5 * inch, 3.5 * inch],
-        )
-        address_table.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("BOX", (0, 0), (-1, -1), 0.5, colors.black),
-                    ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ]
-            )
-        )
-        elements.append(address_table)
-        elements.append(Spacer(1, 20))
         
-        # Items Table
-        data = [['Product', 'Qty', 'MRP (incl 5% GST)', 'Total']]
-        for item in order['items']:
-            price = item.get('price', 0)
-            qty = item.get('quantity', 1)
-            total = price * qty
-            data.append([
-                item.get('product_title', 'Unknown Product')[:30], # Truncate title
-                str(qty),
-                f"INR {price:.2f}",
-                f"INR {total:.2f}"
-            ])
+        # "If undelivered, return to"
+        return_address_html = """
+        <b>If undelivered, return to:</b><br/>
+        <b>Mirvaa Fashions</b><br/>
+        P NO 16, F NO 102, MARUTHI RESIDENCY,<br/>
+        GOUTHAM NAGAR KRISHNA NAGAR<br/>
+        COLONY, Hyderabad<br/>
+        Near Oxford school<br/>
+        Rangareddy, Telangana, 500074
+        """
         
-        # Add totals
-        data.append(['', '', 'Subtotal:', f"INR {order['subtotal']:.2f}"])
-        data.append(['', '', 'Total:', f"INR {order['total']:.2f}"])
+        left_col_content = [
+            Paragraph(customer_address_html, style_normal),
+            Spacer(1, 10),
+            Paragraph(return_address_html, style_normal)
+        ]
 
-        table = Table(data, colWidths=[3*inch, 1*inch, 1.5*inch, 1.5*inch])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        # Right Column: Delhivery Info
+        # COD Bar
+        cod_amount = order.get('total', 0)
+        # Assuming COD if payment_method is cod, else Prepaid
+        payment_method = order.get('payment_method', 'prepaid').lower()
+        if payment_method == 'cod':
+            cod_text = "COD: Check the payable amount on the app"
+            cod_bg = colors.black
+            cod_fg = colors.white
+        else:
+            cod_text = "PREPAID"
+            cod_bg = colors.white
+            cod_fg = colors.black
+
+        cod_style = ParagraphStyle(
+            'COD',
+            parent=style_normal,
+            textColor=cod_fg,
+            backColor=cod_bg,
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            fontName="Helvetica-Bold"
+        )
+        
+        # QR Code
+        qr_img = create_qr_code(waybill)
+        
+        # Barcode
+        barcode_drawing = create_barcode(waybill)
+
+        right_col_content = [
+            Paragraph(cod_text, cod_style),
+            Spacer(1, 5),
+            Table([
+                [
+                    [
+                        Paragraph("<b>Delhivery</b>", style_title),
+                        Paragraph('<font backColor="black" color="white"> Pickup </font>', style_normal),
+                        Spacer(1, 5),
+                        Paragraph("Destination Code", style_normal),
+                        Paragraph(f"<b>{dest_code}</b>", style_bold),
+                        Paragraph(f"({shipping.get('state', '')})", style_normal),
+                        Spacer(1, 5),
+                        Paragraph("Return Code", style_normal),
+                        Paragraph(f"<b>{return_code}</b>", style_bold),
+                    ],
+                    qr_img
+                ]
+            ], colWidths=[2.0*inch, 1.2*inch], style=TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')])),
+            Spacer(1, 5),
+            Paragraph(f"<b>{waybill}</b>", style_center),
+            barcode_drawing
+        ]
+
+        # Main Label Table
+        label_table = Table(
+            [[left_col_content, right_col_content]],
+            colWidths=[3.5*inch, 3.8*inch],
+        )
+        label_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
         ]))
-        elements.append(table)
-        elements.append(Spacer(1, 20))
+        elements.append(label_table)
+
+        # --- Product Details Strip ---
+        # SKU | Size | Qty | Color | Order No.
+        first_item = order['items'][0] if order['items'] else {}
+        prod_sku = first_item.get('sku', first_item.get('product_id', 'N/A')[:8])
+        prod_size = first_item.get('size', 'N/A')
+        prod_qty = str(sum(item.get('quantity', 1) for item in order['items']))
+        prod_color = first_item.get('color', 'N/A')
         
-        # GST Note
-        gst_text = "Note: Prices are inclusive of 5% GST."
-        elements.append(Paragraph(gst_text, styles['Italic']))
+        prod_data = [
+            ["Product Details"],
+            ["SKU", "Size", "Qty", "Color", "Order No."],
+            [prod_sku, prod_size, prod_qty, prod_color, order['order_number']]
+        ]
         
+        prod_table = Table(prod_data, colWidths=[1.5*inch, 0.8*inch, 0.8*inch, 1.0*inch, 3.2*inch])
+        prod_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black), # Under header
+            ('SPAN', (0, 0), (-1, 0)), # Span "Product Details"
+            ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        elements.append(prod_table)
+        elements.append(Spacer(1, 10))
+
+        # --- Tax Invoice Section ---
+        
+        # Invoice Header
+        inv_header_data = [[
+            Paragraph("<b>TAX INVOICE</b>", style_center),
+            Paragraph("Original For Recipient", ParagraphStyle('Right', parent=style_normal, alignment=TA_RIGHT))
+        ]]
+        inv_header_table = Table(inv_header_data, colWidths=[3.65*inch, 3.65*inch])
+        inv_header_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(inv_header_table)
+
+        # Invoice Meta Data (Bill To / Ship To / Sold By / Dates)
+        bill_to_html = f"""
+        <b>BILL TO / SHIP TO</b><br/>
+        {shipping.get('name', '')}, {shipping.get('address', '')},<br/>
+        {shipping.get('city', '')}, {shipping.get('state', '')}, {shipping.get('pincode', '')}<br/>
+        Place of Supply: {shipping.get('state', '')}
+        """
+        
+        sold_by_html = """
+        <b>Sold By : MANIKANTI VINAY KUMAR</b><br/>
+        Mirvaa Fashions, P NO 16 F NO 102 MARUTHI RESIDENCY GOUTHAM NAGAR KRISHNA NAGAR COLONY , Rangareddy, Telangana, 500074<br/>
+        <b>GSTIN - 36BWFPM1923G1ZN</b>
+        """
+        
+        created_dt = datetime.fromisoformat(order['created_at'].replace('Z', '+00:00')) if isinstance(order.get('created_at'), str) else order.get('created_at', datetime.now())
+        order_date_str = created_dt.strftime("%d.%m.%Y")
+        invoice_no = order.get('order_number')[-8:] 
+        
+        right_sub_table = Table([
+            [Paragraph(sold_by_html, style_normal)],
+            [
+                 Table([
+                    ["Purchase Order No.", "Invoice No.", "Order Date", "Invoice Date"],
+                    [order['order_number'][:15], invoice_no, order_date_str, order_date_str]
+                ], colWidths=[1.4*inch, 0.8*inch, 0.7*inch, 0.7*inch], style=TableStyle([
+                    ('FONTSIZE', (0,0), (-1,-1), 6),
+                    ('FONTNAME', (0,1), (-1,1), 'Helvetica-Bold'),
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ]))
+            ]
+        ], colWidths=[3.65*inch])
+        right_sub_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ]))
+
+        meta_container = Table([
+            [Paragraph(bill_to_html, style_normal), right_sub_table]
+        ], colWidths=[3.65*inch, 3.65*inch])
+        
+        meta_container.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        elements.append(meta_container)
+
+        # --- Items Table ---
+        items_header = ["Description", "HSN", "Qty", "Gross Amount", "Discount", "Taxable Value", "Taxes", "Total"]
+        items_data = [items_header]
+        
+        total_taxable = 0
+        total_taxes = 0
+        final_total = 0
+        
+        for item in order['items']:
+            qty = item.get('quantity', 1)
+            price = float(item.get('price', 0)) 
+            # Back calculate tax (5% GST assumed from image)
+            tax_rate = 0.05
+            base_price = price / (1 + tax_rate)
+            tax_amount = price - base_price
+            
+            gross = price * qty
+            discount = 0 
+            taxable = base_price * qty
+            total_tax_item = tax_amount * qty
+            item_total = gross - discount 
+            
+            total_taxable += taxable
+            total_taxes += total_tax_item
+            final_total += item_total
+
+            items_data.append([
+                Paragraph(item.get('product_title', 'Item'), style_normal),
+                "6205", 
+                str(qty),
+                f"Rs.{gross:.2f}",
+                f"Rs.{discount}",
+                f"Rs.{taxable:.2f}",
+                f"IGST @5.0%\nRs.{total_tax_item:.2f}",
+                f"Rs.{item_total:.2f}"
+            ])
+            
+        shipping_cost = order.get('shipping_cost', 0)
+        if shipping_cost > 0:
+             base_ship = shipping_cost / 1.05
+             tax_ship = shipping_cost - base_ship
+             items_data.append([
+                "Shipping Charges", "9965", "NA", 
+                f"Rs.{shipping_cost:.2f}", "Rs.0", 
+                f"Rs.{base_ship:.2f}", 
+                f"IGST @5.0%\nRs.{tax_ship:.2f}", 
+                f"Rs.{shipping_cost:.2f}"
+             ])
+             total_taxable += base_ship
+             total_taxes += tax_ship
+             final_total += shipping_cost
+
+        # Total Row
+        items_data.append([
+            "Total", "", "", "", "", "", f"Rs.{total_taxes:.2f}", f"Rs.{final_total:.2f}"
+        ])
+
+        items_table = Table(items_data, colWidths=[2.3*inch, 0.5*inch, 0.4*inch, 0.9*inch, 0.7*inch, 0.9*inch, 0.8*inch, 0.8*inch])
+        items_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('INNERGRID', (0, 0), (-1, -2), 0.5, colors.grey), # Grid for items
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.black), # Header line
+            ('LINEABOVE', (0, -1), (-1, -1), 1, colors.black), # Total line top
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), # Bold Total
+        ]))
+        elements.append(items_table)
+        
+        # Disclaimer
+        disclaimer = "Tax is not payable on reverse charge basis. This is a computer generated invoice and does not require signature. Other charges are charges that are applicable to your order and include charges for logistics fee (where applicable). Includes discounts for your city and/or for online payments (as applicable)"
+        elements.append(Table([[Paragraph(disclaimer, ParagraphStyle('Disc', parent=style_normal, fontSize=6))]], style=TableStyle([
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ])))
+
         doc.build(elements)
-        return f"/uploads/labels/{filename}"
+        return str(filepath)
     except Exception as e:
         print(f"Error generating PDF label: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 async def create_notification(type: str, message: str, order_id: Optional[str] = None):

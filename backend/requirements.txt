@@ -50,6 +50,7 @@ python-jose==3.5.0
 python-multipart==0.0.20
 pytokens==0.1.10
 pytz==2025.2
+qrcode==7.4.2
 razorpay==2.0.0
 reportlab==3.6.13
 requests==2.32.5
