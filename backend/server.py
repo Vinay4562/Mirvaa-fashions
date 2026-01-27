@@ -1728,8 +1728,108 @@ async def update_return_status(return_id: str, status: str = Body(..., embed=Tru
                     }
                 }
             )
+            
+            # Send email notification
+            order = await db.orders.find_one({"id": ret["order_id"]})
+            if order:
+                user = await db.users.find_one({"id": order["user_id"]})
+                if user:
+                    # Reuse order status email logic or create new
+                    pass
     
     return {"message": "Return status updated", "status": status}
+
+@api_router.post("/admin/returns/{return_id}/approve")
+async def approve_return_request(return_id: str, current_admin: Dict = Depends(get_current_admin)):
+    """
+    Approve return request and schedule pickup with Delhivery
+    """
+    if not delhivery_client:
+        raise HTTPException(status_code=400, detail="Delhivery client not initialized")
+        
+    return_req = await db.returns.find_one({"id": return_id})
+    if not return_req:
+        raise HTTPException(status_code=404, detail="Return request not found")
+        
+    order = await db.orders.find_one({"id": return_req["order_id"]})
+    if not order:
+        raise HTTPException(status_code=404, detail="Original order not found")
+        
+    # Get user details for pickup
+    user = await db.users.find_one({"id": return_req["user_id"]})
+    
+    # Prepare address from order shipping address
+    # If user has profile address, we might want to check, but usually return is from shipping address
+    pickup_address = order.get("shipping_address")
+    if not pickup_address:
+         # Fallback to user profile if available
+         if user and user.get("address"):
+             pickup_address = user["address"] # Assuming structure matches
+         else:
+             raise HTTPException(status_code=400, detail="Pickup address not found in order")
+             
+    # Prepare items for return
+    # Only include the item being returned
+    return_items = []
+    product_found = False
+    for item in order["items"]:
+        if item.get("product_id") == return_req["product_id"]:
+            return_items.append(item)
+            product_found = True
+            break
+            
+    if not product_found:
+        # Should not happen if logic is correct
+        raise HTTPException(status_code=400, detail="Product not found in order items")
+
+    try:
+        # Create Reverse Pickup in Delhivery
+        response = delhivery_client.create_return_shipment(
+            order=order,
+            address=pickup_address,
+            items=return_items
+        )
+        
+        # Check response for success (Delhivery usually returns 'packages' list or 'upload_wbn')
+        # Response structure: {"packages": [{"waybill": "...", ...}], "success": True} or similar
+        
+        waybill = ""
+        if isinstance(response, dict):
+             if response.get("packages") and len(response["packages"]) > 0:
+                 waybill = response["packages"][0].get("waybill", "")
+             elif response.get("waybill"):
+                 waybill = response["waybill"]
+        
+        # Update return status
+        await db.returns.update_one(
+            {"id": return_id},
+            {"$set": {
+                "status": "pickup_scheduled",
+                "waybill": waybill,
+                "pickup_scheduled_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Update order status
+        await db.orders.update_one(
+            {"id": return_req["order_id"]},
+            {"$set": {
+                "status": "return_pickup_scheduled",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        await create_notification(
+            type="return_approved",
+            message=f"Return pickup scheduled for order {order.get('order_number')}. Waybill: {waybill}",
+            order_id=return_req["order_id"]
+        )
+        
+        return {"success": True, "message": "Return approved and pickup scheduled", "waybill": waybill}
+        
+    except Exception as e:
+        print(f"Error scheduling return pickup: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to schedule pickup: {str(e)}")
 
 
 # ==================== Order Routes ====================

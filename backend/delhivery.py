@@ -176,6 +176,75 @@ class DelhiveryClient:
         
         return self._make_request("post", "api/cmu/create.json", data=final_payload, use_json_format_param=True)
 
+    def create_return_shipment(self, order: Dict[str, Any], address: Dict[str, Any], items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Create a Reverse Pickup (Return) shipment in Delhivery
+        """
+        # Calculate total weight
+        total_weight = order.get("weight", 0.5) * 1000
+        
+        # Prepare products
+        products = []
+        for item in items:
+            products.append({
+                "name": item.get("name") or item.get("product_title") or "Product",
+                "sku": item.get("sku", f"MIRVAA-{item.get('product_id', 'RET')}"),
+                "units": item.get("quantity", 1),
+                "price": item.get("price", 0),
+                "gross_amount": item.get("price", 0) * item.get("quantity", 1),
+            })
+
+        # For Reverse Pickup:
+        # Pickup Location = Customer Address
+        # Consignee (Destination) = Warehouse (or Seller)
+        
+        # Note: Since we might not have the full Warehouse address in env, 
+        # we'll use a placeholder or assume the user will configure it.
+        # Ideally, this should come from settings.
+        warehouse_address = {
+            "name": self.client_name or "Mirvaa Fashions",
+            "add": os.environ.get("WAREHOUSE_ADDRESS", "Warehouse Address, Hyderabad"),
+            "pin": os.environ.get("WAREHOUSE_PIN", "500001"),
+            "city": os.environ.get("WAREHOUSE_CITY", "Hyderabad"),
+            "state": os.environ.get("WAREHOUSE_STATE", "Telangana"),
+            "phone": os.environ.get("WAREHOUSE_PHONE", "9999999999")
+        }
+        
+        payload = {
+            "pickup_location": {
+                "name": address["name"],
+                "add": address["street"],
+                "pin": address["pincode"],
+                "city": address["city"],
+                "state": address["state"],
+                "country": "India",
+                "phone": address["phone"]
+            },
+            "shipments": [{
+                "name": warehouse_address["name"],
+                "add": warehouse_address["add"],
+                "pin": warehouse_address["pin"],
+                "city": warehouse_address["city"],
+                "state": warehouse_address["state"],
+                "country": "India",
+                "phone": warehouse_address["phone"],
+                "order": f"RET-{order.get('order_number', order.get('id'))}",
+                "payment_mode": "Prepaid", # Seller pays for return
+                "products_desc": ", ".join([p["name"] for p in products])[:150],
+                "cod_amount": 0,
+                "order_date": datetime.now().isoformat(),
+                "total_amount": order.get("total", 0),
+                "quantity": sum(item.get("quantity", 1) for item in items),
+                "shipment_width": order.get("width", 10),
+                "shipment_height": order.get("height", 10),
+                "shipment_depth": order.get("length", 10),
+                "shipment_weight": int(total_weight * 1000) if total_weight < 100 else int(total_weight),
+            }]
+        }
+        
+        # Use the same create endpoint but with swapped locations
+        return self._make_request("post", "api/cmu/create.json", data=payload, use_json_format_param=True)
+
     def track_shipment(self, waybill: str) -> Dict[str, Any]:
         """
         Track a shipment by Waybill
