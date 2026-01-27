@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Minus, Plus, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -792,22 +792,22 @@ Please confirm my order.`;
             <TabsContent value="description" className="mt-6">
               <Card>
                 <CardContent className="p-6">
-                  {product.is_meesho_seller && (
-                    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 text-sm font-medium flex items-center gap-2 shadow-sm">
-                      <MessageCircle className="h-5 w-5 text-yellow-600" />
-                      This product should be delivered by Meesho seller
-                    </div>
-                  )}
-                  {mergedDetails && Object.keys(mergedDetails).length > 0 && (
+                  {((mergedDetails && Object.keys(mergedDetails).length > 0) || product.is_meesho_seller) && (
                     <div className="mb-8">
                       <h3 className="text-lg font-bold mb-4">Product Details</h3>
                       <div className="grid grid-cols-1 gap-y-3 text-sm">
-                        {Object.entries(mergedDetails).map(([key, value]) => (
+                        {mergedDetails && Object.entries(mergedDetails).map(([key, value]) => (
                           <div key={key} className="grid grid-cols-2 gap-4">
                             <span className="text-gray-500 font-medium">{key}</span>
                             <span className="font-semibold text-gray-900">{value}</span>
                           </div>
                         ))}
+                        {product.is_meesho_seller && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <span className="text-gray-500 font-medium">Note</span>
+                            <span className="font-semibold text-gray-900">This product should be delivered by Meesho seller</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
