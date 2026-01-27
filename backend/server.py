@@ -506,6 +506,10 @@ def ensure_product_images(product: Dict[str, Any]) -> Dict[str, Any]:
     return product
 
 def generate_order_label(order: Dict) -> str:
+    if not REPORTLAB_AVAILABLE:
+        print("ReportLab is not available. Cannot generate PDF.")
+        return None
+
     try:
         filename = f"label_{order['order_number']}.pdf"
         filepath = uploads_dir / "labels" / filename
@@ -2433,11 +2437,18 @@ async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_adm
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    label_path = order.get("invoice_url") or order.get("label_url")
+    label_path = order.get("invoice_url")
+    
+    # Check if label_url exists and is a valid file path (not an API endpoint)
+    if not label_path:
+        candidate_url = order.get("label_url")
+        if candidate_url and not candidate_url.startswith("/api/"):
+            label_path = candidate_url
+
     if not label_path:
         label_path = generate_order_label(order)
         if not label_path:
-            raise HTTPException(status_code=500, detail="Failed to generate invoice")
+            raise HTTPException(status_code=500, detail="Failed to generate invoice (PDF service unavailable)")
         await db.orders.update_one(
             {"id": order_id},
             {"$set": {"invoice_url": label_path}},
