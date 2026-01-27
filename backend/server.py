@@ -2599,6 +2599,8 @@ async def confirm_order_shipping(
         pickup_time = (datetime.now() + timedelta(days=1)).strftime("%H:%M:%S")
         pickup_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         
+        pickup_success = False
+        pickup_message = ""
         try:
              pickup_resp = delhivery_client.schedule_pickup(
                  pickup_time=pickup_time,
@@ -2607,8 +2609,19 @@ async def confirm_order_shipping(
                  expected_package_count=1
              )
              print(f"Pickup schedule response: {pickup_resp}")
+             pickup_success = True
+        except requests.exceptions.HTTPError as e:
+             try:
+                error_json = e.response.json()
+                error_detail = str(error_json)
+             except:
+                error_detail = e.response.text if e.response else str(e)
+             
+             print(f"Pickup schedule error (HTTP): {error_detail}")
+             pickup_message = f"Pickup failed: {error_detail}"
         except Exception as e:
              print(f"Pickup schedule error: {e}")
+             pickup_message = f"Pickup failed: {str(e)}"
 
         # Update Order
         await db.orders.update_one(
@@ -2632,7 +2645,31 @@ async def confirm_order_shipping(
             order_id=order_id
         )
 
-        return {"success": True, "waybill": waybill}
+        return {
+            "success": True, 
+            "waybill": waybill,
+            "pickup_scheduled": pickup_success,
+            "warning": pickup_message if not pickup_success else None
+        }
+
+    except requests.exceptions.HTTPError as e:
+        error_detail = str(e)
+        if e.response is not None:
+            try:
+                error_json = e.response.json()
+                if isinstance(error_json, dict):
+                    messages = []
+                    for k, v in error_json.items():
+                        messages.append(f"{k}: {v}")
+                    error_detail = " | ".join(messages)
+                else:
+                    error_detail = str(error_json)
+            except ValueError:
+                error_detail = e.response.text or str(e)
+        
+        print(f"Delhivery API Error: {error_detail}")
+        status_code = e.response.status_code if e.response else 500
+        raise HTTPException(status_code=status_code, detail=f"Delhivery Error: {error_detail}")
 
     except Exception as e:
         print(f"Delhivery Error: {e}")
