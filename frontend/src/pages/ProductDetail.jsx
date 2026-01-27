@@ -48,6 +48,7 @@ export default function ProductDetail({ user, setUser }) {
   const touchStartYRef = useRef(0);
   const isSwipingMainImageRef = useRef(false);
   const lastSwipeTimeRef = useRef(0);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
 
   // WhatsApp Order State
   const [isWhatsAppDialogOpen, setIsWhatsAppDialogOpen] = useState(false);
@@ -796,18 +797,49 @@ Please confirm my order.`;
                     <div className="mb-8">
                       <h3 className="text-lg font-bold mb-4">Product Details</h3>
                       <div className="grid grid-cols-1 gap-y-3 text-sm">
-                        {mergedDetails && Object.entries(mergedDetails).map(([key, value]) => (
-                          <div key={key} className="grid grid-cols-2 gap-4">
-                            <span className="text-gray-500 font-medium">{key}</span>
-                            <span className="font-semibold text-gray-900">{value}</span>
-                          </div>
-                        ))}
-                        {product.is_meesho_seller && (
-                          <div className="grid grid-cols-2 gap-4">
-                            <span className="text-gray-500 font-medium">Note</span>
-                            <span className="font-semibold text-gray-900">This product should be delivered by Meesho seller</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const detailsEntries = mergedDetails ? Object.entries(mergedDetails) : [];
+                          const splitIndex = Math.max(0, detailsEntries.length - 2);
+                          const visibleEntries = detailsEntries.slice(0, splitIndex);
+                          const hiddenEntries = detailsEntries.slice(splitIndex);
+                          
+                          return (
+                            <>
+                              {visibleEntries.map(([key, value]) => (
+                                <div key={key} className="grid grid-cols-2 gap-4">
+                                  <span className="text-gray-500 font-medium">{key}</span>
+                                  <span className="font-semibold text-gray-900">{value}</span>
+                                </div>
+                              ))}
+                              
+                              {showMoreDetails && (
+                                <>
+                                  {hiddenEntries.map(([key, value]) => (
+                                    <div key={key} className="grid grid-cols-2 gap-4">
+                                      <span className="text-gray-500 font-medium">{key}</span>
+                                      <span className="font-semibold text-gray-900">{value}</span>
+                                    </div>
+                                  ))}
+                                  {product.is_meesho_seller && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <span className="text-gray-500 font-medium">Note</span>
+                                      <span className="font-semibold text-gray-900">This product should be delivered by Meesho seller</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              
+                              {!showMoreDetails && (hiddenEntries.length > 0 || product.is_meesho_seller) && (
+                                <button
+                                  onClick={() => setShowMoreDetails(true)}
+                                  className="text-blue-600 font-medium text-sm hover:underline focus:outline-none mt-2 text-left"
+                                >
+                                  More info...
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
