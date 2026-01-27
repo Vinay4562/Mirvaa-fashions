@@ -35,14 +35,22 @@ export default function AdminReturns({ admin, setAdmin }) {
 
   const updateStatus = async (returnId, newStatus) => {
     try {
-      await adminClient.put(`/admin/returns/${returnId}`, { status: newStatus });
-      setReturns(prev => 
-        prev.map(r => r.id === returnId ? { ...r, status: newStatus } : r)
-      );
-      toast.success(`Return status updated to ${newStatus}`);
+      if (newStatus === 'approved') {
+        const response = await adminClient.post(`/admin/returns/${returnId}/approve`);
+        setReturns(prev => 
+          prev.map(r => r.id === returnId ? { ...r, status: 'pickup_scheduled', waybill: response.data.waybill } : r)
+        );
+        toast.success(`Return approved and pickup scheduled! Waybill: ${response.data.waybill || 'Generated'}`);
+      } else {
+        await adminClient.put(`/admin/returns/${returnId}`, { status: newStatus });
+        setReturns(prev => 
+          prev.map(r => r.id === returnId ? { ...r, status: newStatus } : r)
+        );
+        toast.success(`Return status updated to ${newStatus}`);
+      }
     } catch (error) {
       console.error('Error updating return status:', error);
-      toast.error('Failed to update status');
+      toast.error(error.response?.data?.detail || 'Failed to update status');
     }
   };
 
@@ -52,6 +60,8 @@ export default function AdminReturns({ admin, setAdmin }) {
         return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
       case 'approved':
         return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Approved</Badge>;
+      case 'pickup_scheduled':
+        return <Badge variant="outline" className="bg-indigo-100 text-indigo-800 border-indigo-200">Pickup Scheduled</Badge>;
       case 'rejected':
         return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>;
       case 'completed':
