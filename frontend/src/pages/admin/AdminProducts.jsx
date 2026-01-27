@@ -38,6 +38,7 @@ export default function AdminProducts({ admin, setAdmin }) {
     product_details: [],
     is_featured: false,
     returnable: false,
+    is_meesho_seller: false,
     color_images_map: {},
     color_details_map: {},
   });
@@ -82,6 +83,7 @@ export default function AdminProducts({ admin, setAdmin }) {
           : [],
         is_featured: product.is_featured,
         returnable: product.returnable || false,
+        is_meesho_seller: product.is_meesho_seller || false,
         color_images_map: product.color_images || {},
         color_details_map: product.color_details 
           ? Object.fromEntries(Object.entries(product.color_details).map(([c, obj]) => [c, Object.entries(obj).map(([key, value]) => ({ key, value }))]))
@@ -193,6 +195,7 @@ export default function AdminProducts({ admin, setAdmin }) {
       }, {}),
       is_featured: formData.is_featured,
       returnable: formData.returnable,
+      is_meesho_seller: formData.is_meesho_seller,
       color_images: formData.color_images_map,
       color_details: Object.fromEntries(
         Object.entries(formData.color_details_map).map(([c, arr]) => [

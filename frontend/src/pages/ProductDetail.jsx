@@ -792,6 +792,12 @@ Please confirm my order.`;
             <TabsContent value="description" className="mt-6">
               <Card>
                 <CardContent className="p-6">
+                  {product.is_meesho_seller && (
+                    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-800 text-sm font-medium flex items-center gap-2 shadow-sm">
+                      <MessageCircle className="h-5 w-5 text-yellow-600" />
+                      This product should be delivered by Meesho seller
+                    </div>
+                  )}
                   {mergedDetails && Object.keys(mergedDetails).length > 0 && (
                     <div className="mb-8">
                       <h3 className="text-lg font-bold mb-4">Product Details</h3>

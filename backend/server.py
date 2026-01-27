@@ -257,6 +257,7 @@ class Product(BaseModel):
     product_details: Dict[str, str] = Field(default_factory=dict)
     is_featured: bool = False
     returnable: bool = False
+    is_meesho_seller: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProductCreate(BaseModel):
@@ -277,6 +278,8 @@ class ProductCreate(BaseModel):
     tags: List[str] = Field(default_factory=list)
     product_details: Dict[str, str] = Field(default_factory=dict)
     is_featured: bool = False
+    returnable: bool = False
+    is_meesho_seller: bool = False
 
 class CartItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
