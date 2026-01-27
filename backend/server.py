@@ -2688,16 +2688,18 @@ async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_adm
         )
 
     path = label_path
-    if path.startswith("/uploads/"):
-        relative_path = path[9:]
-    elif path.startswith("uploads/"):
-        relative_path = path[8:]
-    elif not path.startswith("/"):
-        relative_path = path
+    path_obj = Path(path)
+    
+    if path_obj.is_absolute():
+        file_path = path_obj.resolve()
     else:
-        raise HTTPException(status_code=400, detail="Invalid invoice path")
-
-    file_path = (uploads_dir / relative_path).resolve()
+        if path.startswith("/uploads/"):
+            relative_path = path[9:]
+        elif path.startswith("uploads/"):
+            relative_path = path[8:]
+        else:
+            relative_path = path
+        file_path = (uploads_dir / relative_path).resolve()
 
     try:
         file_path.relative_to(uploads_dir)
@@ -2712,16 +2714,21 @@ async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_adm
             {"id": order_id},
             {"$set": {"invoice_url": new_label_path}},
         )
+        
         path = new_label_path
-        if path.startswith("/uploads/"):
-            relative_path = path[9:]
-        elif path.startswith("uploads/"):
-            relative_path = path[8:]
-        elif not path.startswith("/"):
-            relative_path = path
+        path_obj = Path(path)
+        
+        if path_obj.is_absolute():
+            file_path = path_obj.resolve()
         else:
-            raise HTTPException(status_code=400, detail="Invalid invoice path")
-        file_path = (uploads_dir / relative_path).resolve()
+            if path.startswith("/uploads/"):
+                relative_path = path[9:]
+            elif path.startswith("uploads/"):
+                relative_path = path[8:]
+            else:
+                relative_path = path
+            file_path = (uploads_dir / relative_path).resolve()
+            
         if not file_path.exists():
             raise HTTPException(status_code=500, detail="Invoice file not found")
 
