@@ -146,9 +146,11 @@ export default function Cart({ user, setUser }) {
                           </h3>
                         </Link>
                         <p className="text-sm text-gray-600 mb-2">
-                          {item.size && `Size: ${item.size}`}
-                          {item.size && item.color && ' • '}
-                          {item.color && `Color: ${item.color}`}
+                          {[
+                            item.size && `Size: ${item.size}`,
+                            item.color && `Color: ${item.color}`,
+                            item.age_group && `Age: ${item.age_group}`
+                          ].filter(Boolean).join(' • ')}
                         </p>
 
                         <div className="flex items-center gap-4">

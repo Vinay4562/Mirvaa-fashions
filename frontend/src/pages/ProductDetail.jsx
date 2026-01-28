@@ -33,6 +33,7 @@ export default function ProductDetail({ user, setUser }) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -115,6 +116,7 @@ export default function ProductDetail({ user, setUser }) {
               quantity: quantity,
               size: selectedSize,
               color: selectedColor,
+              age_group: selectedAgeGroup,
             }],
             subtotal: subtotal,
             tax: 0,
@@ -188,6 +190,7 @@ Price: ₹${product.price}
 Qty: ${quantity}
 ${selectedSize ? `Size: ${selectedSize}` : ''}
 ${selectedColor ? `Color: ${selectedColor}` : ''}
+${selectedAgeGroup ? `Age Group: ${selectedAgeGroup}` : ''}
 ---------------------------
 Subtotal: ₹${subtotal}
 Shipping: ₹${shipping}
@@ -272,17 +275,36 @@ Please confirm my order.`;
   };
 
   const fetchCounts = async () => {
-    try {
-      const [cartRes, wishlistRes] = await Promise.all([
-        apiClient.get('/cart'),
-        apiClient.get('/wishlist'),
-      ]);
-      setCartCount(cartRes.data.length);
-      setWishlistCount(wishlistRes.data.length);
-      setWishlistItems(new Set(wishlistRes.data.map(item => item.product_id)));
-    } catch (error) {
-      console.error('Error fetching counts:', error);
-    }
+    const fetchCart = async () => {
+      try {
+        const cartRes = await apiClient.get('/cart/count');
+        setCartCount(cartRes.data.count);
+      } catch (error) {
+        console.error('Error fetching cart count:', error);
+        const cartItems = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCartCount(cartItems.length);
+      }
+    };
+
+    const fetchWishlist = async () => {
+      try {
+        const wishlistRes = await apiClient.get('/wishlist');
+        setWishlistCount(wishlistRes.data.length);
+        setWishlistItems(new Set(wishlistRes.data.map(item => item.product_id)));
+      } catch (error) {
+        console.error('Error fetching wishlist:', error);
+        // Fallback to count endpoint if full list fails
+        try {
+          const countRes = await apiClient.get('/wishlist/count');
+          setWishlistCount(countRes.data.count);
+        } catch (countError) {
+          const wishlistItems = JSON.parse(localStorage.getItem('wishlist') || '[]');
+          setWishlistCount(wishlistItems.length);
+        }
+      }
+    };
+
+    await Promise.all([fetchCart(), fetchWishlist()]);
   };
 
   const handleAddToCart = async () => {
@@ -291,7 +313,12 @@ Please confirm my order.`;
       return;
     }
 
-    if (product.sizes.length > 0 && !selectedSize) {
+    if (product.category === 'Kids Wear') {
+      if (product.age_groups && product.age_groups.length > 0 && !selectedAgeGroup) {
+        toast.error('Please select an age group');
+        return;
+      }
+    } else if (product.sizes.length > 0 && !selectedSize) {
       toast.error('Please select a size');
       return;
     }
@@ -300,8 +327,9 @@ Please confirm my order.`;
       await apiClient.post('/cart', {
         product_id: product.id,
         quantity,
-        size: selectedSize,
+        size: product.category === 'Kids Wear' ? null : selectedSize,
         color: selectedColor,
+        age_group: product.category === 'Kids Wear' ? selectedAgeGroup : null,
       });
       toast.success('Added to cart');
       fetchCounts();
@@ -643,6 +671,24 @@ Please confirm my order.`;
                   </div>
                 )}
               </div>
+              
+              {/* Product Attributes */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {product.category === 'Kids Wear' && (
+                  <>
+                    {product.subcategory && (
+                      <Badge variant="secondary" className="text-sm font-normal">
+                        {product.subcategory}
+                      </Badge>
+                    )}
+                    {product.age_group && (
+                      <Badge variant="secondary" className="text-sm font-normal">
+                        {product.age_group}
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Price */}
@@ -676,6 +722,28 @@ Please confirm my order.`;
                       data-testid={`size-${size.toLowerCase()}`}
                     >
                       {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Age Group Selection */}
+            {product.category === 'Kids Wear' && product.age_groups && product.age_groups.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-3">Select Age Group</h3>
+                <div className="flex flex-wrap gap-2">
+                  {product.age_groups.map((age) => (
+                    <button
+                      key={age}
+                      onClick={() => setSelectedAgeGroup(age)}
+                      className={`px-6 py-2 rounded-lg border-2 transition-all ${
+                        selectedAgeGroup === age
+                          ? 'border-blue-500 bg-blue-50 text-blue-600 font-semibold'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {age}
                     </button>
                   ))}
                 </div>

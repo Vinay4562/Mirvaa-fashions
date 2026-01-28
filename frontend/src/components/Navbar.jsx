@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingCart, Heart, User, Search, Menu, X, Home, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, Heart, User, Search, Menu, X, Home, ArrowLeft, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,7 +20,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
   const location = useLocation();
 
   const categories = [
-    'Shirts', 'Jeans', 'Ladies Dresses', 'Sarees'
+    'Shirts', 'Jeans', 'Ladies Dresses', 'Sarees', 'Kids Wear'
   ];
 
   const handleSearch = (e) => {
@@ -197,16 +197,38 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
 
           {/* Categories - Desktop */}
           <div className="hidden md:flex gap-6 mt-4 pt-4 border-t border-gray-100">
-            {categories.map((cat) => (
-              <Link
-                key={cat}
-                to={`/products?category=${cat.toLowerCase().replace(/[''\s]/g, '-')}`}
-                className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors whitespace-nowrap"
-                data-testid={`category-${cat.toLowerCase().replace(/[''\s]/g, '-')}`}
-              >
-                {cat}
-              </Link>
-            ))}
+            {categories.map((cat) => {
+              if (cat === 'Kids Wear') {
+                return (
+                  <DropdownMenu key={cat}>
+                    <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors whitespace-nowrap outline-none">
+                      {cat} <ChevronDown className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem asChild>
+                        <Link to="/products?category=kids-wear&subcategory=Boys" className="w-full cursor-pointer">Boys</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/products?category=kids-wear&subcategory=Girls" className="w-full cursor-pointer">Girls</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/products?category=kids-wear" className="w-full cursor-pointer">All Kids Wear</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
+              return (
+                <Link
+                  key={cat}
+                  to={`/products?category=${cat.toLowerCase().replace(/[''\s]/g, '-')}`}
+                  className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors whitespace-nowrap"
+                  data-testid={`category-${cat.toLowerCase().replace(/[''\s]/g, '-')}`}
+                >
+                  {cat}
+                </Link>
+              );
+            })}
           </div>
         </div>
 

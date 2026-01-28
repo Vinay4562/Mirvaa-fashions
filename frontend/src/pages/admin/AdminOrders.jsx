@@ -596,6 +596,7 @@ export default function AdminOrders({ admin, setAdmin }) {
                         <div className="flex flex-wrap gap-3 text-xs text-gray-600 mt-1">
                           {item.size && <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Size: <strong>{item.size}</strong></span>}
                           {item.color && <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Color: <strong>{item.color}</strong></span>}
+                          {item.age_group && <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Age: <strong>{item.age_group}</strong></span>}
                           <span className="bg-white px-2 py-1 rounded-md border shadow-sm">Qty: <strong>{item.quantity}</strong></span>
                         </div>
                       </div>

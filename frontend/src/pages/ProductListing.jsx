@@ -39,15 +39,18 @@ export default function ProductListing({ user, setUser }) {
   const [loading, setLoading] = useState(true);
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState([]);
+  const [selectedAgeGroups, setSelectedAgeGroups] = useState([]);
   const [sortBy, setSortBy] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const categories = ['Sarees', 'Shirts', 'Jeans', 'Ladies Dresses'];
+  const categories = ['Sarees', 'Shirts', 'Jeans', 'Ladies Dresses', 'Kids Wear'];
   const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'];
+  const ageGroups = ['1-2 years', '3-4 years', '5-6 years', '7-8 years', '9-10 years', '11-12 years'];
 
   const hasPriceFilter = priceRange[0] > 0 || priceRange[1] < 10000;
-  const appliedFiltersCount = (hasPriceFilter ? 1 : 0) + selectedCategories.length + selectedSizes.length;
+  const appliedFiltersCount = (hasPriceFilter ? 1 : 0) + selectedCategories.length + selectedSizes.length + selectedSubcategories.length + selectedAgeGroups.length;
 
   useEffect(() => {
     fetchProducts();
@@ -60,6 +63,7 @@ export default function ProductListing({ user, setUser }) {
     setLoading(true);
     try {
       const category = searchParams.get('category');
+      const subcategory = searchParams.get('subcategory');
       const search = searchParams.get('search');
       
       const params = new URLSearchParams();
@@ -78,6 +82,17 @@ export default function ProductListing({ user, setUser }) {
           params.append('category', cat.toLowerCase().replace(/[''\s]/g, '-'));
         });
       }
+
+      if (subcategory) {
+        params.append('subcategory', subcategory);
+         if (!selectedSubcategories.includes(subcategory)) {
+          setSelectedSubcategories([subcategory]);
+        }
+      } else if (selectedSubcategories.length > 0) {
+        selectedSubcategories.forEach(sub => {
+          params.append('subcategory', sub);
+        });
+      }
       
       if (search) params.append('search', search);
       if (sortBy) params.append('sort', sortBy);
@@ -88,6 +103,13 @@ export default function ProductListing({ user, setUser }) {
       if (selectedSizes.length > 0) {
         selectedSizes.forEach(size => {
           params.append('size', size);
+        });
+      }
+
+      // Add age group filters if selected
+      if (selectedAgeGroups.length > 0) {
+        selectedAgeGroups.forEach(age => {
+          params.append('age_group', age);
         });
       }
 
@@ -102,18 +124,37 @@ export default function ProductListing({ user, setUser }) {
   };
 
   const fetchCounts = async () => {
-    try {
-      const [cartRes, wishlistRes] = await Promise.all([
-        apiClient.get('/cart'),
-        apiClient.get('/wishlist'),
-      ]);
-      setCartCount(cartRes.data.length);
-      setWishlistCount(wishlistRes.data.length);
-      setWishlistItems(new Set(wishlistRes.data.map(item => item.product_id)));
-    } catch (error) {
-      if (error?.response?.status === 401) return;
-      console.error('Error fetching counts:', error);
-    }
+    const fetchCart = async () => {
+      try {
+        const cartRes = await apiClient.get('/cart/count');
+        setCartCount(cartRes.data.count);
+      } catch (error) {
+        if (error?.response?.status === 401) return;
+        console.error('Error fetching cart count:', error);
+        const cartItems = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCartCount(cartItems.length);
+      }
+    };
+
+    const fetchWishlist = async () => {
+      try {
+        const wishlistRes = await apiClient.get('/wishlist');
+        setWishlistCount(wishlistRes.data.length);
+        setWishlistItems(new Set(wishlistRes.data.map(item => item.product_id)));
+      } catch (error) {
+        if (error?.response?.status === 401) return;
+        console.error('Error fetching wishlist:', error);
+        try {
+          const countRes = await apiClient.get('/wishlist/count');
+          setWishlistCount(countRes.data.count);
+        } catch (countError) {
+          const wishlistItems = JSON.parse(localStorage.getItem('wishlist') || '[]');
+          setWishlistCount(wishlistItems.length);
+        }
+      }
+    };
+
+    await Promise.all([fetchCart(), fetchWishlist()]);
   };
 
   const handleAddToWishlist = async (productId, e) => {
@@ -172,11 +213,13 @@ export default function ProductListing({ user, setUser }) {
     setPriceRange([0, 10000]);
     setSelectedCategories([]);
     setSelectedSizes([]);
+    setSelectedAgeGroups([]);
     const newParams = new URLSearchParams(searchParams);
     newParams.delete('category');
     newParams.delete('min_price');
     newParams.delete('max_price');
     newParams.delete('size');
+    newParams.delete('age_group');
     setSearchParams(newParams);
   };
 
@@ -204,22 +247,55 @@ export default function ProductListing({ user, setUser }) {
         <h3 className="font-semibold mb-4">Categories</h3>
         <div className="space-y-2">
           {categories.map((cat) => (
-            <div key={cat} className="flex items-center space-x-2">
-              <Checkbox
-                id={`cat-${cat}`}
-                data-testid={`category-filter-${cat.toLowerCase().replace(/['\\s]/g, '-')}`}
-                checked={selectedCategories.includes(cat)}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    setSelectedCategories([...selectedCategories, cat]);
-                  } else {
-                    setSelectedCategories(selectedCategories.filter((c) => c !== cat));
-                  }
-                }}
-              />
-              <Label htmlFor={`cat-${cat}`} className="text-sm cursor-pointer">
-                {cat}
-              </Label>
+            <div key={cat} className="flex flex-col space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`cat-${cat}`}
+                  data-testid={`category-filter-${cat.toLowerCase().replace(/['\s]/g, '-')}`}
+                  checked={selectedCategories.includes(cat)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedCategories([...selectedCategories, cat]);
+                    } else {
+                      setSelectedCategories(selectedCategories.filter((c) => c !== cat));
+                      // Clear subcategories if Kids Wear is unchecked
+                      if (cat === 'Kids Wear') {
+                        setSelectedSubcategories([]);
+                      }
+                    }
+                  }}
+                />
+                <Label htmlFor={`cat-${cat}`} className="text-sm cursor-pointer">
+                  {cat}
+                </Label>
+              </div>
+              
+              {cat === 'Kids Wear' && selectedCategories.includes('Kids Wear') && (
+                <div className="ml-6 flex flex-col space-y-2">
+                  {['Boys', 'Girls'].map((sub) => (
+                    <div key={sub} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`sub-${sub}`}
+                        checked={selectedSubcategories.includes(sub)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            // Single selection behavior for subcategories mostly, but let's allow multi for now if needed, 
+                            // though URL param usually takes one. Let's stick to single for simplicity in URL construction or just take first.
+                            // But user might want to see both? The backend supports `subcategory` as string (single).
+                            // So let's enforce single selection for subcategory.
+                            setSelectedSubcategories([sub]);
+                          } else {
+                            setSelectedSubcategories([]);
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`sub-${sub}`} className="text-sm cursor-pointer text-gray-600">
+                        {sub}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -250,6 +326,33 @@ export default function ProductListing({ user, setUser }) {
           ))}
         </div>
       </div>
+
+      {/* Age Groups - Only show if Kids Wear is selected */}
+      {selectedCategories.includes('Kids Wear') && (
+        <div>
+          <h3 className="font-semibold mb-4">Age Group</h3>
+          <div className="space-y-2">
+            {ageGroups.map((age) => (
+              <div key={age} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`age-${age}`}
+                  checked={selectedAgeGroups.includes(age)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedAgeGroups([...selectedAgeGroups, age]);
+                    } else {
+                      setSelectedAgeGroups(selectedAgeGroups.filter((a) => a !== age));
+                    }
+                  }}
+                />
+                <Label htmlFor={`age-${age}`} className="text-sm cursor-pointer">
+                  {age}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Apply Filters */}
       <Button 

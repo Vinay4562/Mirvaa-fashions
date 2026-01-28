@@ -208,9 +208,11 @@ export default function OrderConfirmation({ user, setUser }) {
                   <div className="flex-1">
                     <h4 className="font-medium">{item.product_title}</h4>
                     <p className="text-sm text-gray-600">
-                      {item.size && `Size: ${item.size}`}
-                      {item.size && item.color && ' • '}
-                      {item.color && `Color: ${item.color}`}
+                      {[
+                        item.size && `Size: ${item.size}`,
+                        item.color && `Color: ${item.color}`,
+                        item.age_group && `Age: ${item.age_group}`
+                      ].filter(Boolean).join(' • ')}
                     </p>
                     <p className="text-sm">Quantity: {item.quantity}</p>
                   </div>

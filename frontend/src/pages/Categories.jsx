@@ -22,7 +22,7 @@ export default function Categories({ user, setUser }) {
         const categoriesData = res.data || [];
         // Filter to show only: Shirts, Jeans, Ladies Dresses, Sarees
         // Replace "Men's Wear" or "mens-wear" with "Jeans"
-        const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees'];
+        const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees', 'kids-wear'];
         const filteredCategories = categoriesData
           .map(cat => {
             // Replace Men's Wear with Jeans
@@ -42,6 +42,7 @@ export default function Categories({ user, setUser }) {
           { name: "Jeans", slug: "jeans", image: "https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?w=400" },
           { name: "Ladies Dresses", slug: "ladies-dresses", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400" },
           { name: "Sarees", slug: "sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400" },
+          { name: "Kids Wear", slug: "kids-wear", image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400" },
         ]);
       })
       .finally(() => {
@@ -53,35 +54,78 @@ export default function Categories({ user, setUser }) {
     };
   }, []);
 
-  const GridItem = ({ item }) => (
-    <Link to={`/products?category=${item.slug}`} className="block group">
-      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 h-full">
-        <CardContent className="p-3 sm:p-5 h-full">
-          <div className="flex flex-col items-center gap-3 text-center h-full">
-            <div className="relative w-full aspect-square rounded-lg bg-gray-100 overflow-hidden shrink-0">
-              <img
-                src={getImageUrl(item.image)}
-                srcSet={getSrcSet(item.image)}
-                sizes="(max-width: 768px) 50vw, 33vw"
-                alt={item.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                loading="lazy"
-                onError={onImageError}
-              />
-            </div>
-            <div className="min-w-0 flex flex-col justify-center flex-1">
-              <div className="text-sm sm:text-lg font-semibold text-gray-900 truncate w-full">
-                {item.name}
-              </div>
-              <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                Explore
-              </div>
-            </div>
+  const [expandedCategory, setExpandedCategory] = useState(null);
+
+  const GridItem = ({ item }) => {
+    const isKidsWear = item.slug === 'kids-wear';
+    const isExpanded = expandedCategory === item.slug;
+
+    const Wrapper = ({ children }) => {
+      if (isKidsWear) {
+        return (
+          <div 
+            className="block group cursor-pointer"
+            onClick={() => setExpandedCategory(isExpanded ? null : item.slug)}
+          >
+            {children}
           </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
+        );
+      }
+      return (
+        <Link 
+          to={`/products?category=${item.slug}`} 
+          className="block group"
+        >
+          {children}
+        </Link>
+      );
+    };
+
+    return (
+      <Wrapper>
+        <Card className={`overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 h-full ${isExpanded ? 'ring-2 ring-purple-500' : ''}`}>
+          <CardContent className="p-3 sm:p-5 h-full">
+            <div className="flex flex-col items-center gap-3 text-center h-full">
+              <div className={`relative w-full aspect-square rounded-lg bg-gray-100 overflow-hidden shrink-0 transition-all duration-300 ${isExpanded ? 'h-32' : ''}`}>
+                <img
+                  src={getImageUrl(item.image)}
+                  srcSet={getSrcSet(item.image)}
+                  sizes="(max-width: 768px) 50vw, 33vw"
+                  alt={item.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                  onError={onImageError}
+                />
+              </div>
+              <div className="min-w-0 flex flex-col justify-center flex-1 w-full">
+                <div className="text-sm sm:text-lg font-semibold text-gray-900 truncate w-full">
+                  {item.name}
+                </div>
+                
+                {isExpanded ? (
+                  <div 
+                    className="flex flex-col gap-2 mt-2 w-full animate-in fade-in zoom-in duration-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Link to="/products?category=kids-wear&subcategory=Boys" className="block w-full">
+                      <Button variant="outline" size="sm" className="w-full hover:bg-purple-50 hover:text-purple-600">Boys</Button>
+                    </Link>
+                    <Link to="/products?category=kids-wear&subcategory=Girls" className="block w-full">
+                      <Button variant="outline" size="sm" className="w-full hover:bg-purple-50 hover:text-purple-600">Girls</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-xs sm:text-sm text-gray-500 mt-1 group-hover:text-purple-600 transition-colors">
+                    {isKidsWear ? 'Click to View' : 'Explore'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </Wrapper>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-white">

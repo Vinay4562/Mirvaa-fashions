@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile, Body, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request, File, UploadFile, Body, BackgroundTasks, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -251,6 +251,7 @@ class Product(BaseModel):
     images: List[str] = Field(default_factory=list)
     sizes: List[str] = Field(default_factory=list)
     colors: List[str] = Field(default_factory=list)
+    age_groups: List[str] = Field(default_factory=list)
     color_images: Dict[str, List[str]] = Field(default_factory=dict)
     color_details: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     stock: int = 0
@@ -259,6 +260,7 @@ class Product(BaseModel):
     rating: float = 0.0
     reviews_count: int = 0
     product_details: Dict[str, str] = Field(default_factory=dict)
+    age_group: Optional[str] = None
     is_featured: bool = False
     returnable: bool = False
     is_meesho_seller: bool = False
@@ -281,6 +283,8 @@ class ProductCreate(BaseModel):
     sku: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
     product_details: Dict[str, str] = Field(default_factory=dict)
+    age_group: Optional[str] = None
+    age_groups: List[str] = Field(default_factory=list)
     is_featured: bool = False
     returnable: bool = False
     is_meesho_seller: bool = False
@@ -293,6 +297,7 @@ class CartItem(BaseModel):
     quantity: int
     size: Optional[str] = None
     color: Optional[str] = None
+    age_group: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class CartItemAdd(BaseModel):
@@ -300,6 +305,7 @@ class CartItemAdd(BaseModel):
     quantity: int = 1
     size: Optional[str] = None
     color: Optional[str] = None
+    age_group: Optional[str] = None
 
 class WishlistItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -1462,6 +1468,8 @@ async def get_products(
     sort: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
+    size: List[str] = Query(None),
+    age_group: List[str] = Query(None),
     limit: int = 50,
     skip: int = 0
 ):
@@ -1491,6 +1499,13 @@ async def get_products(
         if max_price is not None:
             query['price']['$lte'] = max_price
     
+    if size:
+        query['sizes'] = {'$in': size}
+        
+    if age_group:
+        # Match products that have at least one of the selected age groups
+        query['age_groups'] = {'$in': age_group}
+
     sort_option = None
     if sort == 'price_low':
         sort_option = [('price', 1)]
@@ -1659,7 +1674,8 @@ async def add_to_cart(item_data: CartItemAdd, current_user: Dict = Depends(get_c
         "user_id": current_user['id'],
         "product_id": item_data.product_id,
         "size": item_data.size,
-        "color": item_data.color
+        "color": item_data.color,
+        "age_group": item_data.age_group
     })
     
     if existing:
@@ -1677,7 +1693,8 @@ async def add_to_cart(item_data: CartItemAdd, current_user: Dict = Depends(get_c
             product_id=item_data.product_id,
             quantity=item_data.quantity,
             size=item_data.size,
-            color=item_data.color
+            color=item_data.color,
+            age_group=item_data.age_group
         )
         
         cart_dict = cart_item.model_dump()

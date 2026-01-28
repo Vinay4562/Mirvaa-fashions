@@ -415,6 +415,13 @@ export default function Checkout({ user, setUser }) {
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium line-clamp-1">{item.product.title}</h4>
                           <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
+                          <p className="text-xs text-gray-500">
+                             {[
+                               item.size && `Size: ${item.size}`,
+                               item.color && `Color: ${item.color}`,
+                               item.age_group && `Age: ${item.age_group}`
+                             ].filter(Boolean).join(' • ')}
+                          </p>
                           <p className="text-sm font-semibold">₹{(item.product.price * item.quantity).toLocaleString()}</p>
                     </div>
                   </div>

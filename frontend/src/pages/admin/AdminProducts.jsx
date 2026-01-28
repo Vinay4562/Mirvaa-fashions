@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -41,6 +42,9 @@ export default function AdminProducts({ admin, setAdmin }) {
     is_meesho_seller: false,
     color_images_map: {},
     color_details_map: {},
+    age_group: '',
+    age_groups: [],
+    subcategory: '',
   });
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [selectedColorForImages, setSelectedColorForImages] = useState('');
@@ -88,6 +92,9 @@ export default function AdminProducts({ admin, setAdmin }) {
         color_details_map: product.color_details 
           ? Object.fromEntries(Object.entries(product.color_details).map(([c, obj]) => [c, Object.entries(obj).map(([key, value]) => ({ key, value }))]))
           : {},
+        age_group: product.age_group || '',
+        age_groups: product.age_groups || (product.age_group ? [product.age_group] : []),
+        subcategory: product.subcategory || '',
       });
       setUploadedFiles([]); // Reset uploaded files
     } else {
@@ -111,6 +118,9 @@ export default function AdminProducts({ admin, setAdmin }) {
         is_meesho_seller: false,
         color_images_map: {},
         color_details_map: {},
+        age_group: '',
+        age_groups: [],
+        subcategory: '',
       });
       setUploadedFiles([]); // Reset uploaded files
     }
@@ -207,6 +217,11 @@ export default function AdminProducts({ admin, setAdmin }) {
           }, {})
         ])
       ),
+      age_group: formData.category === 'Kids Wear' 
+        ? (formData.age_groups.length > 0 ? formData.age_groups[0] : null) 
+        : null,
+      age_groups: formData.category === 'Kids Wear' ? formData.age_groups : [],
+      subcategory: formData.category === 'Kids Wear' ? formData.subcategory : null,
     };
 
     // Set the first image as the main image if available
@@ -423,6 +438,53 @@ export default function AdminProducts({ admin, setAdmin }) {
                 </SelectContent>
                 </Select>
               </div>
+              
+              {formData.category === 'Kids Wear' && (
+                <>
+                  <div>
+                    <Label className="mb-2 block">Age Groups*</Label>
+                    <div className="flex flex-wrap gap-4 mt-2">
+                      {['1-2 years', '3-4 years', '5-6 years', '7-8 years', '9-10 years', '11-12 years'].map((age) => (
+                        <div key={age} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`age-${age}`}
+                            checked={formData.age_groups.includes(age)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFormData(prev => ({...prev, age_groups: [...prev.age_groups, age]}));
+                              } else {
+                                setFormData(prev => ({...prev, age_groups: prev.age_groups.filter(item => item !== age)}));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`age-${age}`} className="cursor-pointer font-normal">{age}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="subcategory">Sub-Category*</Label>
+                    <Select
+                      value={formData.subcategory}
+                      onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
+                      required={formData.category === 'Kids Wear'}
+                    >
+                      <SelectTrigger id="subcategory">
+                        <SelectValue placeholder="Select Sub-Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['Boys', 'Girls'].map((sub) => (
+                          <SelectItem key={sub} value={sub}>
+                            {sub}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
               <div>
                 <Label htmlFor="brand">Brand</Label>
                 <Input

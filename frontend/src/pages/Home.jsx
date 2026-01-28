@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, ArrowRight, Truck, ShieldCheck, Clock, Star, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 import AuthDialog from '@/components/AuthDialog';
 import Footer from '@/components/Footer';
@@ -19,6 +20,7 @@ export default function Home({ user, setUser }) {
   const [newArrivals, setNewArrivals] = useState([]);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [showKidsWearSelection, setShowKidsWearSelection] = useState(false);
 
   useEffect(() => {
     // Load cached home data for instant paint
@@ -27,7 +29,7 @@ export default function Home({ user, setUser }) {
       try {
         const data = JSON.parse(cached);
         // Filter cached categories to only show allowed ones
-        const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees'];
+        const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees', 'kids-wear'];
         const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
         const filteredCached = cachedCategories
           .map(cat => {
@@ -61,9 +63,9 @@ export default function Home({ user, setUser }) {
       const featuredData = featuredRes.data || [];
       const newData = newRes.data || [];
 
-      // Filter to show only: Shirts, Jeans, Ladies Dresses, Sarees
+      // Filter to show only: Shirts, Jeans, Ladies Dresses, Sarees, Kids Wear
       // Replace "Men's Wear" or "mens-wear" with "Jeans"
-      const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees'];
+      const allowedCategories = ['shirts', 'jeans', 'ladies-dresses', 'sarees', 'kids-wear'];
       const filteredCategories = categoriesData
         .map(cat => {
           // Replace Men's Wear with Jeans
@@ -91,15 +93,26 @@ export default function Home({ user, setUser }) {
   };
 
   const fetchCounts = async () => {
+    // Cart Count
     try {
-      const [cartRes, wishlistRes] = await Promise.all([
-        apiClient.get('/cart'),
-        apiClient.get('/wishlist'),
-      ]);
-      setCartCount(cartRes.data.length);
-      setWishlistCount(wishlistRes.data.length);
+      const cartRes = await apiClient.get('/cart/count');
+      setCartCount(cartRes.data.count);
     } catch (error) {
-      // Silent fail for auth errors
+      if (error?.response?.status !== 401) {
+        const cartItems = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCartCount(cartItems.length);
+      }
+    }
+
+    // Wishlist Count
+    try {
+      const wishlistRes = await apiClient.get('/wishlist/count');
+      setWishlistCount(wishlistRes.data.count);
+    } catch (error) {
+      if (error?.response?.status !== 401) {
+        const wishlistItems = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        setWishlistCount(wishlistItems.length);
+      }
     }
   };
 
@@ -206,7 +219,13 @@ export default function Home({ user, setUser }) {
             {categories.map((category, idx) => (
               <Link 
                 key={idx} 
-                to={`/products?category=${category.slug}`}
+                to={category.slug === 'kids-wear' ? '#' : `/products?category=${category.slug}`}
+                onClick={(e) => {
+                  if (category.slug === 'kids-wear') {
+                    e.preventDefault();
+                    setShowKidsWearSelection(true);
+                  }
+                }}
                 className="flex flex-col items-center min-w-[80px]"
               >
                 <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200 mb-2 shadow-sm">
@@ -227,7 +246,13 @@ export default function Home({ user, setUser }) {
             {categories.slice(0, 5).map((category, idx) => (
               <Link 
                 key={idx} 
-                to={`/products?category=${category.slug}`}
+                to={category.slug === 'kids-wear' ? '#' : `/products?category=${category.slug}`}
+                onClick={(e) => {
+                  if (category.slug === 'kids-wear') {
+                    e.preventDefault();
+                    setShowKidsWearSelection(true);
+                  }
+                }}
                 className={`relative group overflow-hidden rounded-3xl ${idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'}`}
               >
                 <img 
@@ -247,6 +272,45 @@ export default function Home({ user, setUser }) {
           </div>
         </div>
       </section>
+
+      <Dialog open={showKidsWearSelection} onOpenChange={setShowKidsWearSelection}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold">Shop for Kids</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <Link 
+              to="/products?category=kids-wear&subcategory=Boys" 
+              className="flex flex-col items-center justify-center p-6 border rounded-xl hover:bg-gray-50 transition-colors gap-3"
+              onClick={() => setShowKidsWearSelection(false)}
+            >
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                <span className="font-bold text-lg">B</span>
+              </div>
+              <span className="font-medium text-lg">Boys</span>
+            </Link>
+            <Link 
+              to="/products?category=kids-wear&subcategory=Girls" 
+              className="flex flex-col items-center justify-center p-6 border rounded-xl hover:bg-gray-50 transition-colors gap-3"
+              onClick={() => setShowKidsWearSelection(false)}
+            >
+              <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center text-pink-600">
+                <span className="font-bold text-lg">G</span>
+              </div>
+              <span className="font-medium text-lg">Girls</span>
+            </Link>
+          </div>
+          <div className="text-center">
+            <Link 
+              to="/products?category=kids-wear"
+              className="text-sm text-gray-500 hover:text-black hover:underline"
+              onClick={() => setShowKidsWearSelection(false)}
+            >
+              View All Kids Wear
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New Arrivals */}
       <section className="pt-4 pb-4 px-4 md:px-6 bg-white overflow-hidden">
