@@ -2747,9 +2747,9 @@ async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_adm
             label_path = candidate_url
 
     if not label_path:
-        label_path = generate_order_label(order)
+        label_path, error = generate_order_label(order)
         if not label_path:
-            raise HTTPException(status_code=500, detail="Failed to generate invoice (PDF service unavailable)")
+            raise HTTPException(status_code=500, detail=f"Failed to generate invoice: {error or 'PDF service unavailable'}")
         await db.orders.update_one(
             {"id": order_id},
             {"$set": {"invoice_url": label_path}},
