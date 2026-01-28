@@ -127,7 +127,7 @@ JWT_EXPIRATION_DAYS = int(os.environ.get('JWT_EXPIRATION_DAYS', '7'))
 app = FastAPI()
 
 # CORS Configuration
-ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173,https://mirvaa-fashions.vercel.app').split(',')
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173,https://mirvaa-fashions.vercel.app,https://www.mirvaafashions.com,https://mirvaafashions.com').split(',')
 print(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
 uploads_dir_env = os.environ.get("UPLOADS_DIR")
@@ -139,7 +139,7 @@ os.makedirs(uploads_dir, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] + ALLOWED_ORIGINS + ["http://localhost", "capacitor://localhost"],  # Allow all origins for development plus explicit Capacitor origins
+    allow_origins=ALLOWED_ORIGINS + ["http://localhost", "capacitor://localhost"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
