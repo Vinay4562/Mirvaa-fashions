@@ -110,7 +110,7 @@ export default function AdminLogin({ setAdmin }) {
       </Card>
       
       <p className="absolute bottom-6 text-center text-xs text-gray-400 font-medium">
-        © 2024 Mirvaa Fashions. Secured System.
+        © 2026 Mirvaa Fashions. Secured System.
       </p>
     </div>
   );

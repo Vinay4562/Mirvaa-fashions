@@ -1429,17 +1429,20 @@ async def admin_login(credentials: AdminLogin):
     admin_doc = await db.admins.find_one({"username": credentials.username}, {"_id": 0})
     
     if not admin_doc:
-        # Create default admin on first login attempt with correct credentials
-        if credentials.username == "admin" and credentials.password == "admin123":
-            default_admin = {
+        # Check if there are NO admins at all
+        admin_count = await db.admins.count_documents({})
+        
+        # Create admin if it's the first one OR if it matches the default fallback
+        if admin_count == 0 or (credentials.username == "admin" and credentials.password == "admin123"):
+            new_admin = {
                 "id": str(uuid.uuid4()),
-                "username": "admin",
-                "password": hash_password("admin123"),
+                "username": credentials.username,
+                "password": hash_password(credentials.password),
                 "role": "admin",
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
-            await db.admins.insert_one(default_admin)
-            token = create_token(default_admin['id'], credentials.username)
+            await db.admins.insert_one(new_admin)
+            token = create_token(new_admin['id'], credentials.username)
             return {"token": token, "username": credentials.username, "role": "admin"}
         else:
             raise HTTPException(status_code=401, detail="Invalid credentials")
