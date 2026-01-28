@@ -34,7 +34,7 @@ import qrcode
 try:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, A6, landscape, portrait
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as PlatypusImage, KeepInFrame
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as PlatypusImage, KeepInFrame, Flowable
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch, mm, cm
     from reportlab.graphics.barcode import code128
@@ -515,10 +515,10 @@ def ensure_product_images(product: Dict[str, Any]) -> Dict[str, Any]:
                     break
     return product
 
-def generate_order_label(order: Dict) -> str:
+def generate_order_label(order: Dict) -> tuple[Optional[str], Optional[str]]:
     if not REPORTLAB_AVAILABLE:
         print("ReportLab is not available. Cannot generate PDF.")
-        return None
+        return None, "ReportLab library is not available"
 
     try:
         filename = f"label_{order['order_number']}.pdf"
@@ -566,6 +566,8 @@ def generate_order_label(order: Dict) -> str:
 
         # Helper to create QR code image
         def create_qr_code(data):
+            if not data:
+                return None
             qr = qrcode.QRCode(box_size=10, border=1)
             qr.add_data(data)
             qr.make(fit=True)
@@ -577,16 +579,21 @@ def generate_order_label(order: Dict) -> str:
 
         # Helper to create Barcode
         def create_barcode(data):
+            if not data:
+                return None
             barcode = code128.Code128(data, barHeight=0.5*inch, barWidth=1.2, humanReadable=True)
-            d = Drawing(150, 40)
-            d.add(barcode)
-            return d
+            if isinstance(barcode, Flowable):
+                return barcode
+            else:
+                d = Drawing(150, 40)
+                d.add(barcode)
+                return d
 
         # --- Data Extraction ---
         shipping = order.get('shipping_address', {})
         waybill = order.get('delhivery_waybill') or order.get('order_number')
         # Format: City_Temp1_L (mock pattern from image)
-        city = shipping.get('city', 'City').split()[0]
+        city = shipping.get('city', 'City').split()[0] if shipping.get('city') else 'City'
         dest_code = f"{city}_Temp1_L"
         pincode = shipping.get('pincode', '000000')
         return_code = f"{pincode},3733369"
@@ -869,12 +876,12 @@ def generate_order_label(order: Dict) -> str:
         ])))
 
         doc.build(elements)
-        return str(filepath)
+        return str(filepath), None
     except Exception as e:
         print(f"Error generating PDF label: {e}")
         import traceback
         traceback.print_exc()
-        return None
+        return None, str(e)
 
 async def create_notification(type: str, message: str, order_id: Optional[str] = None):
     try:
@@ -2768,9 +2775,9 @@ async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_adm
         raise HTTPException(status_code=400, detail="Invalid invoice path")
 
     if not file_path.exists():
-        new_label_path = generate_order_label(order)
+        new_label_path, error = generate_order_label(order)
         if not new_label_path:
-            raise HTTPException(status_code=500, detail="Failed to generate invoice")
+            raise HTTPException(status_code=500, detail=f"Failed to generate invoice: {error or 'Unknown error'}")
         await db.orders.update_one(
             {"id": order_id},
             {"$set": {"invoice_url": new_label_path}},
