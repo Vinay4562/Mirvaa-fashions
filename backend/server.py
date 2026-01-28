@@ -571,8 +571,10 @@ def generate_order_label(order: Dict) -> str:
 
         # Helper to create Barcode
         def create_barcode(data):
-            barcode = code128.Code128(data, barHeight=0.5*inch, barWidth=1.2)
-            return barcode
+            barcode = code128.Code128(data, barHeight=0.5*inch, barWidth=1.2, humanReadable=True)
+            d = Drawing(150, 40)
+            d.add(barcode)
+            return d
 
         # --- Data Extraction ---
         shipping = order.get('shipping_address', {})
