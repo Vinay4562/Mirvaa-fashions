@@ -180,6 +180,7 @@ export default function Checkout({ user, setUser }) {
           quantity: item.quantity,
           size: item.size,
           color: item.color,
+          age_group: item.age_group,
         })),
         subtotal: calculateSubtotal(),
         tax: calculateTax(),

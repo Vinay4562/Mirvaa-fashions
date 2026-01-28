@@ -106,15 +106,6 @@ export default function AdminLogin({ setAdmin }) {
               )}
             </Button>
           </form>
-          
-          <div className="mt-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
-             <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-2">Development Access</p>
-             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white rounded-lg border border-gray-200 shadow-sm text-sm font-mono text-gray-600">
-                <span>admin</span>
-                <span className="text-gray-300">/</span>
-                <span>admin123</span>
-             </div>
-          </div>
         </CardContent>
       </Card>
       
