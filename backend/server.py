@@ -2751,6 +2751,10 @@ async def get_order_invoice(order_id: str, admin: Dict = Depends(get_current_adm
 
     label_path = order.get("invoice_url")
     
+    # Sanitize label_path if it was stored incorrectly as a list/tuple (legacy bug fix)
+    if isinstance(label_path, (list, tuple)):
+        label_path = label_path[0]
+    
     # Check if label_url exists and is a valid file path (not an API endpoint)
     if not label_path:
         candidate_url = order.get("label_url")
