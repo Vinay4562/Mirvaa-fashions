@@ -128,7 +128,18 @@ app = FastAPI()
 
 # CORS Configuration
 ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001,http://localhost:5173,https://mirvaa-fashions.vercel.app,https://www.mirvaafashions.com,https://mirvaafashions.com').split(',')
-print(f"CORS allowed origins: {ALLOWED_ORIGINS}")
+
+# Always ensure local development ports are allowed, even if env var overrides the defaults
+LOCAL_ORIGINS = [
+    "http://localhost:3000", 
+    "http://localhost:3001", 
+    "http://localhost:5173", 
+    "http://localhost", 
+    "capacitor://localhost"
+]
+FINAL_ALLOWED_ORIGINS = list(set(ALLOWED_ORIGINS + LOCAL_ORIGINS))
+
+print(f"CORS allowed origins: {FINAL_ALLOWED_ORIGINS}")
 
 uploads_dir_env = os.environ.get("UPLOADS_DIR")
 if uploads_dir_env:
@@ -139,7 +150,7 @@ os.makedirs(uploads_dir, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS + ["http://localhost", "capacitor://localhost"],
+    allow_origins=FINAL_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
