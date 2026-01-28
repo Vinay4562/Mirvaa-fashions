@@ -118,14 +118,16 @@ export default function Wishlist({ user, setUser }) {
                   </div>
                 </Link>
 
-                {/* Remove Button */}
+                {/* Remove Button - Moved to Top Left */}
                 <button
                   onClick={() => removeFromWishlist(item.product.id)}
-                  className="absolute top-3 right-3 bg-white rounded-full p-2 shadow-md hover:bg-red-50 transition-colors z-10"
+                  className="absolute top-3 left-3 bg-white rounded-full p-2 shadow-md hover:bg-red-50 transition-colors z-10"
                   data-testid={`remove-wishlist-${item.product.id}`}
                 >
                   <Trash2 className="h-5 w-5 text-red-600" />
                 </button>
+
+
 
                 <CardContent className="p-4">
                   <Link to={`/products/${item.product.id}`}>

@@ -150,6 +150,7 @@ export default function Cart({ user, setUser }) {
                           {item.size && item.color && ' • '}
                           {item.color && `Color: ${item.color}`}
                         </p>
+
                         <div className="flex items-center gap-4">
                           <span className="text-xl font-bold">₹{item.product.price.toLocaleString()}</span>
                           {item.product.mrp > item.product.price && (

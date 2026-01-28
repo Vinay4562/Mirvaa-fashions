@@ -171,7 +171,7 @@ export default function Home({ user, setUser }) {
       <div className="relative z-20 -mt-12 md:-mt-16 container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           {[
-            { icon: Truck, title: "Free Shipping", desc: "On all orders over ₹999" },
+            { icon: Truck, title: "Free Shipping", desc: "On all orders over ₹499" },
             { icon: ShieldCheck, title: "Secure Payment", desc: "100% protected transactions" },
             { icon: Clock, title: "Fast Delivery", desc: "Receive within 3-5 days" }
           ].map((feature, idx) => (
@@ -279,11 +279,14 @@ export default function Home({ user, setUser }) {
                       </Button>
                     </div>
                     {/* Tags */}
-                    {product.is_new && (
-                      <span className="absolute top-2 left-2 md:top-4 md:left-4 bg-black text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full">
-                        NEW
-                      </span>
-                    )}
+                    <div className="absolute top-2 left-2 md:top-4 md:left-4 flex flex-col gap-1 md:gap-2 items-start z-10">
+                      {product.is_new && (
+                        <span className="bg-black text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-sm">
+                          NEW
+                        </span>
+                      )}
+                    </div>
+
                   </div>
                   <h3 className="font-bold text-sm md:text-lg truncate pr-1">{product.title}</h3>
                   <div className="flex items-center justify-between mt-1">
@@ -321,6 +324,7 @@ export default function Home({ user, setUser }) {
                       onError={onImageError}
                       loading="lazy"
                     />
+
                     {/* Quick Action Overlay - Desktop only */}
                     <div className="hidden md:block absolute inset-x-4 bottom-4 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                       <Button className="w-full bg-black text-white hover:bg-gray-800 shadow-lg rounded-xl">

@@ -57,7 +57,7 @@ export default function Navbar({ user, setUser, cartCount = 0, wishlistCount = 0
         {/* Top bar */}
         <div className="hidden md:block bg-gradient-to-r from-blue-50 to-green-50 py-2 px-4">
           <div className="max-w-7xl mx-auto flex justify-between items-center text-sm">
-            <span className="text-gray-700">Free Shipping on Orders Above ₹999</span>
+            <span className="text-gray-700">Free Shipping on Orders Above ₹499</span>
             <div className="flex gap-4">
               <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">Track Order</a>
               <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">Help</a>

@@ -731,15 +731,17 @@ Please confirm my order.`;
             </div>
 
             {/* Stock Status - Only showing if in stock or not */}
-            {product.stock > 0 ? (
-              <Badge variant="outline" className="text-green-600 border-green-600" data-testid="stock-status">
-                In Stock
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-red-600 border-red-600" data-testid="stock-status">
-                Out of Stock
-              </Badge>
-            )}
+            <div className="flex flex-wrap gap-2 items-center">
+              {product.stock > 0 ? (
+                <Badge variant="outline" className="text-green-600 border-green-600" data-testid="stock-status">
+                  In Stock
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-red-600 border-red-600" data-testid="stock-status">
+                  Out of Stock
+                </Badge>
+              )}
+            </div>
 
             {/* Desktop Action Buttons */}
             <div className="hidden md:flex gap-4">

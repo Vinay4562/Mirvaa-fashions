@@ -406,21 +406,23 @@ export default function ProductListing({ user, setUser }) {
                       </div>
                     </Link>
 
-                    {/* Wishlist Button */}
+                    {/* Wishlist Button - Moved to Top Left */}
                     <button
                       onClick={(e) => handleAddToWishlist(product.id, e)}
-                      className="absolute top-3 right-3 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors z-10"
+                      className="absolute top-3 left-3 bg-white rounded-full p-2 shadow-md hover:bg-gray-100 transition-colors z-10"
                       data-testid={`wishlist-button-${product.id}`}
                     >
                       <Heart className={`h-5 w-5 ${wishlistItems.has(product.id) ? 'fill-pink-500 text-pink-500' : 'text-gray-600'}`} />
                     </button>
 
-                    {/* Discount Badge */}
-                    {product.discount_percent > 0 && (
-                      <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                        {product.discount_percent}% OFF
-                      </div>
-                    )}
+                    {/* Badges Container */}
+                    <div className="absolute top-3 right-3 flex flex-col gap-2 items-end z-10">
+                      {product.discount_percent > 0 && (
+                        <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
+                          {product.discount_percent}% OFF
+                        </div>
+                      )}
+                    </div>
 
                     <CardContent className="p-4">
                       <Link to={`/products/${product.id}`}>

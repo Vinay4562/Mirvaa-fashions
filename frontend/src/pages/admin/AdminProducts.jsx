@@ -108,6 +108,7 @@ export default function AdminProducts({ admin, setAdmin }) {
         product_details: [],
         is_featured: false,
         returnable: false,
+        is_meesho_seller: false,
         color_images_map: {},
         color_details_map: {},
       });
@@ -343,8 +344,10 @@ export default function AdminProducts({ admin, setAdmin }) {
               </div>
               <CardContent className="p-3">
                 <div className="flex justify-between items-start mb-1.5">
-                  <div className="bg-gray-100 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-gray-600">
-                    {product.category}
+                  <div className="flex gap-1 flex-wrap">
+                    <div className="bg-gray-100 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-gray-600">
+                      {product.category}
+                    </div>
                   </div>
                   {product.stock < 5 && (
                     <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
